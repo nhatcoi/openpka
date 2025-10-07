@@ -22,7 +22,7 @@ import {
   Security as SecurityIcon,
   Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 import { useRouter } from 'next/navigation';
 
 const moduleCards = [

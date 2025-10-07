@@ -1,0 +1,78 @@
+@startuml
+' ERD: Quản lý Khóa học (Courses)
+' Nguồn: prisma/schema.prisma
+
+skinparam linetype ortho
+hide circle
+hide methods
+hide stereotypes
+skinparam classAttributeIconSize 0
+
+legend left
+== Chú thích (Courses)
+- Thực thể chính: Course
+- Quan hệ:
+  - Course N..1 OrgUnit (khoa/bộ môn sở hữu)
+  - Course 1..N CourseVersion, CourseContent
+  - CoursePrerequisites: N..N (khóa học - tiên quyết)
+  - CourseVersion 1..N ClassSection; CourseSyllabus 1..N theo tuần
+endlegend
+
+entity "org.org_units" as org_units {
+  + id : bigint <<PK>>
+  code : varchar(50)
+}
+
+entity "academic.courses" as course {
+  + id : bigint <<PK>>
+  --
+  code : varchar(32)
+  name_vi : varchar(255)
+  credits : numeric(4,1)
+  org_unit_id : bigint <<FK org_units.id>>
+}
+
+entity "academic.course_versions" as course_versions {
+  + id : bigint <<PK>>
+  --
+  course_id : bigint <<FK course.id>>
+  version : varchar
+  status : varchar
+}
+
+entity "academic.course_contents" as course_contents {
+  + id : bigint <<PK>>
+  --
+  course_id : bigint <<FK course.id>>
+}
+
+entity "academic.course_prerequisites" as course_prerequisites {
+  + id : bigint <<PK>>
+  --
+  course_id : bigint <<FK course.id>>
+  prerequisite_course_id : bigint <<FK course.id>>
+}
+
+entity "academic.course_syllabus" as course_syllabus {
+  + id : bigint <<PK>>
+  --
+  course_version_id : bigint <<FK course_versions.id>>
+  week_number : int
+}
+
+entity "schedule.class_sections" as class_sections {
+  + id : bigint <<PK>>
+  --
+  course_id : bigint <<FK course.id>>
+  course_version_id : bigint (nullable) <<FK course_versions.id>>
+}
+
+org_units ||--o{ course : sở_hữu
+course ||--o{ course_versions : phiên_bản
+course ||--o{ course_contents : nội_dung
+course ||--o{ course_prerequisites : có_tiên_quyết
+course_versions ||--o{ course_syllabus : đề_cương_tuần
+course ||--o{ class_sections : lớp_học_phần
+course_versions ||--o{ class_sections : mở_theo_bản
+
+@enduml

@@ -1,0 +1,335 @@
+@startuml Comprehensive Approval System
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam package {
+    BackgroundColor #E8F5E8
+    BorderColor #4CAF50
+    FontSize 10
+}
+skinparam rectangle {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontSize 10
+}
+skinparam note {
+    BackgroundColor #FFF3E0
+    BorderColor #FF9800
+    FontSize 9
+}
+
+title Comprehensive Approval System Design\nTraining Management System
+
+' =============================================
+' ORGANIZATION LEVELS
+' =============================================
+package "Organization Levels" {
+    
+    rectangle "MINISTRY Level" as MINISTRY {
+        [Bộ Giáo dục và Đào tạo]
+        [Chính sách Quốc gia]
+        [Ngành học mới]
+        [Chương trình Quốc gia]
+    }
+    
+    rectangle "UNIVERSITY Level" as UNIVERSITY {
+        [Hội đồng Trường]
+        [Ban Giám hiệu]
+        [Chương trình Đào tạo]
+        [Cấu trúc Tổ chức]
+        [Bổ nhiệm Lãnh đạo]
+        [Ngân sách Lớn]
+    }
+    
+    rectangle "FACULTY Level" as FACULTY {
+        [Trưởng Khoa]
+        [Hội đồng Khoa]
+        [Học phần mới]
+        [CTĐT Khoa]
+        [Bổ nhiệm Giảng viên]
+        [Ngân sách Khoa]
+    }
+    
+    rectangle "DEPARTMENT Level" as DEPARTMENT {
+        [Trưởng Bộ môn]
+        [Trưởng Phòng]
+        [Đề cương Học phần]
+        [Phân công Giảng dạy]
+        [Nghỉ phép]
+        [Mua sắm Thiết bị]
+    }
+    
+    rectangle "INDIVIDUAL Level" as INDIVIDUAL {
+        [Giám sát Trực tiếp]
+        [HR Manager]
+        [Nghỉ phép Cá nhân]
+        [Đăng ký Đào tạo]
+        [Đánh giá Hiệu suất]
+        [Cập nhật Thông tin]
+    }
+}
+
+' =============================================
+' APPROVAL TYPES
+' =============================================
+package "Approval Types" {
+    
+    rectangle "ORGANIZATIONAL" as ORG {
+        [Cấu trúc Tổ chức]
+        [Nhân sự]
+        [Tài chính]
+        [Quản trị Học thuật]
+    }
+    
+    rectangle "ACADEMIC" as ACAD {
+        [Phát triển Chương trình]
+        [Quản lý Học phần]
+        [Phê duyệt Ngành/CT]
+        [Chất lượng Học thuật]
+    }
+    
+    rectangle "OPERATIONAL" as OPS {
+        [Công tác Sinh viên]
+        [Vận hành Giảng dạy]
+        [Nghiên cứu & PT]
+        [Cơ sở Hạ tầng]
+    }
+    
+    rectangle "COMPLIANCE" as COMP {
+        [Tuân thủ & Pháp lý]
+        [Đảm bảo Chất lượng]
+        [Quản lý Rủi ro]
+    }
+}
+
+' =============================================
+' WORKFLOW CATEGORIES
+' =============================================
+package "Workflow Categories (18+)" {
+    
+    rectangle "MINISTRY Categories" as MCAT {
+        [MAJOR_APPROVAL]
+        [NATIONAL_CURRICULUM]
+    }
+    
+    rectangle "UNIVERSITY Categories" as UCAT {
+        [PROGRAM_CREATION]
+        [ORG_STRUCTURE]
+        [EXECUTIVE_APPOINTMENT]
+        [BUDGET_MAJOR]
+    }
+    
+    rectangle "FACULTY Categories" as FCAT {
+        [COURSE_CREATION]
+        [CURRICULUM_UPDATE]
+        [FACULTY_APPOINTMENT]
+        [BUDGET_FACULTY]
+    }
+    
+    rectangle "DEPARTMENT Categories" as DCAT {
+        [SYLLABUS_APPROVAL]
+        [TEACHING_ASSIGNMENT]
+        [LEAVE_REQUEST]
+        [EQUIPMENT_PURCHASE]
+    }
+    
+    rectangle "INDIVIDUAL Categories" as ICAT {
+        [PERSONAL_LEAVE]
+        [TRAINING_REQUEST]
+        [PERFORMANCE_REVIEW]
+        [PERSONAL_INFO_UPDATE]
+    }
+}
+
+' =============================================
+' SMART ROUTING LOGIC
+' =============================================
+package "Smart Routing Logic" {
+    
+    rectangle "Amount-Based Routing" as AMOUNT {
+        [< 1M VND: Department]
+        [1-10M VND: Faculty]
+        [10-100M VND: University]
+        [> 100M VND: Ministry]
+    }
+    
+    rectangle "Urgency-Based Routing" as URGENCY {
+        [URGENT: -50% timeout]
+        [HIGH: -25% timeout]
+        [MEDIUM: Normal timeout]
+        [LOW: +50% timeout]
+    }
+    
+    rectangle "Role-Based Routing" as ROLE {
+        [Authority Matrix]
+        [Permission Check]
+        [Escalation Rules]
+        [Delegation Support]
+    }
+    
+    rectangle "Context-Aware Routing" as CONTEXT {
+        [Entity Type]
+        [Organization Level]
+        [Approval Type]
+        [Business Rules]
+    }
+}
+
+' =============================================
+' DATABASE SCHEMA
+' =============================================
+package "Database Schema" {
+    
+    rectangle "Core Tables" as CORE {
+        [workflow_categories]
+        [workflow_definitions]
+        [workflow_steps]
+        [workflow_instances]
+        [approval_records]
+        [approval_authority]
+    }
+    
+    rectangle "Notification Tables" as NOTIF {
+        [notifications]
+        [notification_templates]
+        [notification_preferences]
+        [notification_deliveries]
+    }
+    
+    rectangle "Entity-Specific Tables" as ENTITY {
+        [course_workflows]
+        [major_workflows]
+        [program_workflows]
+        [leave_request_workflows]
+        [org_structure_workflows]
+    }
+}
+
+' =============================================
+' USER INTERFACE
+' =============================================
+package "User Interface" {
+    
+    rectangle "Unified Dashboard" as DASH {
+        [Pending Approvals]
+        [My Requests]
+        [Statistics]
+        [Notifications]
+    }
+    
+    rectangle "Approval Interface" as APPROVAL {
+        [Approval Details]
+        [Action Buttons]
+        [Comments/Attachments]
+        [History Timeline]
+    }
+    
+    rectangle "Management Interface" as MGMT {
+        [Workflow Configuration]
+        [Authority Matrix]
+        [Reporting]
+        [Analytics]
+    }
+}
+
+' =============================================
+' CONNECTIONS
+' =============================================
+MINISTRY --> MCAT
+UNIVERSITY --> UCAT
+FACULTY --> FCAT
+DEPARTMENT --> DCAT
+INDIVIDUAL --> ICAT
+
+ORG --> CORE
+ACAD --> CORE
+OPS --> CORE
+COMP --> CORE
+
+MCAT --> AMOUNT
+UCAT --> URGENCY
+FCAT --> ROLE
+DCAT --> CONTEXT
+ICAT --> CORE
+
+AMOUNT --> NOTIF
+URGENCY --> ENTITY
+ROLE --> DASH
+CONTEXT --> APPROVAL
+
+CORE --> MGMT
+NOTIF --> DASH
+ENTITY --> APPROVAL
+
+' =============================================
+' WORKFLOW EXAMPLES
+' =============================================
+note top of MINISTRY
+  Example: Major Approval Workflow
+  
+  Faculty proposes → Dean approves → 
+  Academic Office reviews → Academic Board approves → 
+  MOET approves (30 days)
+  
+  Total: 61 days, 4 steps
+end note
+
+note top of UNIVERSITY
+  Example: Program Creation Workflow
+  
+  Faculty creates → Dean approves → 
+  Academic Office reviews → Academic Board approves → 
+  Board Director approves
+  
+  Total: 29 days, 4 steps
+end note
+
+note top of FACULTY
+  Example: Course Creation Workflow
+  
+  Faculty creates → Faculty Head approves → 
+  Academic Office reviews → Academic Board approves → 
+  Dean publishes
+  
+  Total: 18 days, 4 steps
+end note
+
+note top of DEPARTMENT
+  Example: Leave Request Workflow
+  
+  Employee requests → Supervisor approves → 
+  HR confirms → Director approves (if > 5 days)
+  
+  Total: 6 days, 3 steps
+end note
+
+' =============================================
+' BENEFITS
+' =============================================
+package "System Benefits" {
+    
+    rectangle "Comprehensive Coverage" as COVERAGE {
+        [4 Organization Levels]
+        [4 Approval Types]
+        [18+ Workflow Categories]
+        [Smart Routing]
+    }
+    
+    rectangle "Unified Experience" as UNIFIED {
+        [Single Dashboard]
+        [Consistent UI/UX]
+        [Standardized API]
+        [Centralized Notifications]
+    }
+    
+    rectangle "Scalable Architecture" as SCALABLE {
+        [Easy Extension]
+        [Performance Optimized]
+        [Maintainable]
+        [Flexible Configuration]
+    }
+    
+    COVERAGE --> UNIFIED
+    UNIFIED --> SCALABLE
+}
+
+@enduml

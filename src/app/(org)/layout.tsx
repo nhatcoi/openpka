@@ -48,7 +48,7 @@ import {
   AssignmentInd as AssignmentIndIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 
 const drawerWidth = 240;
 

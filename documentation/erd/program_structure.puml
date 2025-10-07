@@ -1,0 +1,86 @@
+@startuml
+' ERD: Quản lý Cấu trúc CTĐT (Program Structure)
+' Nguồn: prisma/schema.prisma
+
+skinparam linetype ortho
+hide circle
+hide methods
+hide stereotypes
+skinparam classAttributeIconSize 0
+
+legend left
+== Chú thích (CTĐT)
+- Thực thể chính: Program
+- Quan hệ:
+  - Program 1..N ProgramBlock (khối kiến thức)
+  - ProgramBlock 1..N ProgramBlockGroup (nhóm học phần)
+  - Group 1..1 Rule (ràng buộc tín chỉ/số học phần)
+  - ProgramCourseMap: ánh xạ Course vào Block/Group, gắn required/ord
+  - Program 1..N CurriculumVersion (phiên bản CTĐT)
+endlegend
+
+entity "academic.programs" as program {
+  + id : bigint <<PK>>
+  --
+  code : varchar(32)
+  name_vi : varchar(255)
+}
+
+entity "academic.program_blocks" as program_blocks {
+  + id : bigint <<PK>>
+  --
+  program_id : bigint <<FK program.id>>
+  code : varchar(32)
+}
+
+entity "academic.program_block_groups" as program_block_groups {
+  + id : bigint <<PK>>
+  --
+  block_id : bigint <<FK program_blocks.id>>
+  code : varchar(32)
+}
+
+entity "academic.program_block_group_rule" as program_block_group_rule {
+  + id : bigint <<PK>>
+  --
+  group_id : bigint <<FK program_block_groups.id>>
+  min_credits : numeric(5,1)
+  max_credits : numeric(5,1)
+  min_courses : smallint
+  max_courses : smallint
+}
+
+entity "academic.courses" as course {
+  + id : bigint <<PK>>
+  code : varchar(32)
+}
+
+entity "academic.program_course_map" as program_course_map {
+  + id : bigint <<PK>>
+  --
+  program_id : bigint <<FK program.id>>
+  course_id : bigint <<FK course.id>>
+  block_id : bigint (nullable) <<FK program_blocks.id>>
+  group_id : bigint (nullable) <<FK program_block_groups.id>>
+  is_required : boolean
+  display_order : smallint
+}
+
+entity "academic.curriculum_versions" as curriculum_versions {
+  + id : bigint <<PK>>
+  --
+  program_id : bigint (nullable) <<FK program.id>>
+  version : varchar(32)
+  total_credits : int
+}
+
+program ||--o{ program_blocks : có_khối
+program_blocks ||--o{ program_block_groups : có_nhóm
+program_block_groups ||--o{ program_block_group_rule : ràng_buộc
+program ||--o{ program_course_map : ánh_xạ
+course ||--o{ program_course_map : được_ánh_xạ
+program_blocks ||--o{ program_course_map : thuộc_khối
+program_block_groups ||--o{ program_course_map : thuộc_nhóm
+program ||--o{ curriculum_versions : phiên_bản
+
+@enduml

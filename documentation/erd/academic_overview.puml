@@ -1,0 +1,69 @@
+@startuml
+' ERD: Tổng quan Học thuật (Overview)
+' Nguồn: prisma/schema.prisma
+
+skinparam linetype ortho
+hide circle
+hide methods
+hide stereotypes
+skinparam classAttributeIconSize 0
+
+legend left
+== Chú thích (Overview)
+- Mục tiêu: Nhìn tổng quan mối quan hệ Ngành → CTĐT → Học phần → Khóa học
+- OrgUnit là chủ quản của Major/Course/Program
+endlegend
+
+entity "org.org_units" as org_units {
+  + id : bigint <<PK>>
+  code : varchar(50)
+  name : varchar(255)
+}
+
+entity "academic.majors" as major {
+  + id : bigint <<PK>>
+  code : varchar(32)
+  org_unit_id : bigint <<FK org_units.id>>
+}
+
+entity "academic.programs" as program {
+  + id : bigint <<PK>>
+  code : varchar(32)
+  major_id : bigint (nullable) <<FK major.id>>
+  org_unit_id : bigint (nullable) <<FK org_units.id>>
+}
+
+entity "academic.program_blocks" as program_blocks {
+  + id : bigint <<PK>>
+  program_id : bigint <<FK program.id>>
+}
+
+entity "academic.program_block_groups" as program_block_groups {
+  + id : bigint <<PK>>
+  block_id : bigint <<FK program_blocks.id>>
+}
+
+entity "academic.program_course_map" as program_course_map {
+  + id : bigint <<PK>>
+  program_id : bigint <<FK program.id>>
+  course_id : bigint <<FK course.id>>
+  block_id : bigint (nullable) <<FK program_blocks.id>>
+  group_id : bigint (nullable) <<FK program_block_groups.id>>
+}
+
+entity "academic.courses" as course {
+  + id : bigint <<PK>>
+  code : varchar(32)
+  org_unit_id : bigint <<FK org_units.id>>
+}
+
+major ||--o{ program : có_ctdt
+org_units ||--o{ major : quản_lý
+org_units ||--o{ program : chủ_quản
+org_units ||--o{ course : sở_hữu
+program ||--o{ program_blocks : khối
+program_blocks ||--o{ program_block_groups : nhóm
+program ||--o{ program_course_map : ánh_xạ_hp
+course ||--o{ program_course_map : thuộc
+
+@enduml
