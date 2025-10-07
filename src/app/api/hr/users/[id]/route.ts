@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.User?.id) {
             return NextResponse.json(
                 { success: false, error: 'Unauthorized' },
                 { status: 401 }
@@ -22,8 +23,8 @@ export async function PUT(
         const { full_name, email, phone, address, dob, gender, new_password } = body;
 
         // Check if user exists
-        const existingUser = await db.users.findUnique({
-            where: { id: BigInt(params.id) }
+        const existingUser = await db.User.findUnique({
+            where: { id: BigInt(resolvedParams.id) }
         });
 
         if (!existingUser) {
@@ -34,7 +35,15 @@ export async function PUT(
         }
 
         // Prepare update data
-        const updateData: any = {
+        const updateData: {
+            full_name?: string;
+            email?: string;
+            phone?: string;
+            address?: string;
+            dob?: Date | null;
+            gender?: string;
+            password_hash?: string;
+        } = {
             full_name,
             email,
             phone,
@@ -49,8 +58,8 @@ export async function PUT(
         }
 
         // Update user
-        const updatedUser = await db.users.update({
-            where: { id: BigInt(params.id) },
+        const updatedUser = await db.User.update({
+            where: { id: BigInt(resolvedParams.id) },
             data: updateData,
             select: {
                 id: true,
@@ -73,7 +82,7 @@ export async function PUT(
         });
 
     } catch (error) {
-        console.error('Error updating user:', error);
+        console.error('Error updating User:', error);
         return NextResponse.json(
             { success: false, error: 'Internal server error' },
             { status: 500 }

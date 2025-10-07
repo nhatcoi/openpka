@@ -1,21 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withIdAndBody, serializeBigInt } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
 // PUT /api/org/units/[id]/status - Update org unit status only
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const body = await request.json();
+export const PUT = withIdAndBody(
+  async (id: string, body: unknown) => {
+    const data = body as Record<string, unknown>;
+    const { status } = data;
     
     // Validate required fields
-    if (!body.status) {
-      return NextResponse.json(
-        { success: false, error: 'Status is required' },
-        { status: 400 }
-      );
+    if (!status) {
+      throw new Error('Status is required');
     }
     
     // Convert string id to BigInt
@@ -28,16 +23,13 @@ export async function PUT(
     });
     
     if (!existingUnit) {
-      return NextResponse.json(
-        { success: false, error: 'Unit not found' },
-        { status: 404 }
-      );
+      throw new Error('Unit not found');
     }
     
-    // Update only status field
+    // Update only status field (auto uppercase)
     const updatedUnit = await db.orgUnit.update({
       where: { id: unitId },
-      data: { status: body.status },
+      data: { status: (status as string)?.toUpperCase() }, // Auto uppercase status
       select: {
         id: true,
         name: true,
@@ -47,25 +39,7 @@ export async function PUT(
       }
     });
     
-    // Serialize BigInt fields
-    const serializedUnit = {
-      ...updatedUnit,
-      id: updatedUnit.id.toString(),
-    };
-    
-    return NextResponse.json({ 
-      success: true, 
-      data: serializedUnit,
-      message: `Unit status updated to ${body.status}`
-    });
-  } catch (error) {
-    console.error('org-units status PUT error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to update unit status' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return updatedUnit;
+  },
+  'update org unit status'
+);

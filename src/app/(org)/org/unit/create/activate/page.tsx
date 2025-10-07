@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_ROUTES } from '@/constants/routes';
+import { useEmployeeSearch } from '@/hooks/use-employee-search';
 import {
   Box,
   Typography,
@@ -33,6 +35,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import {
   PlayArrow as ActiveIcon,
@@ -51,13 +54,13 @@ interface OrgStructureRequest {
   requester_id: string | null;
   request_type: string;
   target_org_unit_id: string | null;
-  payload: any;
+  payload: unknown;
   status: string;
   workflow_step: number;
   created_at: string | null;
   updated_at: string | null;
   owner_org_id?: string | null;
-  attachments?: any;
+  attachments?: unknown;
 }
 
 interface OrgUnit {
@@ -92,6 +95,7 @@ const ACTIVATION_TASKS = [
 
 export default function CreateActivatePage() {
   const router = useRouter();
+  const { employees, loading: searchLoading, error: searchError, searchEmployees } = useEmployeeSearch();
   const [selectedRequest, setSelectedRequest] = useState<OrgStructureRequest | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<OrgUnit | null>(null);
   const [units, setUnits] = useState<Record<string, OrgUnit>>({});
@@ -138,7 +142,7 @@ export default function CreateActivatePage() {
         for (const request of requestsData) {
           if (request.target_org_unit_id) {
             try {
-              const unitResponse = await fetch(`/api/org/units/${request.target_org_unit_id}`);
+              const unitResponse = await fetch(API_ROUTES.ORG.UNITS_BY_ID(request.target_org_unit_id));
               if (unitResponse.ok) {
                 const unitData = await unitResponse.json();
                 if (unitData.success) {
@@ -583,23 +587,69 @@ export default function CreateActivatePage() {
                 <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 'bold' }}>
                   Bổ nhiệm nhân sự
                 </Typography>
+                {searchError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    <AlertTitle>Lỗi tìm kiếm nhân viên</AlertTitle>
+                    {searchError}
+                  </Alert>
+                )}
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                   {STAFF_ROLES.map((role) => (
-                    <FormControl key={role.value} fullWidth>
-                      <InputLabel>{role.label}</InputLabel>
-                      <Select
-                        value={staffAssignments[role.value] || ''}
-                        onChange={(e) => handleStaffAssignmentChange(role.value, e.target.value)}
-                        label={role.label}
-                      >
-                        <MenuItem value="">
-                          <em>Chưa chọn</em>
-                        </MenuItem>
-                        <MenuItem value="staff1">Nguyễn Văn A</MenuItem>
-                        <MenuItem value="staff2">Trần Thị B</MenuItem>
-                        <MenuItem value="staff3">Lê Văn C</MenuItem>
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      key={role.value}
+                      options={employees}
+                      getOptionLabel={(option) => {
+                        if (typeof option === 'string') return option;
+                        return option.User?.full_name || option.User?.email || 'Unknown';
+                      }}
+                      value={employees.find(emp => emp.id === staffAssignments[role.value]) || null}
+                      onChange={(event, newValue) => {
+                        handleStaffAssignmentChange(role.value, newValue?.id || '');
+                      }}
+                      onInputChange={(event, newInputValue) => {
+                        if (newInputValue.length >= 2) {
+                          searchEmployees(newInputValue);
+                        }
+                      }}
+                      loading={searchLoading}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label={role.label}
+                          placeholder="Tìm kiếm nhân viên..."
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {searchLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                {params.InputProps.endAdornment}
+                              </>
+                            ),
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <Box component="li" {...props}>
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                              {option.User?.full_name || 'Unknown'}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {option.User?.email} • {option.employee_no}
+                            </Typography>
+                            {option.OrgAssignment.length > 0 && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                {option.OrgAssignment[0].OrgUnit?.name} • {option.OrgAssignment[0].JobPosition?.title}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      )}
+                      noOptionsText="Không tìm thấy nhân viên"
+                      clearOnEscape
+                      selectOnFocus
+                      handleHomeEndKeys
+                    />
                   ))}
                 </Box>
               </Paper>

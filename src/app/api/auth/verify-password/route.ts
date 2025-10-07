@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
 
-        if (!session?.user?.id) {
+        if (!session?.User?.id) {
             return NextResponse.json(
                 { success: false, error: 'Unauthorized' },
                 { status: 401 }
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Get user with password
-        const user = await db.users.findUnique({
+        const user = await db.User.findUnique({
             where: { id: session.user.id },
             select: { password_hash: true }
         });

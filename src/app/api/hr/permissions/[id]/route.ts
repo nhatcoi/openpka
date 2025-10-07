@@ -8,11 +8,12 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const permissionId = BigInt(id);
 
-        const permission = await db.permissions.findUnique({
-            where: { id: permissionId as any },
+        const permission = await db.Permission.findUnique({
+            where: { id: BigInt(permissionId) },
             include: {
                 role_permission: {
                     include: {
@@ -36,7 +37,7 @@ export async function GET(
         const serializedPermission = {
             ...permission,
             id: permission.id.toString(),
-            role_permission: permission.role_permission?.map((rp: any) => ({
+            role_permission: permission.role_permission?.map((rp: { id: bigint; [key: string]: unknown }) => ({
                 ...rp,
                 id: rp.id.toString(),
                 role_id: rp.role_id.toString(),
@@ -66,6 +67,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const permissionId = BigInt(id);
         const body = await request.json();
@@ -76,12 +78,12 @@ export async function PUT(
         const currentUserId = token?.sub ? BigInt(token.sub) : undefined;
 
         // Get old data for logging
-        const oldPermission = await db.permissions.findUnique({
-            where: { id: permissionId as any },
+        const oldPermission = await db.Permission.findUnique({
+            where: { id: BigInt(permissionId) },
         });
 
-        const permission = await db.permissions.update({
-            where: { id: permissionId as any },
+        const permission = await db.Permission.update({
+            where: { id: BigInt(permissionId) },
             data: {
                 code,
                 name
@@ -131,6 +133,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const permissionId = BigInt(id);
 
@@ -139,12 +142,12 @@ export async function DELETE(
         const currentUserId = token?.sub ? BigInt(token.sub) : undefined;
 
         // Get old data for logging
-        const oldPermission = await db.permissions.findUnique({
-            where: { id: permissionId as any },
+        const oldPermission = await db.Permission.findUnique({
+            where: { id: BigInt(permissionId) },
         });
 
-        await db.permissions.delete({
-            where: { id: permissionId as any },
+        await db.Permission.delete({
+            where: { id: BigInt(permissionId) },
         });
 
         // Log the deletion activity

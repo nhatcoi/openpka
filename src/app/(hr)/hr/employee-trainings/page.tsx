@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -94,7 +94,7 @@ const TRAINING_STATUS_COLORS = {
     failed: 'error'
 };
 
-export default function EmployeeTrainingsPage() {
+function EmployeeTrainingsPageContent() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -269,7 +269,7 @@ export default function EmployeeTrainingsPage() {
 
     const getEmployeeName = (employeeId: string) => {
         const employee = employees.find(emp => emp.id === employeeId);
-        return employee ? `${employee.user?.full_name} (${employee.employee_no})` : 'N/A';
+        return employee ? `${employee.User?.full_name} (${employee.employee_no})` : 'N/A';
     };
 
     const getTrainingName = (trainingId: string) => {
@@ -297,7 +297,7 @@ export default function EmployeeTrainingsPage() {
                 </Link>
                 {filteredEmployee && (
                     <Link color="inherit" href={HR_ROUTES.EMPLOYEES_DETAIL(filteredEmployee.id)}>
-                        {filteredEmployee.user?.full_name}
+                        {filteredEmployee.User?.full_name}
                     </Link>
                 )}
                 <Typography color="text.primary">Đào tạo</Typography>
@@ -312,7 +312,7 @@ export default function EmployeeTrainingsPage() {
                         </Typography>
                         {filteredEmployee && (
                             <Typography variant="subtitle1" color="text.secondary">
-                                {filteredEmployee.user?.full_name} ({filteredEmployee.employee_no})
+                                {filteredEmployee.User?.full_name} ({filteredEmployee.employee_no})
                             </Typography>
                         )}
                     </Box>
@@ -363,7 +363,7 @@ export default function EmployeeTrainingsPage() {
                                 <TableCell>
                                     <Chip
                                         label={TRAINING_STATUS_LABELS[training.status as keyof typeof TRAINING_STATUS_LABELS] || training.status}
-                                        color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] as any}
+                                        color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] as string}
                                         variant="outlined"
                                         size="small"
                                     />
@@ -432,7 +432,7 @@ export default function EmployeeTrainingsPage() {
                                 >
                                     {employees.map((employee) => (
                                         <MenuItem key={employee.id} value={employee.id}>
-                                            {employee.user?.full_name} ({employee.employee_no})
+                                            {employee.User?.full_name} ({employee.employee_no})
                                         </MenuItem>
                                     ))}
                                 </Select>
@@ -499,5 +499,14 @@ export default function EmployeeTrainingsPage() {
                 </form>
             </Dialog>
         </Box>
+    );
+}
+
+
+export default function EmployeeTrainingsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <EmployeeTrainingsPageContent />
+        </Suspense>
     );
 }

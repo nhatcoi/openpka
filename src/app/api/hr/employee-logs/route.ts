@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
         const offset = (page - 1) * limit;
 
         // Build where clause
-        const where: any = {};
+        const where: { [key: string]: unknown } = {};
 
         if (employeeId) {
             where.employee_id = BigInt(employeeId);
@@ -44,15 +44,15 @@ export async function GET(request: NextRequest) {
         }
 
         const [logs, totalCount] = await Promise.all([
-            db.employee_log.findMany({
+            db.EmployeeLog.findMany({
                 where,
                 include: {
-                    employees: {
+                    Employee: {
                         include: {
-                            user: true,
+                            User: true,
                         },
                     },
-                    users: true, // actor
+                    User: true, // actor
                 },
                 orderBy: {
                     created_at: 'desc',
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
                 skip: offset,
                 take: limit,
             }),
-            db.employee_log.count({ where }),
+            db.EmployeeLog.count({ where }),
         ]);
 
         const serializedLogs = logs.map(log => ({
@@ -70,18 +70,18 @@ export async function GET(request: NextRequest) {
             entity_id: log.entity_id?.toString() || null,
             actor_id: log.actor_id?.toString() || null,
             created_at: log.created_at.toISOString(),
-            employees: log.employees ? {
-                ...log.employees,
-                id: log.employees.id.toString(),
-                user_id: log.employees.user_id?.toString() || null,
-                user: log.employees.user ? {
-                    ...log.employees.user,
-                    id: log.employees.user.id.toString(),
+            Employee: log.Employee ? {
+                ...log.Employee,
+                id: log.Employee.id.toString(),
+                user_id: log.Employee.user_id?.toString() || null,
+                User: log.Employee.User ? {
+                    ...log.Employee.User,
+                    id: log.Employee.User.id.toString(),
                 } : null,
             } : null,
-            users: log.users ? {
-                ...log.users,
-                id: log.users.id.toString(),
+            User: log.User ? {
+                ...log.User,
+                id: log.User.id.toString(),
             } : null,
         }));
 

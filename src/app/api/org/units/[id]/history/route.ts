@@ -1,58 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { HistoryRepository } from '@/modules/org/history/history.repo';
-
-const historyRepo = new HistoryRepository();
+import { NextRequest } from 'next/server';
+import { withErrorHandling } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 // GET /api/org/units/[id]/history - Get history for a specific unit
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const unitId = parseInt(params.id, 10);
+export const GET = withErrorHandling(
+  async (request: NextRequest, context?: { params?: Promise<{ id: string }> }) => {
+    if (!context?.params) throw new Error('Missing params');
+
+    const { id } = await context.params;
+    const unitId = parseInt(id, 10);
     
     if (isNaN(unitId)) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid unit ID' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Invalid unit ID');
     }
 
     const { searchParams } = new URL(request.url);
     
     // Parse query parameters
-    const change_type = searchParams.get('change_type');
-    const from_date = searchParams.get('from_date');
-    const to_date = searchParams.get('to_date');
+    const change_type = searchParams.get('change_type') || undefined;
+    const from_date = searchParams.get('from_date') || undefined;
+    const to_date = searchParams.get('to_date') || undefined;
     const page = parseInt(searchParams.get('page') || '1');
     const size = parseInt(searchParams.get('size') || '50');
     const sort = searchParams.get('sort') || 'changed_at';
     const order = searchParams.get('order') as 'asc' | 'desc' || 'desc';
     
-    // Call repository
-    const result = await historyRepo.findAll({
+    // Build where clause
+    const where: Prisma.OrgUnitHistoryWhereInput = {
       org_unit_id: unitId,
-      change_type,
-      from_date,
-      to_date,
-      page,
-      size,
-      sort,
-      order,
-    });
+    };
     
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Unit history route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch unit history' 
+    if (change_type) {
+      where.change_type = change_type;
+    }
+    
+    if (from_date || to_date) {
+      where.changed_at = {};
+      if (from_date) {
+        where.changed_at.gte = new Date(from_date);
+      }
+      if (to_date) {
+        where.changed_at.lte = new Date(to_date);
+      }
+    }
+    
+    // Calculate pagination
+    const skip = (page - 1) * size;
+    
+    // Execute queries
+    const [history, total] = await Promise.all([
+      db.orgUnitHistory.findMany({
+        where,
+        orderBy: { [sort]: order },
+        skip,
+        take: size,
+      }),
+      db.orgUnitHistory.count({ where }),
+    ]);
+    
+    const result = {
+      items: history,
+      pagination: {
+        page,
+        size,
+        total,
+        totalPages: Math.ceil(total / size),
+        hasNextPage: page < Math.ceil(total / size),
+        hasPrevPage: page > 1,
       },
-      { status: 500 }
-    );
-  }
-}
+    };
+    
+    return result;
+  },
+  'fetch unit history'
+);

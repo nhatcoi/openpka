@@ -1,133 +1,137 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { OrgUnitRelationRepository } from '@/modules/org/unit-relation/org-unit-relation.repo';
+import { NextRequest } from 'next/server';
+import { withErrorHandling } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
 
-const orgUnitRelationRepo = new OrgUnitRelationRepository();
-
-// GET /api/org-unit-relations/[params] - Get org unit relation by composite key
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { params: string } }
-) {
-  try {
+// GET /api/org/unit-relations/[params] - Get org unit relation by composite key
+export const GET = withErrorHandling(
+  async (request: NextRequest, context?: any): Promise<any> => {
+    if (!context?.params) throw new Error('Missing params');
+    
+    const resolvedParams = await context.params;
     // Parse composite key from params (format: parent_id/child_id/relation_type/effective_from)
-    const [parent_id, child_id, relation_type, effective_from] = params.params.split('/');
+    const [parent_id, child_id, relation_type, effective_from] = resolvedParams.params.split('/');
     
     if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from');
     }
 
-    const result = await orgUnitRelationService.getById({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from: decodeURIComponent(effective_from),
-    });
-    
-    if (!result.success) {
-      return NextResponse.json(result, { status: 404 });
+    // Parse date - handle both ISO string and date-only formats
+    let parsedDate: Date;
+    const dateStr = decodeURIComponent(effective_from);
+    if (dateStr.includes('T')) {
+      // ISO string format: 2020-01-01T00:00:00.000Z
+      parsedDate = new Date(dateStr);
+    } else {
+      // Date-only format: 2020-01-01
+      parsedDate = new Date(dateStr + 'T00:00:00.000Z');
     }
-    
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+
+    const relation = await db.orgUnitRelation.findFirst({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: parsedDate,
       },
-      { status: 500 }
-    );
-  }
-}
+    });
 
-// PUT /api/org-unit-relations/[params] - Update org unit relation
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { params: string } }
-) {
-  try {
+    if (!relation) {
+      throw new Error('Relation not found');
+    }
+
+    return relation;
+  },
+  'fetch org unit relation by params'
+);
+
+// PUT /api/org/unit-relations/[params] - Update org unit relation
+export const PUT = withErrorHandling(
+  async (request: NextRequest, context?: any): Promise<any> => {
+    if (!context?.params) throw new Error('Missing params');
+    
+    const resolvedParams = await context.params;
     // Parse composite key from params
-    const [parent_id, child_id, relation_type, effective_from] = params.params.split('/');
+    const [parent_id, child_id, relation_type, effective_from] = resolvedParams.params.split('/');
     
     if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from');
     }
 
     const body = await request.json();
+    const { effective_to, description } = body;
     
-    const result = await orgUnitRelationService.update({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from: decodeURIComponent(effective_from),
-    }, body);
-    
-    if (!result.success) {
-      return NextResponse.json(result, { status: 400 });
+    // Parse date - handle both ISO string and date-only formats
+    let parsedDate: Date;
+    const dateStr = decodeURIComponent(effective_from);
+    if (dateStr.includes('T')) {
+      // ISO string format: 2020-01-01T00:00:00.000Z
+      parsedDate = new Date(dateStr);
+    } else {
+      // Date-only format: 2020-01-01
+      parsedDate = new Date(dateStr + 'T00:00:00.000Z');
     }
-    
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
+
+    const updatedRelation = await db.orgUnitRelation.updateMany({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: parsedDate,
       },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE /api/org-unit-relations/[params] - Delete org unit relation
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { params: string } }
-) {
-  try {
-    // Parse composite key from params
-    const [parent_id, child_id, relation_type, effective_from] = params.params.split('/');
-    
-    if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from' 
-        },
-        { status: 400 }
-      );
-    }
-
-    const result = await orgUnitRelationService.delete({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from: decodeURIComponent(effective_from),
+      data: {
+        effective_to: effective_to ? new Date(effective_to) : null,
+        note: description || null,
+      }
     });
     
-    if (!result.success) {
-      return NextResponse.json(result, { status: 400 });
+    if (updatedRelation.count === 0) {
+      throw new Error('Relation not found');
     }
     
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return { message: 'Relation updated successfully', count: updatedRelation.count };
+  },
+  'update org unit relation by params'
+);
+
+// DELETE /api/org/unit-relations/[params] - Delete org unit relation
+export const DELETE = withErrorHandling(
+  async (request: NextRequest, context?: any): Promise<any> => {
+    if (!context?.params) throw new Error('Missing params');
+    
+    const resolvedParams = await context.params;
+    // Parse composite key from params
+    const [parent_id, child_id, relation_type, effective_from] = resolvedParams.params.split('/');
+    
+    if (!parent_id || !child_id || !relation_type || !effective_from) {
+      throw new Error('Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from');
+    }
+
+    console.log('DELETE params:', { parent_id, child_id, relation_type, effective_from });
+
+    // Parse date - handle both ISO string and date-only formats
+    let parsedDate: Date;
+    const dateStr = decodeURIComponent(effective_from);
+    if (dateStr.includes('T')) {
+      // ISO string format: 2020-01-01T00:00:00.000Z
+      parsedDate = new Date(dateStr);
+    } else {
+      // Date-only format: 2020-01-01
+      parsedDate = new Date(dateStr + 'T00:00:00.000Z');
+    }
+
+    const deletedRelation = await db.orgUnitRelation.deleteMany({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: parsedDate,
+      }
+    });
+    
+    return deletedRelation.count === 0 
+      ? { message: 'No relation found to delete', count: 0 }
+      : { message: 'Relation deleted successfully', count: deletedRelation.count };
+  },
+  'delete org unit relation by params'
+);
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -18,10 +18,10 @@ export async function GET(request: NextRequest) {
         try {
             console.log('Session user ID:', session.user.id, 'Type:', typeof session.user.id);
 
-            const user = await db.users.findUnique({
+            const user = await db.User.findUnique({
                 where: { id: BigInt(session.user.id) },
                 include: {
-                    employees: true
+                    Employee: true
                 }
             });
 
@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 data: {
-                    user: {
+                    User: {
                         id: user.id.toString(),
                         username: user.username,
                         email: user.email,
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
                         dob: user.dob,
                         gender: user.gender,
                     },
-                    employees: user.employees?.map(emp => ({
+                    Employee: user.Employee?.map(emp => ({
                         ...emp,
                         id: emp.id.toString(),
                         user_id: emp.user_id.toString(),

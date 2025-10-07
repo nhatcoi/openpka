@@ -68,8 +68,8 @@ export default function AssignmentsPage() {
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [employees, setEmployees] = useState<any[]>([]);
-    const [orgUnits, setOrgUnits] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
+    const [orgUnits, setOrgUnits] = useState<{ id: string; name: string }[]>([]);
 
     useEffect(() => {
         if (status === 'loading') return;

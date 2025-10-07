@@ -6,7 +6,7 @@
  * @returns Array with unique values
  */
 export function removeDuplicates<T>(array: T[]): T[] {
-  return [...new Set(array)];
+    return [...new Set(array)];
 }
 
 /**
@@ -15,19 +15,22 @@ export function removeDuplicates<T>(array: T[]): T[] {
  * @param key - Key to check for duplicates
  * @returns Array with unique objects based on key
  */
-export function removeDuplicatesByKey<T extends Record<string, any>>(
-  array: T[], 
-  key: keyof T
+export function removeDuplicatesByKey<T extends Record<string,
+    never
+
+>>(
+    array: T[],
+    key: keyof T
 ): T[] {
-  const seen = new Set();
-  return array.filter(item => {
-    const value = item[key];
-    if (seen.has(value)) {
-      return false;
-    }
-    seen.add(value);
-    return true;
-  });
+    const seen = new Set();
+    return array.filter(item => {
+        const value = item[key];
+        if (seen.has(value)) {
+            return false;
+        }
+        seen.add(value);
+        return true;
+    });
 }
 
 /**
@@ -36,18 +39,18 @@ export function removeDuplicatesByKey<T extends Record<string, any>>(
  * @param key - Key to group by
  * @returns Object with grouped items
  */
-export function groupBy<T extends Record<string, any>>(
-  array: T[], 
-  key: keyof T
+export function groupBy<T extends Record<string, never>>(
+    array: T[],
+    key: keyof T
 ): Record<string, T[]> {
-  return array.reduce((groups, item) => {
-    const group = String(item[key]);
-    if (!groups[group]) {
-      groups[group] = [];
-    }
-    groups[group].push(item);
-    return groups;
-  }, {} as Record<string, T[]>);
+    return array.reduce((groups, item) => {
+        const group = String(item[key]);
+        if (!groups[group]) {
+            groups[group] = [];
+        }
+        groups[group].push(item);
+        return groups;
+    }, {} as Record<string, T[]>);
 }
 
 /**
@@ -57,19 +60,19 @@ export function groupBy<T extends Record<string, any>>(
  * @param direction - Sort direction ('asc' or 'desc')
  * @returns Sorted array
  */
-export function sortBy<T extends Record<string, any>>(
-  array: T[], 
-  key: keyof T, 
-  direction: 'asc' | 'desc' = 'asc'
+export function sortBy<T extends Record<string, never>>(
+    array: T[],
+    key: keyof T,
+    direction: 'asc' | 'desc' = 'asc'
 ): T[] {
-  return [...array].sort((a, b) => {
-    const aVal = a[key];
-    const bVal = b[key];
-    
-    if (aVal < bVal) return direction === 'asc' ? -1 : 1;
-    if (aVal > bVal) return direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+    return [...array].sort((a, b) => {
+        const aVal = a[key];
+        const bVal = b[key];
+
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
+        return 0;
+    });
 }
 
 /**
@@ -78,22 +81,22 @@ export function sortBy<T extends Record<string, any>>(
  * @param filters - Object with filter conditions
  * @returns Filtered array
  */
-export function filterBy<T extends Record<string, any>>(
-  array: T[], 
-  filters: Partial<T>
+export function filterBy<T extends Record<string, never>>(
+    array: T[],
+    filters: Partial<T>
 ): T[] {
-  return array.filter(item => {
-    return Object.entries(filters).every(([key, value]) => {
-      if (value === undefined || value === null || value === '') return true;
-      
-      const itemValue = item[key];
-      if (typeof value === 'string' && typeof itemValue === 'string') {
-        return itemValue.toLowerCase().includes(value.toLowerCase());
-      }
-      
-      return itemValue === value;
+    return array.filter(item => {
+        return Object.entries(filters).every(([key, value]) => {
+            if (value === undefined || value === null || value === '') return true;
+
+            const itemValue = item[key];
+            if (typeof value === 'string' && typeof itemValue === 'string') {
+                return itemValue.toLowerCase().includes(value.toLowerCase());
+            }
+
+            return itemValue === value;
+        });
     });
-  });
 }
 
 /**
@@ -103,11 +106,11 @@ export function filterBy<T extends Record<string, any>>(
  * @returns Array of chunks
  */
 export function chunk<T>(array: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < array.length; i += size) {
-    chunks.push(array.slice(i, i + size));
-  }
-  return chunks;
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
 }
 
 /**
@@ -117,8 +120,8 @@ export function chunk<T>(array: T[], size: number): T[][] {
  * @returns Array of random items
  */
 export function sample<T>(array: T[], count: number): T[] {
-  const shuffled = [...array].sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, count);
+    const shuffled = [...array].sort(() => 0.5 - Math.random());
+    return shuffled.slice(0, count);
 }
 
 /**
@@ -127,16 +130,16 @@ export function sample<T>(array: T[], count: number): T[] {
  * @param keyFn - Function to extract key for uniqueness
  * @returns Array with unique items
  */
-export function uniqueBy<T>(array: T[], keyFn: (item: T) => any): T[] {
-  const seen = new Set();
-  return array.filter(item => {
-    const key = keyFn(item);
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+export function uniqueBy<T>(array: T[], keyFn: (item: T) => never): T[] {
+    const seen = new Set();
+    return array.filter(item => {
+        const key = keyFn(item);
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
 }
 
 /**
@@ -145,8 +148,8 @@ export function uniqueBy<T>(array: T[], keyFn: (item: T) => any): T[] {
  * @returns Merged array with unique values
  */
 export function mergeUnique<T>(...arrays: T[][]): T[] {
-  const merged = arrays.flat();
-  return removeDuplicates(merged);
+    const merged = arrays.flat();
+    return removeDuplicates(merged);
 }
 
 /**
@@ -155,12 +158,12 @@ export function mergeUnique<T>(...arrays: T[][]): T[] {
  * @returns Array with common elements
  */
 export function intersection<T>(...arrays: T[][]): T[] {
-  if (arrays.length === 0) return [];
-  if (arrays.length === 1) return arrays[0];
-  
-  return arrays.reduce((acc, curr) => {
-    return acc.filter(item => curr.includes(item));
-  });
+    if (arrays.length === 0) return [];
+    if (arrays.length === 1) return arrays[0];
+
+    return arrays.reduce((acc, curr) => {
+        return acc.filter(item => curr.includes(item));
+    });
 }
 
 /**
@@ -169,15 +172,15 @@ export function intersection<T>(...arrays: T[][]): T[] {
  * @returns Array with elements only in first array
  */
 export function difference<T>(...arrays: T[][]): T[] {
-  if (arrays.length === 0) return [];
-  if (arrays.length === 1) return arrays[0];
-  
-  const firstArray = arrays[0];
-  const otherArrays = arrays.slice(1);
-  
-  return firstArray.filter(item => 
-    !otherArrays.some(array => array.includes(item))
-  );
+    if (arrays.length === 0) return [];
+    if (arrays.length === 1) return arrays[0];
+
+    const firstArray = arrays[0];
+    const otherArrays = arrays.slice(1);
+
+    return firstArray.filter(item =>
+        !otherArrays.some(array => array.includes(item))
+    );
 }
 
 /**
@@ -187,21 +190,21 @@ export function difference<T>(...arrays: T[][]): T[] {
  * @returns Tuple with [true elements, false elements]
  */
 export function partition<T>(
-  array: T[], 
-  predicate: (item: T) => boolean
+    array: T[],
+    predicate: (item: T) => boolean
 ): [T[], T[]] {
-  const trueItems: T[] = [];
-  const falseItems: T[] = [];
-  
-  array.forEach(item => {
-    if (predicate(item)) {
-      trueItems.push(item);
-    } else {
-      falseItems.push(item);
-    }
-  });
-  
-  return [trueItems, falseItems];
+    const trueItems: T[] = [];
+    const falseItems: T[] = [];
+
+    array.forEach(item => {
+        if (predicate(item)) {
+            trueItems.push(item);
+        } else {
+            falseItems.push(item);
+        }
+    });
+
+    return [trueItems, falseItems];
 }
 
 /**
@@ -210,7 +213,7 @@ export function partition<T>(
  * @returns Sum of all numbers
  */
 export function sum(array: number[]): number {
-  return array.reduce((acc, curr) => acc + curr, 0);
+    return array.reduce((acc, curr) => acc + curr, 0);
 }
 
 /**
@@ -219,8 +222,8 @@ export function sum(array: number[]): number {
  * @returns Average of all numbers
  */
 export function average(array: number[]): number {
-  if (array.length === 0) return 0;
-  return sum(array) / array.length;
+    if (array.length === 0) return 0;
+    return sum(array) / array.length;
 }
 
 /**
@@ -229,7 +232,7 @@ export function average(array: number[]): number {
  * @returns Minimum value
  */
 export function min(array: number[]): number {
-  return Math.min(...array);
+    return Math.min(...array);
 }
 
 /**
@@ -238,5 +241,5 @@ export function min(array: number[]): number {
  * @returns Maximum value
  */
 export function max(array: number[]): number {
-  return Math.max(...array);
+    return Math.max(...array);
 }

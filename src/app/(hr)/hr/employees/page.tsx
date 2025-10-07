@@ -210,18 +210,18 @@ export default function EmployeesPage() {
                         </TableHead>
                         <TableBody>
                             {employees.map((employee) => {
-                                const primaryAssignment = employee.assignments?.find(a => a.is_primary);
+                                const primaryAssignment = employee.OrgAssignment?.find(a => a.is_primary);
                                 return (
                                     <TableRow key={employee.id} hover>
                                         <TableCell>{employee.employee_no || 'N/A'}</TableCell>
                                         <TableCell>
                                             <Typography variant="body2" fontWeight="medium">
-                                                {employee.user?.full_name || 'N/A'}
+                                                {employee.User?.full_name || 'N/A'}
                                             </Typography>
                                         </TableCell>
-                                        <TableCell>{employee.user?.username || 'N/A'}</TableCell>
-                                        <TableCell>{employee.user?.email || 'N/A'}</TableCell>
-                                        <TableCell>{employee.user?.phone || 'N/A'}</TableCell>
+                                        <TableCell>{employee.User?.username || 'N/A'}</TableCell>
+                                        <TableCell>{employee.User?.email || 'N/A'}</TableCell>
+                                        <TableCell>{employee.User?.phone || 'N/A'}</TableCell>
                                         <TableCell>
                                             <Chip
                                                 label={employee.employment_type || 'N/A'}
@@ -232,12 +232,12 @@ export default function EmployeesPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2" color="text.secondary">
-                                                {primaryAssignment?.org_unit?.name || 'N/A'}
+                                                {primaryAssignment?.OrgUnit?.name || 'N/A'}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2" color="text.secondary">
-                                                {primaryAssignment?.job_positions?.title || 'N/A'}
+                                                {primaryAssignment?.JobPosition?.title || 'N/A'}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
@@ -357,7 +357,7 @@ export default function EmployeesPage() {
                         Chưa có nhân viên nào
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Nhấn "Thêm nhân viên" để bắt đầu
+                        Nhấn &quot;Thêm nhân viên&quot; để bắt đầu
                     </Typography>
                 </Box>
             )}

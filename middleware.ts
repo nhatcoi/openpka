@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 // Định nghĩa quyền hạn cho từng route
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
+    // HR Routes
     '/hr/dashboard': ['hr.dashboard.view'],
     '/hr/employees': ['hr.employees.view'],
     '/hr/employees/new': ['hr.employees.create'],
@@ -45,6 +46,36 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/hr/reports': ['hr.reports.view'],
     '/hr/profile': ['hr.profile.view'],
     '/hr/change-password': ['hr.profile.update'],
+
+    // Org Routes
+    '/org/dashboard': ['org_unit.unit.view'],
+    '/org/tree': ['org_unit.unit.view'],
+    '/org/diagram': ['org_unit.unit.view'],
+    '/org/unit': ['org_unit.unit.view'],
+    '/org/unit/new': ['org_unit.unit.create'],
+    '/org/unit/[id]': ['org_unit.unit.view'],
+    '/org/unit/[id]/edit': ['org_unit.unit.update'],
+    '/org/unit/[id]/history': ['org_unit.unit.view'],
+    '/org/unit/create/audit': ['org_unit.unit.view'],
+    '/org/config': ['org_unit.type.admin'],
+    '/org/reports': ['org_unit.report.view'],
+    '/org/assignments': ['org_unit.assignment.view'],
+    '/org/assignments/new': ['org_unit.assignment.create'],
+    '/org/assignments/[id]/edit': ['org_unit.assignment.update'],
+
+    // TMS Routes
+    '/tms/courses': ['tms.course.view'],
+    '/tms/courses/new': ['tms.course.create'],
+    '/tms/courses/[id]': ['tms.course.view'],
+    '/tms/courses/[id]/edit': ['tms.course.update'],
+    '/tms/courses/approval': ['tms.course.review', 'tms.course.approve', 'tms.course.reject', 'tms.course.publish'],
+    '/tms/programs': ['tms.program.view'],
+    '/tms/programs/new': ['tms.program.create'],
+    '/tms/programs/[id]': ['tms.program.view'],
+    '/tms/programs/[id]/edit': ['tms.program.update'],
+    '/tms/programs/review': ['tms.program.review', 'tms.program.approve', 'tms.program.publish'],
+    '/tms/syllabus': ['tms.syllabus.manage'],
+    '/tms/instructors': ['tms.instructor.manage'],
 };
 
 // API routes permissions
@@ -98,6 +129,89 @@ const API_ROUTE_PERMISSIONS: Record<string, string[]> = {
     'POST:/api/hr/employments': ['hr.employments.create'],
     'PUT:/api/hr/employments/[id]': ['hr.employments.update'],
     'DELETE:/api/hr/employments/[id]': ['hr.employments.delete'],
+
+    // Org API Routes - Units
+    'GET:/api/org/units': ['org_unit.unit.view'],
+    'POST:/api/org/units': ['org_unit.unit.create'],
+    'GET:/api/org/units/[id]': ['org_unit.unit.view'],
+    'PUT:/api/org/units/[id]': ['org_unit.unit.update'],
+    'DELETE:/api/org/units/[id]': ['org_unit.unit.delete'],
+    'GET:/api/org/units/audit': ['org_unit.unit.view'],
+    'GET:/api/org/units/[id]/history': ['org_unit.unit.view'],
+    'PUT:/api/org/units/[id]/status': ['org_unit.unit.update'],
+    
+    // Org API Routes - Unit Relations
+    'GET:/api/org/unit-relations': ['org_unit.relation.view'],
+    'POST:/api/org/unit-relations': ['org_unit.relation.create'],
+    'GET:/api/org/unit-relations/[params]': ['org_unit.relation.view'],
+    'PUT:/api/org/unit-relations/[params]': ['org_unit.relation.update'],
+    'DELETE:/api/org/unit-relations/[params]': ['org_unit.relation.delete'],
+    'GET:/api/org/unit-relations/by-key': ['org_unit.relation.view'],
+    
+    // Org API Routes - Types
+    'GET:/api/org/types': ['org_unit.type.view'],
+    'POST:/api/org/types': ['org_unit.type.create'],
+    'GET:/api/org/types/[id]': ['org_unit.type.view'],
+    'PUT:/api/org/types/[id]': ['org_unit.type.update'],
+    'DELETE:/api/org/types/[id]': ['org_unit.type.delete'],
+    'GET:/api/org/types/cached': ['org_unit.type.view'],
+    
+    // Org API Routes - Statuses
+    'GET:/api/org/statuses': ['org_unit.status.view'],
+    'POST:/api/org/statuses': ['org_unit.status.create'],
+    'GET:/api/org/statuses/[id]': ['org_unit.status.view'],
+    'PUT:/api/org/statuses/[id]': ['org_unit.status.update'],
+    'DELETE:/api/org/statuses/[id]': ['org_unit.status.delete'],
+    
+    // Org API Routes - Assignments
+    'GET:/api/org/assignments': ['org_unit.assignment.view'],
+    'POST:/api/org/assignments': ['org_unit.assignment.create'],
+    'GET:/api/org/assignments/[id]': ['org_unit.assignment.view'],
+    'PUT:/api/org/assignments/[id]': ['org_unit.assignment.update'],
+    'DELETE:/api/org/assignments/[id]': ['org_unit.assignment.delete'],
+    
+    // Org API Routes - Reports & Stats
+    'GET:/api/org/stats': ['org_unit.report.view'],
+    'GET:/api/org/reports': ['org_unit.report.view'],
+    'GET:/api/org/campuses': ['org_unit.unit.view'],
+    'GET:/api/org/user-units': ['org_unit.unit.view'],
+    
+    // Org API Routes - History
+    'GET:/api/org/history': ['org_unit.unit.view'],
+    'GET:/api/org/history/[id]': ['org_unit.unit.view'],
+    
+    // Org API Routes - Initial Units
+    'GET:/api/org/initial-units': ['org_unit.unit.view'],
+    'POST:/api/org/initial-units': ['org_unit.unit.create'],
+    'GET:/api/org/request': ['org_unit.request.view'],
+    
+    // Org API Routes - Structure Requests
+    'GET:/api/org/structure-requests': ['org_unit.request.view'],
+    'POST:/api/org/structure-requests': ['org_unit.request.create'],
+    'GET:/api/org/structure-requests/[id]': ['org_unit.request.view'],
+    'PUT:/api/org/structure-requests/[id]': ['org_unit.request.update'],
+    'DELETE:/api/org/structure-requests/[id]': ['org_unit.request.delete'],
+    
+    // Org API Routes - Unit Roles
+    'GET:/api/org/unit-roles': ['org_unit.role.view'],
+    'POST:/api/org/unit-roles': ['org_unit.role.create'],
+    'GET:/api/org/unit-roles/[id]': ['org_unit.role.view'],
+    'PUT:/api/org/unit-roles/[id]': ['org_unit.role.update'],
+    'DELETE:/api/org/unit-roles/[id]': ['org_unit.role.delete'],
+
+    // TMS API Routes
+    'GET:/api/tms/courses': ['tms.course.view'],
+    'POST:/api/tms/courses': ['tms.course.create'],
+    'GET:/api/tms/courses/[id]': ['tms.course.view'],
+    'PUT:/api/tms/courses/[id]': ['tms.course.update'],
+    'DELETE:/api/tms/courses/[id]': ['tms.course.delete'],
+    'GET:/api/tms/programs': ['tms.program.view'],
+    'POST:/api/tms/programs': ['tms.program.create'],
+    'GET:/api/tms/programs/[id]': ['tms.program.view'],
+    'PUT:/api/tms/programs/[id]': ['tms.program.update'],
+    'PATCH:/api/tms/programs/[id]': ['tms.program.update'],
+    'DELETE:/api/tms/programs/[id]': ['tms.program.delete'],
+    'GET:/api/tms/programs/stats': ['tms.program.view'],
 };
 
 export default withAuth(
@@ -108,7 +222,7 @@ export default withAuth(
         console.log('🔒 Middleware triggered for:', method, pathname);
 
         // Kiểm tra quyền hạn cho API routes
-        if (pathname.startsWith('/api/hr/')) {
+        if (pathname.startsWith('/api/hr/') || pathname.startsWith('/api/org/') || pathname.startsWith('/api/tms/')) {
             const apiKey = `${method}:${pathname}`;
             const requiredPermissions = API_ROUTE_PERMISSIONS[apiKey];
 
@@ -138,7 +252,10 @@ export default withAuth(
 
             if (!hasPermission) {
                 console.log('❌ Access denied - Missing permissions:', requiredPermissions);
-                return NextResponse.redirect(new URL('/hr/dashboard', req.url));
+                console.log('User permissions:', userPermissions);
+                console.log('Required permissions:', requiredPermissions);
+                
+                return NextResponse.redirect(new URL('/auth/signin', req.url));
             }
         }
 
@@ -154,7 +271,9 @@ export default withAuth(
 export const config = {
     matcher: [
         '/api/org/:path*',
+        '/api/tms/:path*',
         '/org/:path*',
+        '/tms/:path*',
         '/dashboard',
         '/employees/:path*',
         '/settings/:path*',

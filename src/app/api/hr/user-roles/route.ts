@@ -3,9 +3,9 @@ import { db } from '@/lib/db';
 
 export async function GET() {
     try {
-        const userRoles = await db.user_role.findMany({
+        const userRoles = await db.UserRole.findMany({
             include: {
-                roles: true,
+                Role: true,
                 users_user_role_user_idTousers: true,
                 users_user_role_assigned_byTousers: true
             },
@@ -15,27 +15,40 @@ export async function GET() {
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedUserRoles = userRoles.map((userRole: any) => ({
+        const serializedUserRoles = userRoles.map((userRole: {
+            id: bigint;
+            user_id: bigint;
+            role_id: bigint;
+            assigned_by?: bigint;
+            Role?: { id: bigint; [key: string]: unknown };
+            users_user_role_user_idTousers?: { id: bigint; [key: string]: unknown };
+            users_user_role_assigned_byTousers?: { id: bigint; [key: string]: unknown };
+            [key: string]: unknown;
+        }) => ({
             ...userRole,
             id: userRole.id.toString(),
             user_id: userRole.user_id.toString(),
             role_id: userRole.role_id.toString(),
             assigned_by: userRole.assigned_by?.toString() || null,
-            roles: userRole.roles ? {
-                ...userRole.roles,
-                id: userRole.roles.id.toString()
+            Role: userRole.Role ? {
+                ...userRole.Role,
+                id: userRole.Role.id.toString()
             } : null,
-            users_user_role_user_idTousers: userRole.users_user_role_user_idTousers ? {
+            users_user_role_user_idToUser: userRole.users_user_role_user_idTousers ? {
                 ...userRole.users_user_role_user_idTousers,
                 id: userRole.users_user_role_user_idTousers.id.toString()
             } : null,
-            users_user_role_assigned_byTousers: userRole.users_user_role_assigned_byTousers ? {
+            users_user_role_assigned_byToUser: userRole.users_user_role_assigned_byTousers ? {
                 ...userRole.users_user_role_assigned_byTousers,
                 id: userRole.users_user_role_assigned_byTousers.id.toString()
             } : null
         }));
 
-        return NextResponse.json({ success: true, data: serializedUserRoles });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedUserRoles }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -60,7 +73,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const userRole = await db.user_role.create({
+        const userRole = await db.UserRole.create({
             data: {
                 user_id: BigInt(user_id),
                 role_id: BigInt(role_id),

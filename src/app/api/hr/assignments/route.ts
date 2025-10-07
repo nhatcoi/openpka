@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
 // Helper function to serialize BigInt to string
-const serializeAssignment = (assignment: any) => {
+const serializeAssignment = (assignment: { id: bigint; [key: string]: unknown }) => {
     if (!assignment) return null;
     return {
         ...assignment,
         id: assignment.id.toString(),
-        employee_id: assignment.employee_id.toString(),
-        org_unit_id: assignment.org_unit_id.toString(),
+        employee_id: assignment.employee_id?.toString() || null,
+        org_unit_id: assignment.org_unit_id?.toString() || null,
         position_id: assignment.position_id?.toString() || null,
         allocation: assignment.allocation.toString(),
     };
@@ -18,35 +18,39 @@ export async function GET() {
     try {
         const assignments = await db.OrgAssignment.findMany({
             include: {
-                employee: {
+                Employee: {
                     include: {
-                        user: true,
+                        User: true,
                     },
                 },
-                org_unit: true,
+                OrgUnit: true,
             },
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedAssignments = assignments.map((assignment: any) => ({
+        const serializedAssignments = assignments.map((assignment: { id: bigint; [key: string]: unknown }) => ({
             ...serializeAssignment(assignment),
-            employee: assignment.employee ? {
-                ...assignment.employee,
-                id: assignment.employee.id.toString(),
-                user_id: assignment.employee.user_id?.toString() || null,
-                user: assignment.employee.user ? {
-                    ...assignment.employee.user,
-                    id: assignment.employee.user.id.toString()
+            Employee: assignment.Employee ? {
+                ...assignment.Employee,
+                id: assignment.Employee.id.toString(),
+                user_id: assignment.Employee.user_id?.toString() || null,
+                User: assignment.Employee.User ? {
+                    ...assignment.Employee.User,
+                    id: assignment.Employee.User.id.toString()
                 } : null
             } : null,
-            org_unit: assignment.org_unit ? {
-                ...assignment.org_unit,
-                id: assignment.org_unit.id.toString(),
-                parent_id: assignment.org_unit.parent_id?.toString() || null,
+            OrgUnit: assignment.OrgUnit ? {
+                ...assignment.OrgUnit,
+                id: assignment.OrgUnit.id.toString(),
+                parent_id: assignment.OrgUnit.parent_id?.toString() || null,
             } : null
         }));
 
-        return NextResponse.json({ success: true, data: serializedAssignments });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedAssignments }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(

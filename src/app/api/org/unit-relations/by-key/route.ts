@@ -1,11 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { OrgUnitRelationRepository } from '@/modules/org/unit-relation/org-unit-relation.repo';
+import { NextRequest } from 'next/server';
+import { withErrorHandling } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
 
-const orgUnitRelationRepo = new OrgUnitRelationRepository();
-
-// GET /api/org-unit-relations/by-key - Get org unit relation by composite key
-export async function GET(request: NextRequest) {
-  try {
+// GET /api/org/unit-relations/by-key - Get org unit relation by composite key
+export const GET = withErrorHandling(
+  async (request: NextRequest): Promise<any> => {
     const { searchParams } = new URL(request.url);
     const parent_id = searchParams.get('parent_id');
     const child_id = searchParams.get('child_id');
@@ -13,41 +12,48 @@ export async function GET(request: NextRequest) {
     const effective_from = searchParams.get('effective_from');
     
     if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Missing required parameters: parent_id, child_id, relation_type, effective_from' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Missing required parameters: parent_id, child_id, relation_type, effective_from');
     }
 
-    const result = await orgUnitRelationService.getById({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from,
+    const relation = await db.orgUnitRelation.findFirst({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: new Date(effective_from),
+      },
+             include: {
+               parent: {
+                 select: {
+                   id: true,
+                   name: true,
+                   code: true,
+                   type: true,
+                 },
+               },
+               child: {
+                 select: {
+                   id: true,
+                   name: true,
+                   code: true,
+                   type: true,
+                 },
+               },
+             } as Record<string, unknown>,
     });
     
-    if (!result.success) {
-      return NextResponse.json(result, { status: 404 });
+    if (!relation) {
+      throw new Error('Relation not found');
     }
     
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return relation;
+  },
+  'fetch org unit relation by key'
+);
 
-// PUT /api/org-unit-relations/by-key - Update org unit relation
-export async function PUT(request: NextRequest) {
-  try {
+// PUT /api/org/unit-relations/by-key - Update org unit relation
+export const PUT = withErrorHandling(
+  async (request: NextRequest): Promise<any> => {
     const { searchParams } = new URL(request.url);
     const parent_id = searchParams.get('parent_id');
     const child_id = searchParams.get('child_id');
@@ -55,43 +61,37 @@ export async function PUT(request: NextRequest) {
     const effective_from = searchParams.get('effective_from');
     
     if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Missing required parameters: parent_id, child_id, relation_type, effective_from' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Missing required parameters: parent_id, child_id, relation_type, effective_from');
     }
 
     const body = await request.json();
+    const { effective_to, description } = body;
     
-    const result = await orgUnitRelationService.update({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from,
-    }, body);
+    const updatedRelation = await db.orgUnitRelation.updateMany({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: new Date(effective_from),
+      },
+      data: {
+        effective_to: effective_to ? new Date(effective_to) : null,
+        note: description || null,
+      }
+    });
     
-    if (!result.success) {
-      return NextResponse.json(result, { status: 400 });
+    if (updatedRelation.count === 0) {
+      throw new Error('Relation not found');
     }
     
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return { message: 'Relation updated successfully', count: updatedRelation.count };
+  },
+  'update org unit relation by key'
+);
 
-// DELETE /api/org-unit-relations/by-key - Delete org unit relation
-export async function DELETE(request: NextRequest) {
-  try {
+// DELETE /api/org/unit-relations/by-key - Delete org unit relation
+export const DELETE = withErrorHandling(
+  async (request: NextRequest): Promise<any> => {
     const { searchParams } = new URL(request.url);
     const parent_id = searchParams.get('parent_id');
     const child_id = searchParams.get('child_id');
@@ -99,35 +99,22 @@ export async function DELETE(request: NextRequest) {
     const effective_from = searchParams.get('effective_from');
     
     if (!parent_id || !child_id || !relation_type || !effective_from) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Missing required parameters: parent_id, child_id, relation_type, effective_from' 
-        },
-        { status: 400 }
-      );
+      throw new Error('Missing required parameters: parent_id, child_id, relation_type, effective_from');
     }
 
-    const result = await orgUnitRelationService.delete({
-      parent_id,
-      child_id,
-      relation_type,
-      effective_from,
+    const deletedRelation = await db.orgUnitRelation.deleteMany({
+      where: {
+        parent_id: BigInt(parent_id),
+        child_id: BigInt(child_id),
+        relation_type: relation_type as any,
+        effective_from: new Date(effective_from),
+      }
     });
     
-    if (!result.success) {
-      return NextResponse.json(result, { status: 400 });
-    }
-    
-    return NextResponse.json(result);
-  } catch (error) {
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return deletedRelation.count === 0
+      ? { message: 'No relation found to delete', count: 0 }
+      : { message: 'Relation deleted successfully', count: deletedRelation.count };
+  },
+  'delete org unit relation by key'
+);
 

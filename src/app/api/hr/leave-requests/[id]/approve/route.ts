@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 
 // POST /api/hr/leave-requests/[id]/approve - Duyệt đơn xin nghỉ
 export async function POST(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
+        if (!session?.User?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const leaveRequestId = BigInt(params.id);
+        const leaveRequestId = BigInt(resolvedParams.id);
         const body = await request.json();
         const { action, comment } = body; // action: 'APPROVED' hoặc 'REJECTED'
 
@@ -23,22 +24,22 @@ export async function POST(
         }
 
         // Lấy đơn xin nghỉ hiện tại
-        const currentRequest = await db.leave_requests.findUnique({
+        const currentRequest = await db.LeaveRequest.findUnique({
             where: { id: leaveRequestId },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: {
+                        User: {
                             select: {
                                 id: true,
                                 full_name: true,
                                 email: true
                             }
                         },
-                        assignments: {
+                        OrgAssignment: {
                             include: {
-                                org_unit: true,
-                                job_positions: true
+                                OrgUnit: true,
+                                JobPosition: true
                             }
                         }
                     }
@@ -55,15 +56,15 @@ export async function POST(
         }
 
         // Kiểm tra quyền duyệt
-        const currentUser = await db.users.findUnique({
+        const currentUser = await db.User.findUnique({
             where: { id: BigInt(session.user.id) },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        assignments: {
+                        OrgAssignment: {
                             include: {
-                                org_unit: true,
-                                job_positions: true
+                                OrgUnit: true,
+                                JobPosition: true
                             }
                         }
                     }
@@ -71,7 +72,7 @@ export async function POST(
             }
         });
 
-        if (!currentUser?.employees?.[0]) {
+        if (!currentUser?.Employee?.[0]) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
@@ -88,16 +89,16 @@ export async function POST(
         }
 
         // Cập nhật trạng thái đơn xin nghỉ
-        const updatedRequest = await db.leave_requests.update({
+        const updatedRequest = await db.LeaveRequest.update({
             where: { id: leaveRequestId },
             data: {
                 status: action,
                 updated_at: new Date()
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: {
+                        User: {
                             select: {
                                 id: true,
                                 full_name: true,
@@ -110,7 +111,7 @@ export async function POST(
         });
 
         // Tạo lịch sử duyệt trong employee_log
-        await db.employee_log.create({
+        await db.EmployeeLog.create({
             data: {
                 employee_id: currentRequest.employee_id,
                 action: 'UPDATE',
@@ -127,11 +128,11 @@ export async function POST(
             ...updatedRequest,
             id: updatedRequest.id.toString(),
             employee_id: updatedRequest.employee_id.toString(),
-            employees: {
+            Employee: {
                 ...updatedRequest.employees,
                 id: updatedRequest.employees.id.toString(),
                 user_id: updatedRequest.employees.user_id.toString(),
-                user: {
+                User: {
                     ...updatedRequest.employees.user,
                     id: updatedRequest.employees.user.id.toString()
                 }
@@ -147,7 +148,7 @@ export async function POST(
 }
 
 // Helper function để kiểm tra quyền duyệt
-async function checkApprovalPermission(supervisor: any, employee: any): Promise<boolean> {
+async function checkApprovalPermission(supervisor: { id: string; [key: string]: unknown }, Employee: { id: string; [key: string]: unknown }): Promise<boolean> {
     // Logic kiểm tra quyền duyệt
     // Có thể dựa vào:
     // 1. Org unit hierarchy (supervisor ở cấp cao hơn)

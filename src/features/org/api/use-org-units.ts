@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetcher, queryKeys } from '@/lib/fetcher';
+import { fetcher, queryKeys } from '@/lib/api/fetcher';
 
 export interface Employee {
   id: string;
@@ -32,7 +32,17 @@ export interface OrgUnit {
 
 export interface OrgUnitsResponse {
   success: boolean;
-  data: OrgUnit[];
+  data: {
+    items: OrgUnit[];
+    pagination: {
+      page: number;
+      size: number;
+      total: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPrevPage: boolean;
+    };
+  };
 }
 
 
@@ -74,7 +84,9 @@ export function useOrgUnits(params?: {
       const response = await fetcher<OrgUnitsResponse>(url);
       console.log('API Response:', response);
       console.log('Response data:', response.data);
-      console.log('Response data length:', response.data?.length);
+      console.log('Response items:', response.data?.items);
+      console.log('Response items length:', response.data?.items?.length);
+      console.log('Response pagination:', response.data?.pagination);
       return response; // Return full response with pagination info
     },
     staleTime: 0, // No cache for debugging
@@ -88,8 +100,9 @@ export function useParentUnits() {
   return useQuery({
     queryKey: ['org', 'parent-units'],
     queryFn: async () => {
-      const response = await fetcher<OrgUnitsResponse>('/org/units?status=active&size=100&sort=name&order=asc');
-      return response || [];
+      const response = await fetcher<OrgUnitsResponse>('/org/units?status=ACTIVE&size=100&sort=name&order=asc');
+      console.log('Parent units response:', response);
+      return response;
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     refetchOnWindowFocus: false,

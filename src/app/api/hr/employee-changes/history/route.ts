@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { serializeBigIntArray } from '@/utils/serialize';
 
@@ -23,15 +23,15 @@ export async function GET(request: NextRequest) {
         const offset = (page - 1) * limit;
 
         // Lấy thông tin user hiện tại
-        const currentUser = await db.users.findUnique({
+        const currentUser = await db.User.findUnique({
             where: { id: BigInt(session.user.id) },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        assignments: {
+                        OrgAssignment: {
                             include: {
-                                org_unit: true,
-                                job_positions: true
+                                OrgUnit: true,
+                                JobPosition: true
                             }
                         }
                     }
@@ -39,15 +39,15 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        if (!currentUser?.employees?.[0]) {
+        if (!currentUser?.Employee?.[0]) {
             return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
         }
 
-        const currentEmployee = currentUser.employees[0];
+        const currentEmployee = currentUser.Employee[0];
         // Tạm thời set isAdmin = true để test
         const isAdmin = true;
 
-        let whereClause: any = {};
+        let whereClause: { [key: string]: unknown } = {};
 
         // Nếu không phải admin, chỉ xem được lịch sử của mình hoặc nhân viên trong đơn vị
         if (!isAdmin) {
@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
                 const targetEmployee = await db.Employee.findUnique({
                     where: { id: BigInt(employeeId) },
                     include: {
-                        assignments: {
+                        OrgAssignment: {
                             include: {
-                                org_unit: true
+                                OrgUnit: true
                             }
                         }
                     }
@@ -103,27 +103,27 @@ export async function GET(request: NextRequest) {
         }
 
         const [employeeLogs, total] = await Promise.all([
-            db.employee_log.findMany({
+            db.EmployeeLog.findMany({
                 where: whereClause,
                 include: {
-                    employees: {
+                    Employee: {
                         include: {
-                            user: {
+                            User: {
                                 select: {
                                     id: true,
                                     full_name: true,
                                     email: true
                                 }
                             },
-                            assignments: {
+                            OrgAssignment: {
                                 include: {
-                                    org_unit: true,
-                                    job_positions: true
+                                    OrgUnit: true,
+                                    JobPosition: true
                                 }
                             }
                         }
                     },
-                    users: {
+                    User: {
                         select: {
                             id: true,
                             full_name: true
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
                 skip: offset,
                 take: limit
             }),
-            db.employee_log.count({ where: whereClause })
+            db.EmployeeLog.count({ where: whereClause })
         ]);
 
         // Serialize BigInt fields

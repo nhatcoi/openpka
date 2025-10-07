@@ -4,17 +4,18 @@ import { db } from '@/lib/db';
 // GET - Lấy thông tin hợp đồng lao động theo ID
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const employment = await db.employments.findUnique({
+        const resolvedParams = await params;
+        const employment = await db.Employment.findUnique({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -33,11 +34,11 @@ export async function GET(
                 ...employment,
                 id: employment.id.toString(),
                 employee_id: employment.employee_id.toString(),
-                employees: employment.employees ? {
+                Employee: employment.employees ? {
                     ...employment.employees,
                     id: employment.employees.id.toString(),
                     user_id: employment.employees.user_id?.toString() || null,
-                    user: employment.employees.user ? {
+                    User: employment.employees.user ? {
                         ...employment.employees.user,
                         id: employment.employees.user.id.toString()
                     } : null
@@ -59,9 +60,10 @@ export async function GET(
 // PUT - Cập nhật hợp đồng lao động
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const body = await request.json();
         const { contract_no, contract_type, start_date, end_date, fte, salary_band } = body;
 
@@ -72,9 +74,9 @@ export async function PUT(
             );
         }
 
-        const employment = await db.employments.update({
+        const employment = await db.Employment.update({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             },
             data: {
                 contract_no,
@@ -85,9 +87,9 @@ export async function PUT(
                 salary_band
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -99,11 +101,11 @@ export async function PUT(
                 ...employment,
                 id: employment.id.toString(),
                 employee_id: employment.employee_id.toString(),
-                employees: employment.employees ? {
+                Employee: employment.employees ? {
                     ...employment.employees,
                     id: employment.employees.id.toString(),
                     user_id: employment.employees.user_id?.toString() || null,
-                    user: employment.employees.user ? {
+                    User: employment.employees.user ? {
                         ...employment.employees.user,
                         id: employment.employees.user.id.toString()
                     } : null
@@ -125,12 +127,14 @@ export async function PUT(
 // DELETE - Xóa hợp đồng lao động
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        await db.employments.delete({
+        const resolvedParams = await params;
+    DELETE
+        await db.Employment.delete({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             }
         });
 

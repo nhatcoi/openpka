@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { API_ROUTES } from '@/constants/routes';
+import { buildUrl } from '@/lib/api/api-handler';
 import {
   Box,
   Typography,
@@ -35,7 +37,7 @@ import {
   Person as PersonIcon,
   Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import { orgApi, type OrgUnitHistory } from '@/features/org/api/api';
+import { type OrgUnitHistory } from '@/features/org/api/api';
 
 interface HistoryTabProps {
   unitId: string;
@@ -102,7 +104,7 @@ export default function HistoryTab({ unitId }: HistoryTabProps) {
   });
 
   // State for history data
-  const [historyResponse, setHistoryResponse] = useState<any>(null);
+  const [historyResponse, setHistoryResponse] = useState<{ [key: string]: unknown } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,16 +114,18 @@ export default function HistoryTab({ unitId }: HistoryTabProps) {
       setLoading(true);
       setError(null);
       
-      const response = await orgApi.history.getByOrgUnitId(unitId, {
-        change_type: filters.change_type || undefined,
+      const response = await fetch(buildUrl(API_ROUTES.ORG.HISTORY, {
+        org_unit_id: unitId,
         page: filters.page,
         size: filters.size,
         sort: 'changed_at',
         order: 'desc',
-      });
+        ...(filters.change_type && { change_type: filters.change_type }),
+      }));
+      const data = await response.json();
       
-      if (response.success) {
-        setHistoryResponse(response.data);
+      if (data.success) {
+        setHistoryResponse(data.data);
       } else {
         setError('Failed to fetch history');
       }

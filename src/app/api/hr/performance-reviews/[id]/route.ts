@@ -4,17 +4,18 @@ import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const reviewId = params.id;
+        const resolvedParams = await params;
+        const reviewId = resolvedParams.id;
 
-        const performanceReview = await db.performance_reviews.findUnique({
-            where: { id: reviewId as any },
+        const performanceReview = await db.PerformanceReview.findUnique({
+            where: { id: BigInt(reviewId) },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -30,13 +31,13 @@ export async function GET(
             id: performanceReview.id.toString(),
             employee_id: performanceReview.employee_id.toString(),
             score: performanceReview.score?.toString() || null,
-            employees: performanceReview.employees ? {
-                ...performanceReview.employees,
-                id: performanceReview.employees.id.toString(),
-                user_id: performanceReview.employees.user_id.toString(),
-                user: performanceReview.employees.user ? {
-                    ...performanceReview.employees.user,
-                    id: performanceReview.employees.user.id.toString()
+            Employee: performanceReview.Employee ? {
+                ...performanceReview.Employee,
+                id: performanceReview.Employee.id.toString(),
+                user_id: performanceReview.Employee.user_id.toString(),
+                User: performanceReview.Employee.User ? {
+                    ...performanceReview.Employee.User,
+                    id: performanceReview.Employee.User.id.toString()
                 } : null
             } : null
         };
@@ -56,10 +57,11 @@ export async function GET(
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const reviewId = params.id;
+        const resolvedParams = await params;
+        const reviewId = resolvedParams.id;
         const body = await request.json();
         const {
             review_period,
@@ -68,21 +70,21 @@ export async function PUT(
         } = body;
 
         // Get old data for logging
-        const oldReview = await db.performance_reviews.findUnique({
-            where: { id: reviewId as any },
+        const oldReview = await db.PerformanceReview.findUnique({
+            where: { id: BigInt(reviewId) },
         });
 
-        const performanceReview = await db.performance_reviews.update({
-            where: { id: reviewId as any },
+        const performanceReview = await db.PerformanceReview.update({
+            where: { id: BigInt(reviewId) },
             data: {
                 review_period,
                 score: score ? parseFloat(score) : null,
                 comments,
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -94,13 +96,13 @@ export async function PUT(
             id: performanceReview.id.toString(),
             employee_id: performanceReview.employee_id.toString(),
             score: performanceReview.score?.toString() || null,
-            employees: performanceReview.employees ? {
-                ...performanceReview.employees,
-                id: performanceReview.employees.id.toString(),
-                user_id: performanceReview.employees.user_id.toString(),
-                user: performanceReview.employees.user ? {
-                    ...performanceReview.employees.user,
-                    id: performanceReview.employees.user.id.toString()
+            Employee: performanceReview.Employee ? {
+                ...performanceReview.Employee,
+                id: performanceReview.Employee.id.toString(),
+                user_id: performanceReview.Employee.user_id.toString(),
+                User: performanceReview.Employee.User ? {
+                    ...performanceReview.Employee.User,
+                    id: performanceReview.Employee.User.id.toString()
                 } : null
             } : null
         };
@@ -137,18 +139,19 @@ export async function PUT(
 
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const reviewId = params.id;
+        const resolvedParams = await params;
+        const reviewId = resolvedParams.id;
 
         // Get old data for logging
-        const oldReview = await db.performance_reviews.findUnique({
-            where: { id: reviewId as any },
+        const oldReview = await db.PerformanceReview.findUnique({
+            where: { id: BigInt(reviewId) },
         });
 
-        await db.performance_reviews.delete({
-            where: { id: reviewId as any }
+        await db.PerformanceReview.delete({
+            where: { id: BigInt(reviewId) }
         });
 
         // Log the deletion activity

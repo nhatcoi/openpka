@@ -97,12 +97,12 @@ export default function EditEmployeePage() {
                     status: emp.status || 'ACTIVE',
                     hired_at: emp.hired_at ? emp.hired_at.split('T')[0] : '',
                     terminated_at: emp.terminated_at ? emp.terminated_at.split('T')[0] : '',
-                    full_name: emp.user?.full_name || '',
-                    email: emp.user?.email || '',
-                    phone: emp.user?.phone || '',
-                    address: emp.user?.address || '',
-                    dob: emp.user?.dob ? emp.user.dob.split('T')[0] : '',
-                    gender: emp.user?.gender || '',
+                    full_name: emp.User?.full_name || '',
+                    email: emp.User?.email || '',
+                    phone: emp.User?.phone || '',
+                    address: emp.User?.address || '',
+                    dob: emp.User?.dob ? emp.User.dob.split('T')[0] : '',
+                    gender: emp.User?.gender || '',
                     new_password: ''
                 });
             } else {
@@ -153,14 +153,14 @@ export default function EditEmployeePage() {
 
             // Update user data if there are changes or new password
             if (formData.new_password ||
-                formData.full_name !== employee?.user?.full_name ||
-                formData.email !== employee?.user?.email ||
-                formData.phone !== employee?.user?.phone ||
-                formData.address !== employee?.user?.address ||
-                formData.dob !== (employee?.user?.dob ? employee.user.dob.split('T')[0] : '') ||
-                formData.gender !== employee?.user?.gender) {
+                formData.full_name !== employee?.User?.full_name ||
+                formData.email !== employee?.User?.email ||
+                formData.phone !== employee?.User?.phone ||
+                formData.address !== employee?.User?.address ||
+                formData.dob !== (employee?.User?.dob ? employee.User.dob.split('T')[0] : '') ||
+                formData.gender !== employee?.User?.gender) {
 
-                const userResponse = await fetch(API_ROUTES.HR.USERS_BY_ID(employee?.user?.id || ''), {
+                const userResponse = await fetch(API_ROUTES.HR.USERS_BY_ID(employee?.User?.id || ''), {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json',

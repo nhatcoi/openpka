@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { getToken } from 'next-auth/jwt';
 
 export async function GET() {
@@ -28,12 +28,12 @@ export async function GET() {
       whereClause = {};
     } else if (isDeanOrManager && currentUserId) {
       // Dean/Manager should see employees in their organizational scope
-      const currentUserEmployee = await db.Employee.findFirst({
+      const currentUserEmployee = await db.employee.findFirst({
         where: { user_id: currentUserId },
         include: {
-          assignments: {
+          OrgAssignment: {
             include: {
-              org_unit: true
+              OrgUnit: true
             }
           }
         }
@@ -44,7 +44,7 @@ export async function GET() {
         const userOrgUnitIds = currentUserEmployee.assignments.map(a => a.org_unit_id);
 
         // Find all sub-units of user's org units
-        const subOrgUnits = await db.org_units.findMany({
+        const subOrgUnits = await db.OrgUnit.findMany({
           where: {
             parent_id: { in: userOrgUnitIds }
           }
@@ -57,7 +57,7 @@ export async function GET() {
 
         // Filter employees to only those in user's organizational scope
         whereClause = {
-          assignments: {
+          OrgAssignment: {
             some: {
               org_unit_id: { in: allOrgUnitIds }
             }
@@ -72,46 +72,46 @@ export async function GET() {
       whereClause = { user_id: currentUserId };
     }
 
-    const employees = await db.Employee.findMany({
+    const employees = await db.employee.findMany({
       where: whereClause,
       include: {
-        user: true,
-        assignments: {
+        User: true,
+        OrgAssignment: {
           include: {
-            org_unit: true,
-            job_positions: true
+            OrgUnit: true,
+            JobPosition: true
           }
         }
       },
     });
 
     // Convert BigInt to string for JSON serialization
-    const serializedEmployees = employees.map((employee: any) => ({
+    const serializedEmployees = employees.map((employee: { id: bigint; [key: string]: unknown }) => ({
       ...employee,
       id: employee.id.toString(),
       user_id: employee.user_id?.toString() || null,
       created_at: employee.created_at?.toString() || null,
       updated_at: employee.updated_at?.toString() || null,
-      user: employee.user ? {
-        ...employee.user,
-        id: employee.user.id.toString(),
-        created_at: employee.user.created_at?.toString() || null,
-        updated_at: employee.user.updated_at?.toString() || null
+      User: employee.User ? {
+        ...employee.User,
+        id: employee.User.id.toString(),
+        created_at: employee.User.created_at?.toString() || null,
+        updated_at: employee.User.updated_at?.toString() || null
       } : null,
-      assignments: employee.assignments?.map((assignment: any) => ({
+      OrgAssignment: employee.OrgAssignment?.map((assignment: { id: bigint; [key: string]: unknown }) => ({
         ...assignment,
         id: assignment.id.toString(),
-        employee_id: assignment.employee_id.toString(),
-        org_unit_id: assignment.org_unit_id.toString(),
+        employee_id: assignment.employee_id?.toString() || null,
+        org_unit_id: assignment.org_unit_id?.toString() || null,
         position_id: assignment.position_id?.toString() || null,
         allocation: assignment.allocation?.toString() || null,
         created_at: assignment.created_at?.toString() || null,
         updated_at: assignment.updated_at?.toString() || null,
-        org_unit: assignment.org_unit ? {
-          ...assignment.org_unit,
-          id: assignment.org_unit.id.toString()
+        OrgUnit: assignment.OrgUnit ? {
+          ...assignment.OrgUnit,
+          id: assignment.OrgUnit.id.toString()
         } : null,
-        job_positions: assignment.job_positions ? {
+        JobPosition: assignment.job_positions ? {
           ...assignment.job_positions,
           id: assignment.job_positions.id.toString()
         } : null
@@ -154,9 +154,9 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const currentUserId = session?.user?.id ? BigInt(session.user.id) : undefined;
 
-    const employee = await db.Employee.create({
+    const employee = await db.employee.create({
       data: {
-        user: user_id ? { connect: { id: BigInt(user_id) } } : undefined,
+        User: user_id ? { connect: { id: BigInt(user_id) } } : undefined,
         employee_no,
         employment_type,
         status,
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     const serializedEmployee = {
       ...employee,
       id: employee.id.toString(),
-      user_id: employee.user_id?.toString() || null,
+      user_id: employee.User_id?.toString() || null,
     };
 
     // Log the creation activity

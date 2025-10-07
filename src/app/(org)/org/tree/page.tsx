@@ -21,24 +21,45 @@ import {
 } from '@mui/icons-material';
 import { OrgTreeNode } from '@/components/OrgTreeNode';
 import { buildTree } from '@/utils/tree-utils';
-import { orgApi, type OrgUnit } from '@/features/org/api/api';
+import { API_ROUTES } from '@/constants/routes';
+import { buildUrl } from '@/lib/api/api-handler';
 
+interface OrgUnit {
+  id: string;
+  parent_id: string | null;
+  type: string | null;
+  code: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  description: string | null;
+  status: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  campus_id?: string | null;
+}
 
 export default function OrgTreePage() {
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch org units data
   const fetchOrgUnitsData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const response = await orgApi.units.getForTree();
+      const response = await fetch(buildUrl(API_ROUTES.ORG.UNITS, {
+        status: 'ACTIVE',
+        page: 1,
+        size: 1000
+      }));
+
+
+      const result = await response.json();
       
-      if (response.success) {
-        setOrgUnits(response.data || []);
+      if (result.success) {
+        setOrgUnits(result.data.items || []);
       } else {
         setError('Failed to fetch org units');
       }
@@ -49,12 +70,10 @@ export default function OrgTreePage() {
     }
   };
 
-  // Fetch data on mount
   React.useEffect(() => {
     fetchOrgUnitsData();
   }, []);
 
-  // Refresh function
   const refetch = () => {
     fetchOrgUnitsData();
   };
@@ -62,7 +81,6 @@ export default function OrgTreePage() {
 
 
   // Build cấu trúc cây từ mảng flat
-  // Convert string IDs to numbers for buildTree function
   const normalizedOrgUnits = orgUnits.map(unit => ({
     ...unit,
     id: parseInt(unit.id, 10),
@@ -71,14 +89,11 @@ export default function OrgTreePage() {
 
   const treeData = buildTree(normalizedOrgUnits);
 
-  // Convert back to string IDs for OrgTreeNode component
   const convertedTreeData = treeData.map(unit => ({
     ...unit,
     id: unit.id.toString(),
     parent_id: unit.parent_id?.toString() || null,
   }));
-
-  console.log("convertedTreeData", convertedTreeData);
 
   return (
     <Box>

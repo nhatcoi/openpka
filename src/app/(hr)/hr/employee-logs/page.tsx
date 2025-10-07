@@ -406,16 +406,16 @@ export default function EmployeeLogsPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Typography variant="body2">
-                                        {log.employees?.user?.full_name || 'N/A'}
+                                        {log.Employee?.User?.full_name || 'N/A'}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        {log.employees?.employee_no || log.employee_id}
+                                        {log.Employee?.employee_no || log.employee_id}
                                     </Typography>
                                 </TableCell>
                                 <TableCell>
                                     <Chip
                                         label={log.action}
-                                        color={ACTION_COLORS[log.action as keyof typeof ACTION_COLORS] as any || 'default'}
+                                        color={ACTION_COLORS[log.action as keyof typeof ACTION_COLORS] as string || 'default'}
                                         variant="outlined"
                                         size="small"
                                     />
@@ -432,11 +432,11 @@ export default function EmployeeLogsPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Typography variant="body2">
-                                        {log.users?.full_name || 'N/A'}
+                                        {log.User?.full_name || 'N/A'}
                                     </Typography>
-                                    {log.users && (
+                                    {log.User && (
                                         <Typography variant="caption" color="text.secondary">
-                                            @{log.users.username}
+                                            @{log.User.username}
                                         </Typography>
                                     )}
                                 </TableCell>

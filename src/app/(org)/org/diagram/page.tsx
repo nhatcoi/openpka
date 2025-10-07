@@ -21,9 +21,25 @@ import {
   Business as BusinessIcon,
   People as PeopleIcon,
 } from '@mui/icons-material';
-import { orgApi, type OrgUnit } from '@/features/org/api/api';
+import { API_ROUTES } from '@/constants/routes';
+import { buildUrl } from '@/lib/api/api-handler';
 import { buildTree } from '@/utils/tree-utils';
 import { useRouter } from 'next/navigation';
+
+interface OrgUnit {
+  id: string;
+  parent_id: string | null;
+  type: string | null;
+  code: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  description: string | null;
+  status: string | null;
+  effective_from: string | null;
+  effective_to: string | null;
+  campus_id?: string | null;
+}
 
 interface OrgTreeNode {
   id: string;
@@ -48,10 +64,15 @@ export default function OrgDiagramPage() {
       setLoading(true);
       setError(null);
       
-      const response = await orgApi.units.getForTree();
+      const response = await fetch(buildUrl(API_ROUTES.ORG.UNITS, {
+        status: 'ACTIVE',
+        page: 1,
+        size: 1000
+      }));
+      const result = await response.json();
       
-      if (response.success) {
-        const data = response.data || [];
+      if (result.success) {
+        const data = result.data.items || [];
         setOrgUnits(data);
         
         // Build tree structure for diagram
@@ -68,7 +89,7 @@ export default function OrgDiagramPage() {
           ...unit,
           id: unit.id.toString(),
           parent_id: unit.parent_id?.toString() || null,
-          children: (unit as any).children || [],
+          children: (unit as { children?: unknown[] }).children || [],
         }));
         
         setTreeData(convertedTree);

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -62,7 +62,7 @@ interface Employee {
     status: string | null;
     hired_at: string | null;
     terminated_at: string | null;
-    user: User | null;
+    User: User | null;
 }
 
 interface PerformanceReview {
@@ -73,10 +73,10 @@ interface PerformanceReview {
     comments: string | null;
     created_at: string;
     updated_at: string;
-    employees: Employee | null;
+    Employee: Employee | null;
 }
 
-export default function PerformanceReviewsPage() {
+function PerformanceReviewsPageContent() {
     const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -303,7 +303,7 @@ export default function PerformanceReviewsPage() {
                                 const employee = employees.find(emp => emp.id === employeeId);
                                 return (
                                     <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
-                                        Lịch sử đánh giá của: <strong>{employee?.user?.full_name || 'N/A'}</strong>
+                                        Lịch sử đánh giá của: <strong>{employee?.User?.full_name || 'N/A'}</strong>
                                     </Typography>
                                 );
                             }
@@ -311,13 +311,13 @@ export default function PerformanceReviewsPage() {
                         })()}
                     </Box>
                 </Box>
-                <Button
+                {/* <Button
                     variant="contained"
                     startIcon={<AddIcon />}
                     onClick={() => setOpenDialog(true)}
                 >
                     Thêm đánh giá
-                </Button>
+                </Button> */}
             </Box>
 
             <TableContainer component={Paper}>
@@ -329,7 +329,7 @@ export default function PerformanceReviewsPage() {
                             <TableCell>Điểm số</TableCell>
                             <TableCell>Nhận xét</TableCell>
                             <TableCell>Ngày tạo</TableCell>
-                            <TableCell>Thao tác</TableCell>
+                            {/* <TableCell>Thao tác</TableCell> */}
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -338,14 +338,14 @@ export default function PerformanceReviewsPage() {
                                 <TableCell>
                                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                         <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                                            {review.employees?.user?.full_name?.charAt(0) || 'N/A'}
+                                            {review.Employee?.User?.full_name?.charAt(0) || 'N/A'}
                                         </Avatar>
                                         <Box>
                                             <Typography variant="body2" fontWeight="medium">
-                                                {review.employees?.user?.full_name || 'N/A'}
+                                                {review.Employee?.User?.full_name || 'N/A'}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
-                                                {review.employees?.employee_no || 'N/A'}
+                                                {review.Employee?.employee_no || 'N/A'}
                                             </Typography>
                                         </Box>
                                     </Box>
@@ -388,7 +388,7 @@ export default function PerformanceReviewsPage() {
                                 <TableCell>
                                     {new Date(review.created_at).toLocaleDateString('vi-VN')}
                                 </TableCell>
-                                <TableCell>
+                                {/* <TableCell>
                                     <IconButton
                                         size="small"
                                         color="primary"
@@ -405,7 +405,7 @@ export default function PerformanceReviewsPage() {
                                     <IconButton
                                         size="small"
                                         color="error"
-                                        onClick={() => handleDelete(review.id, review.employees?.user?.full_name || 'N/A')}
+                                        onClick={() => handleDelete(review.id, review.Employee?.User?.full_name || 'N/A')}
                                         disabled={actionLoading === `delete-${review.id}`}
                                         title="Xóa đánh giá"
                                     >
@@ -415,7 +415,7 @@ export default function PerformanceReviewsPage() {
                                             <DeleteIcon />
                                         )}
                                     </IconButton>
-                                </TableCell>
+                                </TableCell> */}
                             </TableRow>
                         ))}
                     </TableBody>
@@ -431,13 +431,13 @@ export default function PerformanceReviewsPage() {
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                         Hãy thêm đánh giá đầu tiên cho nhân viên
                     </Typography>
-                    <Button
+                    {/* <Button
                         variant="contained"
                         startIcon={<AddIcon />}
                         onClick={() => setOpenDialog(true)}
                     >
                         Thêm đánh giá
-                    </Button>
+                    </Button> */}
                 </Box>
             )}
 
@@ -458,7 +458,7 @@ export default function PerformanceReviewsPage() {
                                 >
                                     {employees.map((employee) => (
                                         <MenuItem key={employee.id} value={employee.id}>
-                                            {employee.user?.full_name} ({employee.employee_no})
+                                            {employee.User?.full_name} ({employee.employee_no})
                                         </MenuItem>
                                     ))}
                                 </Select>
@@ -509,5 +509,14 @@ export default function PerformanceReviewsPage() {
                 </form>
             </Dialog>
         </Box>
+    );
+}
+
+
+export default function PerformanceReviewsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <PerformanceReviewsPageContent />
+        </Suspense>
     );
 }

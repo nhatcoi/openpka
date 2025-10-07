@@ -1,40 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { HistoryRepository } from '@/modules/org/history/history.repo';
-
-const historyRepo = new HistoryRepository();
+import { NextRequest } from 'next/server';
+import { withIdParam } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
 
 // GET /api/org/history/[id]
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const id = parseInt(params.id, 10);
+export const GET = withIdParam(
+  async (id: string) => {
+    const historyId = parseInt(id, 10);
     
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Invalid history ID' 
-        },
-        { status: 400 }
-      );
+    if (isNaN(historyId)) {
+      throw new Error('Invalid history ID');
     }
     
-    // Call repository
-    const result = await historyRepo.findById(id);
-    
-    return NextResponse.json(result, { 
-      status: result.success ? 200 : (result.error?.includes('not found') ? 404 : 500)
+    // Find history record directly with Prisma
+    const history = await db.orgUnitHistory.findUnique({
+      where: { id: historyId },
     });
-  } catch (error) {
-    console.error('History route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Invalid request parameters' 
-      },
-      { status: 400 }
-    );
-  }
-}
+    
+    if (!history) {
+      throw new Error('History record not found');
+    }
+    
+    return history;
+  },
+  'fetch history record'
+);

@@ -157,7 +157,7 @@ export default function RolePermissionsPage() {
     };
 
     const handleDelete = async (rolePermission: RolePermission) => {
-        if (!confirm(`Bạn có chắc chắn muốn xóa tất cả phân quyền của vai trò "${rolePermission.roles.name}"?`)) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa tất cả phân quyền của vai trò "${rolePermission.Role.name}"?`)) {
             return;
         }
 
@@ -211,11 +211,11 @@ export default function RolePermissionsPage() {
         const roleId = rolePermission.role_id;
         if (!acc[roleId]) {
             acc[roleId] = {
-                role: rolePermission.roles,
+                role: rolePermission.Role,
                 permissions: []
             };
         }
-        acc[roleId].permissions.push(rolePermission.permissions);
+        acc[roleId].permissions.push(rolePermission.Permission);
         return acc;
     }, {} as Record<string, { role: Role; permissions: Permission[] }>);
 

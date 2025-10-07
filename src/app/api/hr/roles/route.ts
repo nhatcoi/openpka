@@ -3,16 +3,17 @@ import { db } from '@/lib/db';
 
 export async function GET() {
     try {
-        const roles = await db.roles.findMany({
+        const roles = await db.Role.findMany({
             include: {
-                role_permission: {
+                RolePermission: {
                     include: {
-                        permissions: true
+                        Permission: true
                     }
                 },
-                user_role: {
+                UserRole: {
                     include: {
-                        users_user_role_user_idTousers: true
+                        users_user_role_user_idTousers: true,
+                        users_user_role_assigned_byTousers: true
                     }
                 }
             },
@@ -22,21 +23,40 @@ export async function GET() {
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedRoles = roles.map((role: any) => ({
+        const serializedRoles = roles.map((role: { 
+            id: bigint; 
+            RolePermission?: Array<{
+                id: bigint;
+                role_id: bigint;
+                permission_id: bigint;
+                granted_by?: bigint;
+                Permission?: { id: bigint; [key: string]: unknown };
+                [key: string]: unknown;
+            }>; 
+            UserRole?: Array<{
+                id: bigint;
+                user_id: bigint;
+                role_id: bigint;
+                assigned_by?: bigint;
+                users_user_role_user_idTousers?: { id: bigint; [key: string]: unknown };
+                [key: string]: unknown;
+            }>; 
+            [key: string]: unknown 
+        }) => ({
             ...role,
             id: role.id.toString(),
-            role_permission: role.role_permission?.map((rp: any) => ({
+            RolePermission: role.RolePermission?.map((rp) => ({
                 ...rp,
                 id: rp.id.toString(),
                 role_id: rp.role_id.toString(),
                 permission_id: rp.permission_id.toString(),
                 granted_by: rp.granted_by?.toString() || null,
-                permissions: rp.permissions ? {
-                    ...rp.permissions,
-                    id: rp.permissions.id.toString()
+                Permission: rp.Permission ? {
+                    ...rp.Permission,
+                    id: rp.Permission.id.toString()
                 } : null
             })) || [],
-            user_role: role.user_role?.map((ur: any) => ({
+            UserRole: role.UserRole?.map((ur) => ({
                 ...ur,
                 id: ur.id.toString(),
                 user_id: ur.user_id.toString(),
@@ -49,7 +69,11 @@ export async function GET() {
             })) || []
         }));
 
-        return NextResponse.json({ success: true, data: serializedRoles });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedRoles }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -74,7 +98,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const role = await db.roles.create({
+        const role = await db.Role.create({
             data: {
                 name,
                 description,

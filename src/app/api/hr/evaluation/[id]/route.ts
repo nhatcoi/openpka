@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { serializeBigInt } from '@/utils/serialize';
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const session = await getServerSession(authOptions);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const evaluationId = params.id;
+        const evaluationId = resolvedParams.id;
         const { searchParams } = new URL(request.url);
         const token = searchParams.get('token');
 
         // Get evaluation record
-        const evaluation = await db.performance_reviews.findUnique({
+        const evaluation = await db.PerformanceReview.findUnique({
             where: {
                 id: BigInt(evaluationId)
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -64,27 +65,28 @@ export async function GET(
 
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const session = await getServerSession(authOptions);
         if (!session?.user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const evaluationId = params.id;
+        const evaluationId = resolvedParams.id;
         const body = await request.json();
         const { score, comments, evaluatorName, evaluatorEmail } = body;
 
         // Get evaluation record
-        const evaluation = await db.performance_reviews.findUnique({
+        const evaluation = await db.PerformanceReview.findUnique({
             where: {
                 id: BigInt(evaluationId)
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -105,7 +107,7 @@ export async function PUT(
         }
 
         // Update evaluation
-        const updatedEvaluation = await db.performance_reviews.update({
+        const updatedEvaluation = await db.PerformanceReview.update({
             where: {
                 id: BigInt(evaluationId)
             },
@@ -115,9 +117,9 @@ export async function PUT(
                 updated_at: new Date()
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }

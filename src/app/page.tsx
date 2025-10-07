@@ -48,7 +48,7 @@ const moduleCards = [
     description: 'Ngành, chương trình đào tạo, học phần, kế hoạch giảng dạy.',
     icon: SchoolIcon,
     color: '#2e7d32',
-    path: '/education',
+    path: '/tms',
   },
   {
     id: 'student-management',

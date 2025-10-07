@@ -241,7 +241,7 @@ export default function PermissionsPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Chip
-                                        label={permission.role_permission.length}
+                                        label={permission.RolePermission.length}
                                         color="primary"
                                         variant="outlined"
                                         size="small"

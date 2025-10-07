@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
 
-        const title = await db.academic_titles.findUnique({
+        const title = await db.AcademicTitle.findUnique({
             where: { id: BigInt(titleId) },
         });
 
@@ -18,7 +22,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             id: title.id.toString(),
         };
 
-        return NextResponse.json({ success: true, data: serializedTitle });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTitle }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -31,13 +39,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
         const body = await request.json();
         const { code, title } = body;
 
-        const updatedTitle = await db.academic_titles.update({
+        const updatedTitle = await db.AcademicTitle.update({
             where: { id: BigInt(titleId) },
             data: {
                 code,
@@ -50,7 +62,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             id: updatedTitle.id.toString(),
         };
 
-        return NextResponse.json({ success: true, data: serializedTitle });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTitle }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -63,11 +79,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
 
-        await db.academic_titles.delete({
+        await db.AcademicTitle.delete({
             where: { id: BigInt(titleId) },
         });
 

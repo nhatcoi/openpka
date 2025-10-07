@@ -1,19 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { OrgUnitRelationRepository } from '@/modules/org/unit-relation/org-unit-relation.repo';
+import { NextRequest } from 'next/server';
+import { withErrorHandling, withBody } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
-const orgUnitRelationRepo = new OrgUnitRelationRepository();
-
-// Simple validation helper
-function validateRequired(obj: any, fields: string[]) {
-  const missing = fields.filter(field => !obj[field]);
-  if (missing.length > 0) {
-    throw new Error(`Missing required fields: ${missing.join(', ')}`);
-  }
-}
-
-// GET /api/org-unit-relations - Get all org unit relations with pagination and filters
-export async function GET(request: NextRequest) {
-  try {
+// GET /api/org/unit-relations - Get all org unit relations with pagination and filters
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const params = Object.fromEntries(searchParams.entries());
     
@@ -24,48 +16,78 @@ export async function GET(request: NextRequest) {
     const parent_id = params.parent_id || '';
     const child_id = params.child_id || '';
     
-    const result = await orgUnitRelationRepo.findAll({
-      page,
-      size,
-      search,
-      parent_id,
-      child_id,
-      ...params
-    });
+    // Build where clause
+    const where: Prisma.OrgUnitRelationWhereInput = {};
     
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('org-unit-relations GET error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch org unit relations' 
+    if (parent_id) {
+      where.parent_id = BigInt(parent_id);
+    }
+    
+    if (child_id) {
+      where.child_id = BigInt(child_id);
+    }
+    
+    if (search) {
+      where.OR = [
+        { relation_type: { equals: search as any } },
+        { note: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+    
+    const skip = (page - 1) * size;
+    
+    // Execute queries
+    const [relations, total] = await Promise.all([
+      db.orgUnitRelation.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: size,
+      }),
+      db.orgUnitRelation.count({ where }),
+    ]);
+    
+    const result = {
+      items: relations,
+      pagination: {
+        page,
+        size,
+        total,
+        totalPages: Math.ceil(total / size),
+        hasNextPage: page < Math.ceil(total / size),
+        hasPrevPage: page > 1,
       },
-      { status: 500 }
-    );
-  }
-}
+    };
+    
+    return result;
+  },
+  'fetch org unit relations'
+);
 
-// POST /api/org-unit-relations - Create new org unit relation
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+// POST /api/org/unit-relations - Create new org unit relation
+export const POST = withBody(
+  async (body: unknown) => {
+    const data = body as Record<string, unknown>;
+    const { parent_id, child_id, relation_type, effective_from, effective_to, description } = data;
     
     // Simple validation
-    validateRequired(body, ['parent_id', 'child_id', 'relation_type', 'effective_from']);
+    if (!parent_id || !child_id || !relation_type || !effective_from) {
+      throw new Error('Missing required fields: parent_id, child_id, relation_type, effective_from');
+    }
     
-    const result = await orgUnitRelationRepo.create(body);
+    const newRelation = await db.orgUnitRelation.create({
+      data: {
+        parent_id: BigInt(parent_id as string),
+        child_id: BigInt(child_id as string),
+        relation_type: relation_type as any,
+        effective_from: new Date(effective_from as string),
+        effective_to: effective_to ? new Date(effective_to as string) : null,
+        note: (description as string) || null,
+      }
+    });
     
-    return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error) {
-    console.error('org-unit-relations POST error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create org unit relation' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return newRelation;
+  },
+  'create org unit relation'
+);
 

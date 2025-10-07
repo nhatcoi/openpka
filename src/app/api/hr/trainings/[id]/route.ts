@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const trainingId = params.id;
+        const resolvedParams = await params;
+        const trainingId = resolvedParams.id;
 
-        const training = await db.trainings.findUnique({
+        const training = await db.Training.findUnique({
             where: { id: BigInt(trainingId) },
         });
 
@@ -22,7 +26,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             updated_at: training.updated_at.toISOString(),
         };
 
-        return NextResponse.json({ success: true, data: serializedTraining });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTraining }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -35,13 +43,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const trainingId = params.id;
+        const resolvedParams = await params;
+        const trainingId = resolvedParams.id;
         const body = await request.json();
         const { title, provider, start_date, end_date, training_type, description } = body;
 
-        const updatedTraining = await db.trainings.update({
+        const updatedTraining = await db.Training.update({
             where: { id: BigInt(trainingId) },
             data: {
                 title,
@@ -62,7 +74,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             updated_at: updatedTraining.updated_at.toISOString(),
         };
 
-        return NextResponse.json({ success: true, data: serializedTraining });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTraining }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -75,11 +91,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const trainingId = params.id;
+        const resolvedParams = await params;
+        const trainingId = resolvedParams.id;
 
-        await db.trainings.delete({
+        await db.Training.delete({
             where: { id: BigInt(trainingId) },
         });
 

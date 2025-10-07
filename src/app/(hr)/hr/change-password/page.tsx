@@ -73,7 +73,7 @@ export default function ChangePasswordPage() {
             }
 
             // Update password
-            const updateResponse = await fetch(`/api/hr/users/${(session?.user as any)?.id}`, {
+            const updateResponse = await fetch(`/api/hr/users/${(session?.user as { id?: string })?.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

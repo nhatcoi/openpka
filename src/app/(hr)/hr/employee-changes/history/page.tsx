@@ -313,15 +313,15 @@ export default function EmployeeChangesHistoryPage() {
                                     <TableCell>
                                         <Box>
                                             <Typography variant="body2" fontWeight="medium">
-                                                {log.employees.user.full_name}
+                                                {log.Employee.User.full_name}
                                             </Typography>
                                             <Typography variant="caption" color="text.secondary">
-                                                {log.employees.user.email}
+                                                {log.Employee.User.email}
                                             </Typography>
                                         </Box>
                                     </TableCell>
                                     <TableCell>
-                                        {log.employees.assignments[0]?.org_unit.name || 'N/A'}
+                                        {log.Employee.OrgAssignment[0]?.OrgUnit.name || 'N/A'}
                                     </TableCell>
                                     <TableCell>
                                         <Chip
@@ -346,7 +346,7 @@ export default function EmployeeChangesHistoryPage() {
                                     <TableCell>
                                         <Box>
                                             <Typography variant="body2">
-                                                {log.users?.full_name || 'System'}
+                                                {log.User?.full_name || 'System'}
                                             </Typography>
                                             {log.actor_role && (
                                                 <Typography variant="caption" color="text.secondary">

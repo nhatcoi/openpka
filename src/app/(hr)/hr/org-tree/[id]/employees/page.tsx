@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Box, Typography, Button, CircularProgress, Alert, Breadcrumbs, Link } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -192,23 +192,23 @@ export default function OrgTreeEmployeesPage({ params }: { params: { id: string 
 
         // Create tree structure with main leader as root
         const treeData = {
-            name: mainLeader.user?.full_name || 'N/A',
+            name: mainLeader.User?.full_name || 'N/A',
             attributes: {
                 id: mainLeader.id,
                 position: mainLeader.position?.title || mainLeader.employment_type || 'Trưởng khoa',
                 employee_no: mainLeader.employee_no || '',
-                email: mainLeader.user?.email || '',
+                email: mainLeader.User?.email || '',
                 status: mainLeader.status || '',
                 type: 'leader',
                 totalEmployees: employees.length,
             },
             children: sortedEmployees.slice(1).map(emp => ({
-                name: emp.user?.full_name || 'N/A',
+                name: emp.User?.full_name || 'N/A',
                 attributes: {
                     id: emp.id,
                     position: emp.position?.title || emp.employment_type || 'Giảng viên',
                     employee_no: emp.employee_no || '',
-                    email: emp.user?.email || '',
+                    email: emp.User?.email || '',
                     status: emp.status || '',
                     type: 'employee',
                 },
@@ -243,7 +243,7 @@ export default function OrgTreeEmployeesPage({ params }: { params: { id: string 
         );
     }
 
-    const employeeTreeData = createEmployeeTree(orgUnitStats.employees);
+    const employeeTreeData = createEmployeeTree(orgUnitStats.Employee);
 
     return (
         <Box sx={{ p: 3, backgroundColor: '#fafafa', minHeight: '100vh' }}>

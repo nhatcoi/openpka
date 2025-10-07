@@ -8,11 +8,12 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const roleId = BigInt(id);
 
-        const role = await db.roles.findUnique({
-            where: { id: roleId as any },
+        const role = await db.Role.findUnique({
+            where: { id: BigInt(roleId) },
             include: {
                 role_permission: {
                     include: {
@@ -41,7 +42,7 @@ export async function GET(
         const serializedRole = {
             ...role,
             id: role.id.toString(),
-            role_permission: role.role_permission?.map((rp: any) => ({
+            role_permission: role.role_permission?.map((rp: { id: bigint; [key: string]: unknown }) => ({
                 ...rp,
                 id: rp.id.toString(),
                 role_id: rp.role_id.toString(),
@@ -51,7 +52,7 @@ export async function GET(
                     id: rp.permissions.id.toString()
                 } : null
             })) || [],
-            user_role: role.user_role?.map((ur: any) => ({
+            user_role: role.user_role?.map((ur: { id: bigint; [key: string]: unknown }) => ({
                 ...ur,
                 id: ur.id.toString(),
                 user_id: ur.user_id.toString(),
@@ -81,6 +82,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const roleId = BigInt(id);
         const body = await request.json();
@@ -91,12 +93,12 @@ export async function PUT(
         const currentUserId = token?.sub ? BigInt(token.sub) : undefined;
 
         // Get old data for logging
-        const oldRole = await db.roles.findUnique({
-            where: { id: roleId as any },
+        const oldRole = await db.Role.findUnique({
+            where: { id: BigInt(roleId) },
         });
 
-        const role = await db.roles.update({
-            where: { id: roleId as any },
+        const role = await db.Role.update({
+            where: { id: BigInt(roleId) },
             data: {
                 code,
                 name
@@ -146,6 +148,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const roleId = BigInt(id);
 
@@ -154,12 +157,12 @@ export async function DELETE(
         const currentUserId = token?.sub ? BigInt(token.sub) : undefined;
 
         // Get old data for logging
-        const oldRole = await db.roles.findUnique({
-            where: { id: roleId as any },
+        const oldRole = await db.Role.findUnique({
+            where: { id: BigInt(roleId) },
         });
 
-        await db.roles.delete({
-            where: { id: roleId as any },
+        await db.Role.delete({
+            where: { id: BigInt(roleId) },
         });
 
         // Log the deletion activity

@@ -24,7 +24,7 @@ export const PayloadKeyValueDisplay: React.FC<PayloadKeyValueDisplayProps> = ({ 
     );
   }
 
-  const formatValue = (value: any): string => {
+  const formatValue = (value: unknown): string => {
     if (typeof value === 'number') {
       // Format numbers with commas for better readability
       return value.toLocaleString();

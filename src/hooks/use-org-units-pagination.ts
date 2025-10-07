@@ -18,11 +18,11 @@ export interface UseOrgUnitsPaginationOptions {
 
 export interface UseOrgUnitsPaginationReturn {
   // Data
-  orgUnits: any[];
-  pagination: any;
+  orgUnits: Array<{ id: string; name: string; [key: string]: unknown }>;
+  pagination: { [key: string]: unknown };
   isLoading: boolean;
   isFetching: boolean;
-  error: any;
+  error: unknown;
   
   // Pagination state
   paginationState: {

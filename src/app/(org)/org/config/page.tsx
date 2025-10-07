@@ -1,545 +1,472 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
+import { buildUrl } from '@/lib/api/api-handler';
 import {
   Box,
   Typography,
   Card,
   CardContent,
-  Stack,
   Button,
-  Grid,
-  Paper,
   List,
   ListItem,
-  ListItemIcon,
   ListItemText,
-  Divider,
   Chip,
   IconButton,
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
+  Stack,
+  Divider,
+  Alert,
+  CircularProgress,
   Switch,
   FormControlLabel,
-  Tabs,
-  Tab,
 } from '@mui/material';
 import {
-  Settings as SettingsIcon,
-  Business as BusinessIcon,
-  Assignment as AssignmentIcon,
-  Timeline as TimelineIcon,
-  Security as SecurityIcon,
+  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Add as AddIcon,
+  Business as BusinessIcon,
+  CheckCircle as StatusIcon,
   Save as SaveIcon,
   Cancel as CancelIcon,
 } from '@mui/icons-material';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+interface OrgUnitType {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  color: string;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`config-tabpanel-${index}`}
-      aria-labelledby={`config-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
+interface OrgUnitStatus {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  color: string;
+  is_active: boolean;
+  workflow_step: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export default function ConfigPage() {
-  const [tabValue, setTabValue] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
+  const [types, setTypes] = useState<OrgUnitType[]>([]);
+  const [statuses, setStatuses] = useState<OrgUnitStatus[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogType, setDialogType] = useState<'unit_type' | 'status' | 'workflow' | null>(null);
+  const [editingItem, setEditingItem] = useState<OrgUnitType | OrgUnitStatus | null>(null);
+  const [formData, setFormData] = useState({
+    code: '',
+    name: '',
+    description: '',
+    color: '#1976d2',
+    sort_order: 0,
+    workflow_step: 0,
+    is_active: true,
+  });
 
-  // Mock configuration data
-  const configData = {
-    unitTypes: [
-      { id: 1, name: 'Faculty', code: 'FACULTY', description: 'Khoa/Viện', isActive: true, sortOrder: 1 },
-      { id: 2, name: 'Department', code: 'DEPARTMENT', description: 'Phòng/Ban', isActive: true, sortOrder: 2 },
-      { id: 3, name: 'Center', code: 'CENTER', description: 'Trung tâm', isActive: true, sortOrder: 3 },
-      { id: 4, name: 'Board', code: 'BOARD', description: 'Ban/Hội đồng', isActive: true, sortOrder: 4 },
-      { id: 5, name: 'Committee', code: 'COMMITTEE', description: 'Ủy ban', isActive: false, sortOrder: 5 },
-    ],
-    statuses: [
-      { id: 1, name: 'Draft', code: 'DRAFT', description: 'Nháp', color: '#757575', isActive: true },
-      { id: 2, name: 'Pending Review', code: 'PENDING_REVIEW', description: 'Chờ duyệt', color: '#ff9800', isActive: true },
-      { id: 3, name: 'Approved', code: 'APPROVED', description: 'Đã duyệt', color: '#4caf50', isActive: true },
-      { id: 4, name: 'Active', code: 'ACTIVE', description: 'Hoạt động', color: '#2196f3', isActive: true },
-      { id: 5, name: 'Inactive', code: 'INACTIVE', description: 'Không hoạt động', color: '#f44336', isActive: true },
-      { id: 6, name: 'Archived', code: 'ARCHIVED', description: 'Lưu trữ', color: '#9e9e9e', isActive: false },
-    ],
-    workflow: {
-      enabled: true,
-      requireApproval: true,
-      autoApproval: false,
-      approvalLevels: 2,
-      notificationEnabled: true,
-      escalationEnabled: false,
-      escalationDays: 7,
-    },
-    security: {
-      auditLogEnabled: true,
-      auditRetentionDays: 365,
-      ipWhitelistEnabled: false,
-      sessionTimeout: 30,
-      passwordPolicy: {
-        minLength: 8,
-        requireUppercase: true,
-        requireLowercase: true,
-        requireNumbers: true,
-        requireSpecialChars: true,
-      },
-    },
+  // Fetch data
+  const fetchTypes = async () => {
+    try {
+      const response = await fetch(buildUrl(API_ROUTES.ORG.TYPES, { include_inactive: true }));
+      const result = await response.json();
+      if (result.success) {
+        setTypes(result.data);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Failed to fetch types');
+    }
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+  const fetchStatuses = async () => {
+    try {
+      const response = await fetch(buildUrl(API_ROUTES.ORG.STATUSES, { include_inactive: true }));
+      const result = await response.json();
+      if (result.success) {
+        setStatuses(result.data);
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Failed to fetch statuses');
+    }
   };
 
-  const handleOpenDialog = (type: 'unit_type' | 'status' | 'workflow') => {
-    setDialogType(type);
+  useEffect(() => {
+    fetchTypes();
+    fetchStatuses();
+  }, []);
+
+  const handleOpenDialog = (item?: OrgUnitType | OrgUnitStatus, isType: boolean = true) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        code: item.code,
+        name: item.name,
+        description: item.description || '',
+        color: item.color,
+        sort_order: 'sort_order' in item ? item.sort_order : 0,
+        workflow_step: 'workflow_step' in item ? item.workflow_step : 0,
+        is_active: item.is_active,
+      });
+    } else {
+      setEditingItem(null);
+      setFormData({
+        code: '',
+        name: '',
+        description: '',
+        color: isType ? '#1976d2' : '#757575',
+        sort_order: 0,
+        workflow_step: 0,
+        is_active: true,
+      });
+    }
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setDialogType(null);
+    setEditingItem(null);
   };
 
-  const renderUnitTypesConfig = () => (
-    <Card>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            Loại đơn vị tổ chức
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog('unit_type')}
-            sx={{ backgroundColor: '#2e4c92' }}
-          >
-            Thêm loại
-          </Button>
-        </Stack>
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        <List>
-          {configData.unitTypes.map((type, index) => (
-            <React.Fragment key={type.id}>
-              <ListItem>
-                <ListItemIcon>
-                  <BusinessIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                        {type.name}
-                      </Typography>
-                      <Chip label={type.code} size="small" variant="outlined" />
-                      <Chip 
-                        label={type.isActive ? 'Hoạt động' : 'Tạm dừng'} 
-                        color={type.isActive ? 'success' : 'default'}
-                        size="small" 
-                      />
-                    </Stack>
-                  }
-                  secondary={type.description}
-                />
-                <Stack direction="row" spacing={1}>
-                  <Tooltip title="Chỉnh sửa">
-                    <IconButton size="small">
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Xóa">
-                    <IconButton size="small" color="error">
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </ListItem>
-              {index < configData.unitTypes.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
-      </CardContent>
-    </Card>
-  );
+      const isType = activeTab === 0;
+      const url = editingItem 
+        ? `/api/org/${isType ? 'types' : 'statuses'}/${editingItem.id}`
+        : `/api/org/${isType ? 'types' : 'statuses'}`;
+      
+      const method = editingItem ? 'PUT' : 'POST';
 
-  const renderStatusesConfig = () => (
-    <Card>
-      <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            Trạng thái đơn vị
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog('status')}
-            sx={{ backgroundColor: '#2e4c92' }}
-          >
-            Thêm trạng thái
-          </Button>
-        </Stack>
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-        <List>
-          {configData.statuses.map((status, index) => (
-            <React.Fragment key={status.id}>
-              <ListItem>
-                <ListItemIcon>
-                  <Box
-                    sx={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: '50%',
-                      backgroundColor: status.color,
-                    }}
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
-                        {status.name}
-                      </Typography>
-                      <Chip label={status.code} size="small" variant="outlined" />
-                      <Chip 
-                        label={status.isActive ? 'Hoạt động' : 'Tạm dừng'} 
-                        color={status.isActive ? 'success' : 'default'}
-                        size="small" 
-                      />
-                    </Stack>
-                  }
-                  secondary={status.description}
-                />
-                <Stack direction="row" spacing={1}>
-                  <Tooltip title="Chỉnh sửa">
-                    <IconButton size="small">
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Xóa">
-                    <IconButton size="small" color="error">
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </ListItem>
-              {index < configData.statuses.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
-      </CardContent>
-    </Card>
-  );
+      const result = await response.json();
 
-  const renderWorkflowConfig = () => (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
-          Cấu hình quy trình phê duyệt
-        </Typography>
+      if (result.success) {
+        if (isType) {
+          await fetchTypes();
+        } else {
+          await fetchStatuses();
+        }
+        handleCloseDialog();
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Network error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.workflow.enabled} />}
-              label="Bật quy trình phê duyệt"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.workflow.requireApproval} />}
-              label="Yêu cầu phê duyệt"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.workflow.autoApproval} />}
-              label="Tự động phê duyệt"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.workflow.notificationEnabled} />}
-              label="Gửi thông báo"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
-              <InputLabel>Số cấp phê duyệt</InputLabel>
-              <Select
-                value={configData.workflow.approvalLevels}
-                label="Số cấp phê duyệt"
-              >
-                <MenuItem value={1}>1 cấp</MenuItem>
-                <MenuItem value={2}>2 cấp</MenuItem>
-                <MenuItem value={3}>3 cấp</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Thời gian nhắc nhở (ngày)"
-              type="number"
-              value={configData.workflow.escalationDays}
-            />
-          </Grid>
-        </Grid>
+  const handleDelete = async (item: OrgUnitType | OrgUnitStatus, isType: boolean) => {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
+      return;
+    }
 
-        <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            sx={{ backgroundColor: '#2e4c92' }}
-          >
-            Lưu cấu hình
-          </Button>
-          <Button variant="outlined" startIcon={<CancelIcon />}>
-            Hủy
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/org/${isType ? 'types' : 'statuses'}/${item.id}`, {
+        method: 'DELETE',
+      });
 
-  const renderSecurityConfig = () => (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 3 }}>
-          Cấu hình bảo mật
-        </Typography>
+      const result = await response.json();
 
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.auditLogEnabled} />}
-              label="Bật nhật ký kiểm toán"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.ipWhitelistEnabled} />}
-              label="Danh sách IP được phép"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Thời gian lưu trữ nhật ký (ngày)"
-              type="number"
-              value={configData.security.auditRetentionDays}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Thời gian hết hạn phiên (phút)"
-              type="number"
-              value={configData.security.sessionTimeout}
-            />
-          </Grid>
-        </Grid>
+      if (result.success) {
+        if (isType) {
+          await fetchTypes();
+        } else {
+          await fetchStatuses();
+        }
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      setError('Network error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mt: 4, mb: 2 }}>
-          Chính sách mật khẩu
-        </Typography>
-
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Độ dài tối thiểu"
-              type="number"
-              value={configData.security.passwordPolicy.minLength}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.passwordPolicy.requireUppercase} />}
-              label="Yêu cầu chữ hoa"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.passwordPolicy.requireLowercase} />}
-              label="Yêu cầu chữ thường"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.passwordPolicy.requireNumbers} />}
-              label="Yêu cầu số"
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <FormControlLabel
-              control={<Switch checked={configData.security.passwordPolicy.requireSpecialChars} />}
-              label="Yêu cầu ký tự đặc biệt"
-            />
-          </Grid>
-        </Grid>
-
-        <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            sx={{ backgroundColor: '#2e4c92' }}
-          >
-            Lưu cấu hình
-          </Button>
-          <Button variant="outlined" startIcon={<CancelIcon />}>
-            Hủy
-          </Button>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
+  const handleInputChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   return (
-    <Box>
-      {/* Header */}
-      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-        <Box
-          sx={{
-            width: 48,
-            height: 48,
-            borderRadius: 1,
-            backgroundColor: '#2e4c92',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Cấu hình tổ chức
+      </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          variant={activeTab === 0 ? 'contained' : 'outlined'}
+          onClick={() => setActiveTab(0)}
+          startIcon={<BusinessIcon />}
         >
-          <SettingsIcon sx={{ color: 'white', fontSize: 24 }} />
-        </Box>
-        <Box>
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
-            Cấu hình hệ thống
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Quản lý cấu hình và thiết lập hệ thống
-          </Typography>
-        </Box>
+          Loại đơn vị
+        </Button>
+        <Button
+          variant={activeTab === 1 ? 'contained' : 'outlined'}
+          onClick={() => setActiveTab(1)}
+          startIcon={<StatusIcon />}
+        >
+          Trạng thái đơn vị
+        </Button>
       </Stack>
 
-      {/* Tabs */}
-      <Paper sx={{ width: '100%', mb: 3 }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          aria-label="configuration tabs"
-          variant="fullWidth"
-        >
-          <Tab
-            icon={<BusinessIcon />}
-            label="Loại đơn vị"
-            id="config-tab-0"
-            aria-controls="config-tabpanel-0"
-          />
-          <Tab
-            icon={<AssignmentIcon />}
-            label="Trạng thái"
-            id="config-tab-1"
-            aria-controls="config-tabpanel-1"
-          />
-          <Tab
-            icon={<TimelineIcon />}
-            label="Quy trình"
-            id="config-tab-2"
-            aria-controls="config-tabpanel-2"
-          />
-          <Tab
-            icon={<SecurityIcon />}
-            label="Bảo mật"
-            id="config-tab-3"
-            aria-controls="config-tabpanel-3"
-          />
-        </Tabs>
-      </Paper>
+      {/* Types Tab */}
+      {activeTab === 0 && (
+        <Card>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6">Loại đơn vị</Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => handleOpenDialog(undefined, true)}
+              >
+                Thêm loại
+              </Button>
+            </Stack>
 
-      {/* Tab Panels */}
-      <TabPanel value={tabValue} index={0}>
-        {renderUnitTypesConfig()}
-      </TabPanel>
-      <TabPanel value={tabValue} index={1}>
-        {renderStatusesConfig()}
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
-        {renderWorkflowConfig()}
-      </TabPanel>
-      <TabPanel value={tabValue} index={3}>
-        {renderSecurityConfig()}
-      </TabPanel>
+            <List>
+              {types.map((type, index) => (
+                <React.Fragment key={type.id}>
+                  <ListItem>
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                            {type.name}
+                          </Typography>
+                          <Chip label={type.code} size="small" variant="outlined" />
+                          <Chip 
+                            label={type.is_active ? 'Hoạt động' : 'Tạm dừng'} 
+                            color={type.is_active ? 'success' : 'default'}
+                            size="small" 
+                          />
+                          <Chip 
+                            label={`Thứ tự: ${type.sort_order}`}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                          />
+                        </Stack>
+                      }
+                      secondary={
+                        <Box>
+                          <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+                            {type.description || 'Không có mô tả'}
+                          </Box>
+                          <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            Tạo: {new Date(type.created_at).toLocaleDateString('vi-VN')}
+                          </Box>
+                        </Box>
+                      }
+                    />
+                    <Stack direction="row" spacing={1}>
+                      <IconButton 
+                        size="small"
+                        onClick={() => handleOpenDialog(type, true)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={() => handleDelete(type, true)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Stack>
+                  </ListItem>
+                  {index < types.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Configuration Dialog */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      {/* Statuses Tab */}
+      {activeTab === 1 && (
+        <Card>
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Typography variant="h6">Trạng thái đơn vị</Typography>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => handleOpenDialog(undefined, false)}
+              >
+                Thêm trạng thái
+              </Button>
+            </Stack>
+
+            <List>
+              {statuses.map((status, index) => (
+                <React.Fragment key={status.id}>
+                  <ListItem>
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>
+                            {status.name}
+                          </Typography>
+                          <Chip label={status.code} size="small" variant="outlined" />
+                          <Chip 
+                            label={status.is_active ? 'Hoạt động' : 'Tạm dừng'} 
+                            color={status.is_active ? 'success' : 'default'}
+                            size="small" 
+                          />
+                          <Chip 
+                            label={`Bước ${status.workflow_step}`}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                          />
+                        </Stack>
+                      }
+                      secondary={
+                        <Box>
+                          <Box component="span" sx={{ display: 'block', mb: 0.5 }}>
+                            {status.description || 'Không có mô tả'}
+                          </Box>
+                          <Box component="span" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                            Tạo: {new Date(status.created_at).toLocaleDateString('vi-VN')}
+                          </Box>
+                        </Box>
+                      }
+                    />
+                    <Stack direction="row" spacing={1}>
+                      <IconButton 
+                        size="small"
+                        onClick={() => handleOpenDialog(status, false)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={() => handleDelete(status, false)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Stack>
+                  </ListItem>
+                  {index < statuses.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+            </List>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add/Edit Dialog */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {dialogType === 'unit_type' && 'Thêm/Sửa loại đơn vị'}
-          {dialogType === 'status' && 'Thêm/Sửa trạng thái'}
-          {dialogType === 'workflow' && 'Cấu hình quy trình'}
+          {editingItem ? 'Chỉnh sửa' : 'Thêm mới'} {activeTab === 0 ? 'loại đơn vị' : 'trạng thái đơn vị'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              label="Tên"
+              label="Mã"
+              value={formData.code}
+              onChange={(e) => handleInputChange('code', e.target.value.toUpperCase())}
               fullWidth
-              placeholder="Nhập tên..."
+              required
             />
             <TextField
-              label="Mã"
+              label="Tên"
+              value={formData.name}
+              onChange={(e) => handleInputChange('name', e.target.value)}
               fullWidth
-              placeholder="Nhập mã..."
+              required
             />
             <TextField
               label="Mô tả"
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
               fullWidth
               multiline
-              rows={3}
-              placeholder="Nhập mô tả..."
+              rows={2}
             />
-            {dialogType === 'status' && (
+            <TextField
+              label="Màu sắc"
+              type="color"
+              value={formData.color}
+              onChange={(e) => handleInputChange('color', e.target.value)}
+              fullWidth
+              InputProps={{ style: { height: '56px' } }}
+            />
+            {activeTab === 0 ? (
               <TextField
-                label="Màu sắc"
-                type="color"
+                label="Thứ tự sắp xếp"
+                type="number"
+                value={formData.sort_order}
+                onChange={(e) => handleInputChange('sort_order', parseInt(e.target.value) || 0)}
                 fullWidth
-                defaultValue="#2196f3"
+              />
+            ) : (
+              <TextField
+                label="Bước workflow"
+                type="number"
+                value={formData.workflow_step}
+                onChange={(e) => handleInputChange('workflow_step', parseInt(e.target.value) || 0)}
+                fullWidth
               />
             )}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.is_active}
+                  onChange={(e) => handleInputChange('is_active', e.target.checked)}
+                />
+              }
+              label="Trạng thái hoạt động"
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Hủy</Button>
-          <Button variant="contained" sx={{ backgroundColor: '#2e4c92' }}>
-            Lưu
+          <Button onClick={handleCloseDialog} startIcon={<CancelIcon />}>
+            Hủy
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            variant="contained" 
+            startIcon={<SaveIcon />}
+            disabled={loading || !formData.code || !formData.name}
+          >
+            {loading ? 'Đang lưu...' : 'Lưu'}
           </Button>
         </DialogActions>
       </Dialog>

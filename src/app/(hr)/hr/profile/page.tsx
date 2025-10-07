@@ -67,7 +67,7 @@ export default function ProfilePage() {
             const result = await response.json();
 
             if (result.success && result.data) {
-                const user = result.data.user;
+                const user = result.data.User;
                 setProfile(user);
                 setFormData({
                     full_name: user.full_name || '',
@@ -107,7 +107,7 @@ export default function ProfilePage() {
                 return;
             }
 
-            const response = await fetch(`/api/hr/users/${(session.user as any).id}`, {
+            const response = await fetch(`/api/hr/users/${(session.user as { id?: string }).id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

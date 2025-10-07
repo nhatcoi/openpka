@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import {
   Box,
   Drawer,
@@ -18,6 +19,11 @@ import {
   useTheme,
   useMediaQuery,
   Collapse,
+  Avatar,
+  Chip,
+  CircularProgress,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -38,6 +44,9 @@ import {
   Storage as StorageIcon,
   AccountTree as AccountTreeIcon,
   Timeline as TimelineIcon,
+  Person as PersonIcon,
+  AssignmentInd as AssignmentIndIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -57,6 +66,89 @@ export default function OrgLayout({
   const [createUnitOpen, setCreateUnitOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  
+  // Authentication
+  const { data: session, status } = useSession();
+  const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
+
+  // Check authentication and permissions
+  useEffect(() => {
+    if (status === 'loading') return; // Still loading
+    
+    if (!session) {
+      // Not authenticated, redirect to login without auto signIn
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`);
+      return;
+    }
+  }, [session, status, pathname, router]);
+
+  // Permission checking functions
+  const hasPermission = (permission: string): boolean => {
+    if (!session?.user?.permissions) return false;
+    return session.user.permissions.includes(permission);
+  };
+
+  const hasAnyPermission = (permissions: string[]): boolean => {
+    if (!session?.user?.permissions) return false;
+    return permissions.some(permission => session.user.permissions.includes(permission));
+  };
+
+  // Filter menu items based on permissions
+  const filterMenuItems = (items: Array<{ permissions?: string[]; hasSubmenu?: boolean; submenu?: Array<{ permissions?: string[]; hasSubmenu?: boolean; [key: string]: unknown }> }>): Array<{ permissions?: string[]; hasSubmenu?: boolean; submenu?: Array<{ permissions?: string[]; hasSubmenu?: boolean; [key: string]: unknown }> }> => {
+    return items.filter(item => {
+      // If no permissions specified, show to all authenticated users
+      if (!item.permissions) return true;
+      
+      // Check if user has any of the required permissions
+      const hasAccess = hasAnyPermission(item.permissions);
+      
+      // If item has submenu, also filter submenu items
+      if (hasAccess && item.hasSubmenu && item.submenu) {
+        item.submenu = filterMenuItems(item.submenu);
+        // Only show parent if it has accessible submenu items
+        return item.submenu.length > 0;
+      }
+      
+      return hasAccess;
+    });
+  };
+
+  // Move visibleMenuItems calculation after menuItems definition
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          minHeight: '100vh',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+        <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Đang kiểm tra quyền truy cập...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // User menu handlers
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
+  };
+
+  const handleLogout = async () => {
+    handleUserMenuClose();
+    await signOut({ callbackUrl: '/' });
+  };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -83,22 +175,26 @@ export default function OrgLayout({
       key: '/org/dashboard',
       icon: <DashboardIcon />,
       label: 'Dashboard',
+      permissions: ['org_unit.read', 'org_unit.create', 'org_unit.update', 'org_unit.delete'],
     },
     {
       key: 'tree-management',
       icon: <ApartmentIcon />,
       label: 'Cây tổ chức',
       hasSubmenu: true,
+      permissions: ['org_unit.read'],
       submenu: [
         {
           key: '/org/tree',
           icon: <AccountTreeIcon />,
           label: 'Cây tổ chức',
+          permissions: ['org_unit.read'],
         },
         {
           key: '/org/diagram',
           icon: <TimelineIcon />,
           label: 'Sơ đồ',
+          permissions: ['org_unit.read'],
         },
       ],
     },
@@ -107,63 +203,82 @@ export default function OrgLayout({
       icon: <GroupIcon />,
       label: 'Quản lý đơn vị',
       hasSubmenu: true,
+      permissions: ['org_unit.read'],
       submenu: [
         {
           key: '/org/unit',
           icon: <ListAltIcon />,
           label: 'Danh sách đơn vị',
+          permissions: ['org_unit.read'],
         },
         {
           key: 'create-unit',
           icon: <AddIcon />,
           label: 'Tạo đơn vị mới',
           hasSubmenu: true,
+          permissions: ['org_unit.create'],
           submenu: [
             {
               key: '/org/unit/create/draft',
               icon: <AddIcon />,
-              label: '① Khởi tạo (Draft)',
+              label: 'Đề xuất',
+              permissions: ['org_unit.create'],
             },
             {
               key: '/org/unit/create/review',
               icon: <VisibilityIcon />,
-              label: '② Xem xét/Thẩm định (Review)',
+              label: 'Xem xét/Thẩm định',
+              permissions: ['org_unit.review'],
             },
             {
               key: '/org/unit/create/approve',
               icon: <ApprovalIcon />,
-              label: '③ Phê duyệt (Approve)',
+              label: 'Phê duyệt',
+              permissions: ['org_unit.approve'],
             },
             {
               key: '/org/unit/create/activate',
               icon: <PublishIcon />,
-              label: '④ Kích hoạt (Activate)',
+              label: 'Kích hoạt',
+              permissions: ['org_unit.activate'],
             },
             {
               key: '/org/unit/create/audit',
               icon: <StorageIcon />,
-              label: '⑤ Theo dõi biến đổi (Audit/History)',
+              label: 'Theo dõi biến đổi',
+              permissions: ['org_unit.read'],
             },
           ],
         },
       ],
     },
     {
+      key: '/org/assignments',
+      icon: <AssignmentIndIcon />,
+      label: 'Phân công nhân sự',
+      permissions: ['org_unit.read'],
+    },
+    {
       key: '/org/unit/create/audit',
       icon: <HistoryIcon />,
       label: 'Lịch sử thay đổi',
+      permissions: ['org_unit.read'],
     },
     {
       key: '/org/reports',
       icon: <AssessmentIcon />,
       label: 'Báo cáo tổ chức',
+      permissions: ['org_unit.read'],
     },
     {
       key: '/org/config',
       icon: <SettingsIcon />,
       label: 'Cấu hình hệ thống',
+      permissions: ['org_unit.admin'],
     },
   ];
+
+  const visibleMenuItems = session ? filterMenuItems(menuItems) : [];
 
   const handleMenuClick = (path: string) => {
     router.push(path);
@@ -172,7 +287,7 @@ export default function OrgLayout({
     }
   };
 
-  const handleMenuItemClick = (item: any) => {
+  const handleMenuItemClick = (item: { key: string; hasSubmenu?: boolean }) => {
     if (item.hasSubmenu) {
       if (item.key === 'unit-management') {
         handleUnitManagementToggle();
@@ -209,7 +324,7 @@ export default function OrgLayout({
       
       {/* Menu Items */}
       <List sx={{ flexGrow: 1, pt: 1 }}>
-        {menuItems.map((item) => (
+        {visibleMenuItems.map((item) => (
           <React.Fragment key={item.key}>
             <ListItem disablePadding>
               <ListItemButton
@@ -371,8 +486,72 @@ export default function OrgLayout({
           </IconButton>
           
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Trasy App
+            Trasy App - Quản lý Tổ chức
           </Typography>
+          
+          {/* Loading state */}
+          {status === 'loading' && (
+            <CircularProgress size={24} color="inherit" sx={{ mr: 2 }} />
+          )}
+          
+          {/* User info */}
+          {session && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Chip
+                label={`${session.user.permissions?.length || 0} quyền`}
+                size="small"
+                color="secondary"
+                variant="outlined"
+              />
+              
+              <IconButton
+                size="large"
+                aria-label="account of current user"
+                aria-controls="user-menu"
+                aria-haspopup="true"
+                onClick={handleUserMenuOpen}
+                color="inherit"
+              >
+                <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                  {(session.user as { full_name?: string }).full_name?.charAt(0) || session.user.username?.charAt(0) || 'U'}
+                </Avatar>
+              </IconButton>
+              
+              <Menu
+                id="user-menu"
+                anchorEl={userMenuAnchor}
+                anchorOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                keepMounted
+                transformOrigin={{
+                  vertical: 'top',
+                  horizontal: 'right',
+                }}
+                open={Boolean(userMenuAnchor)}
+                onClose={handleUserMenuClose}
+              >
+                <MenuItem disabled>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      {(session.user as { full_name?: string }).full_name || session.user.username}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {session.user.email}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={handleLogout}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  Đăng xuất
+                </MenuItem>
+              </Menu>
+            </Box>
+          )}
           
           <ThemeToggle />
         </Toolbar>

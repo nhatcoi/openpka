@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Typography,
@@ -74,7 +75,7 @@ interface OrgUnitHistory {
   old_name: string | null;
   new_name: string | null;
   change_type: string;
-  details: any;
+  details: { [key: string]: unknown };
   changed_at: string;
   changed_by: string | null;
 }
@@ -85,7 +86,7 @@ interface AuditResponse {
   page: number;
   size: number;
   totalPages: number;
-  statusCounts: Record<string, number>;
+  statusCounts: Array<{ status: string; count: number }>;
 }
 
 interface HistoryResponse {
@@ -264,7 +265,7 @@ export default function CreateAuditPage() {
       }
 
       // Create history record
-      await fetch('/api/org/history', {
+      await fetch(API_ROUTES.ORG.HISTORY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -328,7 +329,7 @@ export default function CreateAuditPage() {
     return typeOption?.label || type;
   };
 
-  const formatDetails = (details: any) => {
+  const formatDetails = (details: { [key: string]: unknown }) => {
     if (!details) return 'No details available';
     if (typeof details === 'string') return details;
     if (typeof details === 'object') {
@@ -338,7 +339,15 @@ export default function CreateAuditPage() {
   };
 
   const units = auditData?.items || [];
-  const statusCounts = auditData?.statusCounts || {};
+  const statusCounts = auditData?.statusCounts || [];
+  
+  // Convert array to object for easier access
+  const statusCountsMap = statusCounts.reduce((acc, item) => {
+    acc[item.status.toLowerCase()] = item.count;
+    return acc;
+  }, {} as Record<string, number>);
+
+  console.log('auditData:', auditData);
 
   return (
     <Box>
@@ -407,7 +416,7 @@ export default function CreateAuditPage() {
         <Card>
           <CardContent>
             <Typography variant="h4" color="success.main">
-              {statusCounts.active || 0}
+              {statusCountsMap.active || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Đang hoạt động
@@ -417,7 +426,7 @@ export default function CreateAuditPage() {
         <Card>
           <CardContent>
             <Typography variant="h4" color="warning.main">
-              {statusCounts.approved || 0}
+              {statusCountsMap.approved || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Đã phê duyệt
@@ -428,7 +437,7 @@ export default function CreateAuditPage() {
           <Card>
             <CardContent>
               <Typography variant="h4" color="error.main">
-                {statusCounts.rejected || 0}
+                {statusCountsMap.rejected || 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Từ chối
@@ -439,7 +448,7 @@ export default function CreateAuditPage() {
         <Card>
           <CardContent>
             <Typography variant="h4" color="secondary.main">
-              {statusCounts.draft || 0}
+              {statusCountsMap.draft || 0}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Nháp
@@ -606,7 +615,7 @@ export default function CreateAuditPage() {
                             <Chip 
                               label={status.label} 
                               size="small" 
-                              color={status.color as any}
+                              color={status.color as string}
                             />
                           </Box>
                         </MenuItem>

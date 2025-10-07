@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { HistoryRepository } from '@/modules/org/history/history.repo';
-
-const historyRepo = new HistoryRepository();
+import { NextRequest } from 'next/server';
+import { db } from '@/lib/db';
+import { withErrorHandling, withBody, validateSchema } from '@/lib/api/api-handler';
+import { Schemas } from '@/lib/api/api-schemas';
+import { Prisma } from '@prisma/client';
 
 // GET /api/org/history
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     
     // Parse query parameters
@@ -19,71 +20,69 @@ export async function GET(request: NextRequest) {
     const order = searchParams.get('order') as 'asc' | 'desc' || 'desc';
 
     if (!org_unit_id) {
-      return NextResponse.json(
-        { success: false, error: 'org_unit_id is required' },
-        { status: 400 }
-      );
+      throw new Error('org_unit_id is required');
     }
     
-    // Call repository
-    const result = await historyRepo.findAll({
-      org_unit_id: parseInt(org_unit_id, 10),
-      change_type,
-      from_date,
-      to_date,
+    // Build where clause
+    const where: Prisma.OrgUnitHistoryWhereInput = {
+      org_unit_id: BigInt(org_unit_id),
+    };
+    
+    if (change_type) {
+      where.change_type = change_type;
+    }
+    
+    if (from_date || to_date) {
+      where.changed_at = {};
+      if (from_date) {
+        where.changed_at.gte = new Date(from_date);
+      }
+      if (to_date) {
+        where.changed_at.lte = new Date(to_date);
+      }
+    }
+
+    // Get data with pagination
+    const [items, total] = await Promise.all([
+      db.orgUnitHistory.findMany({
+        where,
+        orderBy: { [sort]: order },
+        skip: (page - 1) * size,
+        take: size,
+      }),
+      db.orgUnitHistory.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
       page,
       size,
-      sort,
-      order,
-    });
-    
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('History route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch history' 
-      },
-      { status: 500 }
-    );
-  }
-}
+      totalPages: Math.ceil(total / size),
+    };
+  },
+  'fetch history'
+);
 
 // POST /api/org/history
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    // Validate required fields
-    if (!body.org_unit_id || !body.change_type) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'org_unit_id and change_type are required' 
-        },
-        { status: 400 }
-      );
-    }
+export const POST = withBody(
+  async (body: unknown) => {
+    // Validate input
+    const validatedData = validateSchema(Schemas.History.Create, body);
+    const { org_unit_id, old_name, new_name, change_type, details } = validatedData;
 
-    // Call repository directly
-    const result = await historyRepo.create({
-      org_unit_id: parseInt(body.org_unit_id, 10),
-      old_name: body.old_name,
-      new_name: body.new_name,
-      change_type: body.change_type,
-      details: body.details,
+    // Create history record directly
+    const result = await db.orgUnitHistory.create({
+      data: {
+        org_unit_id: BigInt(org_unit_id),
+        old_name: old_name || undefined,
+        new_name: new_name || undefined,
+        change_type,
+        details: details || undefined,
+      },
     });
     
-    return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error) {
-    console.error('History route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Invalid request data' 
-      },
-      { status: 400 }
-    );
-  }
-}
+    return result;
+  },
+  'create history'
+);

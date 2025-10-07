@@ -157,7 +157,7 @@ export default function UserRolesPage() {
     };
 
     const handleDelete = async (userRole: UserRole) => {
-        if (!confirm(`Bạn có chắc chắn muốn xóa phân quyền "${userRole.users_user_role_user_idTousers?.full_name || 'N/A'}" - "${userRole.roles.name}"?`)) {
+        if (!confirm(`Bạn có chắc chắn muốn xóa phân quyền "${userRole.users_user_role_user_idTousers?.full_name || 'N/A'}" - "${userRole.Role?.name || 'N/A'}"?`)) {
             return;
         }
 
@@ -258,10 +258,10 @@ export default function UserRolesPage() {
                                 <TableCell>
                                     <Box>
                                         <Typography variant="body2" fontWeight="medium">
-                                            {userRole.roles.code}
+                                            {userRole.Role?.code || 'N/A'}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {userRole.roles.name}
+                                            {userRole.Role?.name || 'N/A'}
                                         </Typography>
                                     </Box>
                                 </TableCell>

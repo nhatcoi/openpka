@@ -91,7 +91,7 @@ export default function HrLayout({
                     {session && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
                             <Chip
-                                label={`Xin chào, ${(session.user as any)?.username || 'User'}`}
+                                label={`Xin chào, ${(session.user as { username?: string })?.username || 'User'}`}
                                 color="secondary"
                                 size="small"
                                 sx={{ color: 'white' }}
@@ -116,7 +116,7 @@ export default function HrLayout({
                 </Toolbar>
             </AppBar>
 
-            {/* New Sidebar */}
+            {/* New Sidebarw */}
             <NewSidebar />
 
             {/* Main content */}

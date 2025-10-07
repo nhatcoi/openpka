@@ -17,7 +17,7 @@ export interface LogEmployeeActivityParams {
 
 export async function logEmployeeActivity(params: LogEmployeeActivityParams) {
     try {
-        await db.employee_log.create({
+        await db.employeeLog.create({
             data: {
                 employee_id: params.employee_id,
                 action: params.action,

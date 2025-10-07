@@ -4,12 +4,13 @@ import { db } from '@/lib/db';
 // GET - Lấy thông tin bằng cấp nhân viên theo ID
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const employeeQualification = await db.employee_qualification.findUnique({
+        const resolvedParams = await params;
+        const employeeQualification = await db.Employee_qualification.findUnique({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             },
             include: {
                 employees: {
@@ -65,9 +66,10 @@ export async function GET(
 // PUT - Cập nhật bằng cấp nhân viên
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const body = await request.json();
         const { qualification_id, major_field, institution, awarded_date } = body;
 
@@ -78,9 +80,9 @@ export async function PUT(
             );
         }
 
-        const employeeQualification = await db.employee_qualification.update({
+        const employeeQualification = await db.Employee_qualification.update({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             },
             data: {
                 qualification_id: BigInt(qualification_id),
@@ -135,12 +137,14 @@ export async function PUT(
 // DELETE - Xóa bằng cấp nhân viên
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        await db.employee_qualification.delete({
+        const resolvedParams = await params;
+    DELETE
+        await db.Employee_qualification.delete({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             }
         });
 

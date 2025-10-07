@@ -249,7 +249,7 @@ export default function RolesPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Chip
-                                        label={role.role_permission.length}
+                                        label={role.RolePermission.length}
                                         color="primary"
                                         variant="outlined"
                                         size="small"
@@ -257,7 +257,7 @@ export default function RolesPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Chip
-                                        label={role.user_role.length}
+                                        label={role.UserRole.length}
                                         color="secondary"
                                         variant="outlined"
                                         size="small"

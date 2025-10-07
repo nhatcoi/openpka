@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
+import { buildUrl } from '@/lib/api/api-handler';
 import {
   Box,
   Typography,
@@ -8,7 +10,6 @@ import {
   CardContent,
   Stack,
   Button,
-  Grid,
   Paper,
   List,
   ListItem,
@@ -18,6 +19,9 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  CircularProgress,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   Assessment as AssessmentIcon,
@@ -33,39 +37,207 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 
+// Types for API responses
+interface OrgStats {
+  totalUnits: number;
+  totalEmployees: number;
+  activeUnits: number;
+  inactiveUnits: number;
+  departments: number;
+  divisions: number;
+  teams: number;
+  branches: number;
+  topUnits: Array<{
+    id: string;
+    name: string;
+    code: string;
+    type: string;
+    employeeCount: number;
+  }>;
+}
+
+interface UnitTypeStats {
+  type: string;
+  count: number;
+  percentage: number;
+}
+
+interface UnitWithoutHead {
+  id: string;
+  name: string;
+  code: string;
+  type: string | null;
+  days: number;
+}
+
+interface UnitWithoutStaff {
+  id: string;
+  name: string;
+  code: string;
+  type: string | null;
+  employeeCount: number;
+}
+
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState('overview');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-  // Mock data for reports
-  const reportData = {
+  // State for report data
+  const [reportData, setReportData] = useState({
     overview: {
-      totalUnits: 45,
-      totalEmployees: 1250,
-      activeUnits: 42,
-      unitsWithoutHead: 8,
-      unitsWithoutStaff: 3,
+      totalUnits: 0,
+      totalEmployees: 0,
+      activeUnits: 0,
+      inactiveUnits: 0,
+      departments: 0,
+      divisions: 0,
+      teams: 0,
+      branches: 0,
+      topUnits: [] as Array<{
+        id: string;
+        name: string;
+        code: string;
+        type: string;
+        employeeCount: number;
+      }>,
     },
-    byCampus: [
-      { campus: 'Campus A', units: 20, employees: 650 },
-      { campus: 'Campus B', units: 15, employees: 400 },
-      { campus: 'Campus C', units: 10, employees: 200 },
-    ],
-    byType: [
-      { type: 'Faculty', count: 12, percentage: 26.7 },
-      { type: 'Department', count: 18, percentage: 40.0 },
-      { type: 'Center', count: 8, percentage: 17.8 },
-      { type: 'Board', count: 4, percentage: 8.9 },
-      { type: 'Committee', count: 3, percentage: 6.7 },
-    ],
-    unitsWithoutHead: [
-      { name: 'Phòng Đào tạo', code: 'TRAINING', type: 'Department', days: 15 },
-      { name: 'Trung tâm Ngoại ngữ', code: 'LANG_CENTER', type: 'Center', days: 8 },
-      { name: 'Ban Tài chính', code: 'FINANCE', type: 'Board', days: 22 },
-    ],
-    unitsWithoutStaff: [
-      { name: 'Phòng Nghiên cứu', code: 'RESEARCH', type: 'Department', employees: 0 },
-      { name: 'Ban An toàn', code: 'SAFETY', type: 'Committee', employees: 0 },
-    ],
+    byType: [] as UnitTypeStats[],
+    unitsWithoutHead: [] as UnitWithoutHead[],
+    unitsWithoutStaff: [] as UnitWithoutStaff[],
+  });
+
+  // API functions
+  const fetchOrgStats = async (): Promise<OrgStats | null> => {
+    try {
+      const response = await fetch('/api/org/reports?type=overview');
+      const result = await response.json();
+      if (result.success) {
+        return {
+          totalUnits: result.data.totalUnits,
+          totalEmployees: result.data.totalEmployees,
+          activeUnits: result.data.activeUnits,
+          inactiveUnits: result.data.inactiveUnits,
+          departments: result.data.unitsWithEmployees,
+          divisions: 0,
+          teams: 0,
+          branches: 0,
+          topUnits: []
+        };
+      }
+      throw new Error(result.error || 'Failed to fetch org stats');
+    } catch (error) {
+      console.error('Error fetching org stats:', error);
+      throw error;
+    }
+  };
+
+  const fetchUnitsByType = async (): Promise<UnitTypeStats[]> => {
+    try {
+      // Get all units to calculate type distribution
+      const response = await fetch(buildUrl(API_ROUTES.ORG.UNITS, { page: 1, size: 1000, sort: 'name', order: 'asc' }));
+      const result = await response.json();
+      if (result.success) {
+        const units = result.data?.items || result.data || [];
+        const typeCounts: Record<string, number> = {};
+        
+        // Count units by type
+        units.forEach((unit: { type: string | null }) => {
+          const type = unit.type || 'unknown';
+          typeCounts[type] = (typeCounts[type] || 0) + 1;
+        });
+
+        const total = units.length;
+        
+        // Convert to array with percentages
+        return Object.entries(typeCounts).map(([type, count]) => ({
+          type: type.charAt(0).toUpperCase() + type.slice(1),
+          count,
+          percentage: total > 0 ? Math.round((count / total) * 100 * 10) / 10 : 0,
+        }));
+      }
+      throw new Error(result.error || 'Failed to fetch units');
+    } catch (error) {
+      console.error('Error fetching units by type:', error);
+      throw error;
+    }
+  };
+
+  const fetchUnitsWithoutHead = async (): Promise<UnitWithoutHead[]> => {
+    try {
+      const response = await fetch('/api/org/reports?type=units-without-head');
+      const result = await response.json();
+      if (result.success) {
+        return result.data;
+      }
+      throw new Error(result.error || 'Failed to fetch units without head');
+    } catch (error) {
+      console.error('Error fetching units without head:', error);
+      throw error;
+    }
+  };
+
+  const fetchUnitsWithoutStaff = async (): Promise<UnitWithoutStaff[]> => {
+    try {
+      const response = await fetch('/api/org/reports?type=units-without-staff');
+      const result = await response.json();
+      if (result.success) {
+        return result.data;
+      }
+      throw new Error(result.error || 'Failed to fetch units without staff');
+    } catch (error) {
+      console.error('Error fetching units without staff:', error);
+      throw error;
+    }
+  };
+
+  const loadReportData = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const [orgStats, unitsByType, unitsWithoutHead, unitsWithoutStaff] = await Promise.all([
+        fetchOrgStats(),
+        fetchUnitsByType(),
+        fetchUnitsWithoutHead(),
+        fetchUnitsWithoutStaff(),
+      ]);
+
+      if (orgStats) {
+        setReportData({
+          overview: {
+            totalUnits: orgStats.totalUnits,
+            totalEmployees: orgStats.totalEmployees,
+            activeUnits: orgStats.activeUnits,
+            inactiveUnits: orgStats.inactiveUnits,
+            departments: orgStats.departments,
+            divisions: orgStats.divisions,
+            teams: orgStats.teams,
+            branches: orgStats.branches,
+            topUnits: orgStats.topUnits,
+          },
+          byType: unitsByType,
+          unitsWithoutHead,
+          unitsWithoutStaff,
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load report data';
+      setError(errorMessage);
+      setSnackbarOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount
+  useEffect(() => {
+    loadReportData();
+  }, []);
+
+  const handleRefresh = () => {
+    loadReportData();
   };
 
   const reportTypes = [
@@ -107,15 +279,15 @@ export default function ReportsPage() {
   ];
 
   const renderOverviewReport = () => (
-    <Grid container spacing={3}>
-      <Grid item xs={12} sm={6} md={3}>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={2}>
               <BusinessIcon sx={{ color: '#2e4c92', fontSize: 32 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {reportData.overview.totalUnits}
+                  {loading ? <CircularProgress size={24} /> : reportData.overview.totalUnits}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Tổng số đơn vị
@@ -124,16 +296,16 @@ export default function ReportsPage() {
             </Stack>
           </CardContent>
         </Card>
-      </Grid>
+      </Box>
 
-      <Grid item xs={12} sm={6} md={3}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={2}>
               <GroupIcon sx={{ color: '#1976d2', fontSize: 32 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {reportData.overview.totalEmployees}
+                  {loading ? <CircularProgress size={24} /> : reportData.overview.totalEmployees}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Tổng nhân viên
@@ -142,16 +314,16 @@ export default function ReportsPage() {
             </Stack>
           </CardContent>
         </Card>
-      </Grid>
+      </Box>
 
-      <Grid item xs={12} sm={6} md={3}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={2}>
               <TrendingUpIcon sx={{ color: '#388e3c', fontSize: 32 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {reportData.overview.activeUnits}
+                  {loading ? <CircularProgress size={24} /> : reportData.overview.activeUnits}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Đơn vị hoạt động
@@ -160,16 +332,16 @@ export default function ReportsPage() {
             </Stack>
           </CardContent>
         </Card>
-      </Grid>
+      </Box>
 
-      <Grid item xs={12} sm={6} md={3}>
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
         <Card>
           <CardContent>
             <Stack direction="row" alignItems="center" spacing={2}>
               <WarningIcon sx={{ color: '#f57c00', fontSize: 32 }} />
               <Box>
                 <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {reportData.overview.unitsWithoutHead}
+                  {loading ? <CircularProgress size={24} /> : reportData.unitsWithoutHead.length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Thiếu trưởng đơn vị
@@ -178,8 +350,26 @@ export default function ReportsPage() {
             </Stack>
           </CardContent>
         </Card>
-      </Grid>
-    </Grid>
+      </Box>
+
+      <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+        <Card>
+          <CardContent>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <GroupIcon sx={{ color: '#d32f2f', fontSize: 32 }} />
+              <Box>
+                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                  {loading ? <CircularProgress size={24} /> : reportData.unitsWithoutStaff.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Thiếu nhân sự
+                </Typography>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Box>
+    </Box>
   );
 
   const renderByCampusReport = () => (
@@ -188,27 +378,15 @@ export default function ReportsPage() {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
           Phân bố theo Campus
         </Typography>
-        <List>
-          {reportData.byCampus.map((campus, index) => (
-            <React.Fragment key={index}>
-              <ListItem>
-                <ListItemIcon>
-                  <BusinessIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={campus.campus}
-                  secondary={`${campus.units} đơn vị • ${campus.employees} nhân viên`}
-                />
-                <Chip
-                  label={`${Math.round((campus.units / reportData.overview.totalUnits) * 100)}%`}
-                  color="primary"
-                  variant="outlined"
-                />
-              </ListItem>
-              {index < reportData.byCampus.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Alert severity="info">
+            Báo cáo phân bố theo campus đang được phát triển. Vui lòng sử dụng báo cáo "Theo loại đơn vị" để xem thống kê chi tiết.
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );
@@ -219,27 +397,54 @@ export default function ReportsPage() {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
           Phân bố theo loại đơn vị
         </Typography>
-        <List>
-          {reportData.byType.map((type, index) => (
-            <React.Fragment key={index}>
-              <ListItem>
-                <ListItemIcon>
-                  <PieChartIcon color="primary" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={type.type}
-                  secondary={`${type.count} đơn vị`}
-                />
-                <Chip
-                  label={`${type.percentage}%`}
-                  color="secondary"
-                  variant="outlined"
-                />
-              </ListItem>
-              {index < reportData.byType.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : reportData.byType.length === 0 ? (
+          <Alert severity="info">
+            Không có dữ liệu đơn vị để hiển thị.
+          </Alert>
+        ) : (
+          <List>
+            {(reportData.byType || []).map((type, index) => (
+              <React.Fragment key={index}>
+                <ListItem>
+                  <ListItemIcon>
+                    <PieChartIcon color="primary" />
+                  </ListItemIcon>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      {type.type}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#666666',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {type.count} đơn vị
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`${type.percentage}%`}
+                    color="secondary"
+                    variant="outlined"
+                  />
+                </ListItem>
+                {index < reportData.byType.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        )}
       </CardContent>
     </Card>
   );
@@ -250,27 +455,54 @@ export default function ReportsPage() {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
           Đơn vị thiếu trưởng
         </Typography>
-        <List>
-          {reportData.unitsWithoutHead.map((unit, index) => (
-            <React.Fragment key={index}>
-              <ListItem>
-                <ListItemIcon>
-                  <WarningIcon color="warning" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={unit.name}
-                  secondary={`${unit.code} • ${unit.type}`}
-                />
-                <Chip
-                  label={`${unit.days} ngày`}
-                  color="warning"
-                  variant="outlined"
-                />
-              </ListItem>
-              {index < reportData.unitsWithoutHead.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : reportData.unitsWithoutHead.length === 0 ? (
+          <Alert severity="success">
+            Tất cả đơn vị đều đã có trưởng đơn vị.
+          </Alert>
+        ) : (
+          <List>
+            {(reportData.unitsWithoutHead || []).map((unit, index) => (
+              <React.Fragment key={unit.id}>
+                <ListItem>
+                  <ListItemIcon>
+                    <WarningIcon color="warning" />
+                  </ListItemIcon>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      {unit.name}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#666666',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {unit.code} • {unit.type || 'Không xác định'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`${unit.days} ngày`}
+                    color="warning"
+                    variant="outlined"
+                  />
+                </ListItem>
+                {index < reportData.unitsWithoutHead.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        )}
       </CardContent>
     </Card>
   );
@@ -281,27 +513,54 @@ export default function ReportsPage() {
         <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
           Đơn vị thiếu nhân sự
         </Typography>
-        <List>
-          {reportData.unitsWithoutStaff.map((unit, index) => (
-            <React.Fragment key={index}>
-              <ListItem>
-                <ListItemIcon>
-                  <GroupIcon color="error" />
-                </ListItemIcon>
-                <ListItemText
-                  primary={unit.name}
-                  secondary={`${unit.code} • ${unit.type}`}
-                />
-                <Chip
-                  label={`${unit.employees} nhân viên`}
-                  color="error"
-                  variant="outlined"
-                />
-              </ListItem>
-              {index < reportData.unitsWithoutStaff.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : reportData.unitsWithoutStaff.length === 0 ? (
+          <Alert severity="success">
+            Tất cả đơn vị đều đã có nhân sự.
+          </Alert>
+        ) : (
+          <List>
+            {(reportData.unitsWithoutStaff || []).map((unit, index) => (
+              <React.Fragment key={unit.id}>
+                <ListItem>
+                  <ListItemIcon>
+                    <GroupIcon color="error" />
+                  </ListItemIcon>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography 
+                      variant="body1" 
+                      sx={{ 
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontWeight: 'medium'
+                      }}
+                    >
+                      {unit.name}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#666666',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {unit.code} • {unit.type || 'Không xác định'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={`${unit.employeeCount} nhân viên`}
+                    color="error"
+                    variant="outlined"
+                  />
+                </ListItem>
+                {index < reportData.unitsWithoutStaff.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        )}
       </CardContent>
     </Card>
   );
@@ -332,13 +591,13 @@ export default function ReportsPage() {
             width: 48,
             height: 48,
             borderRadius: 1,
-            backgroundColor: '#2e4c92',
+            backgroundColor: 'primary.main',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <AssessmentIcon sx={{ color: 'white', fontSize: 24 }} />
+          <AssessmentIcon sx={{ color: 'primary.contrastText', fontSize: 24 }} />
         </Box>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
@@ -350,9 +609,9 @@ export default function ReportsPage() {
         </Box>
       </Stack>
 
-      <Grid container spacing={3}>
+      <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
         {/* Report Types Sidebar */}
-        <Grid item xs={12} md={3}>
+        <Box sx={{ flex: { xs: 'none', md: '0 0 300px' } }}>
           <Card>
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
@@ -366,31 +625,41 @@ export default function ReportsPage() {
                 {reportTypes.map((report, index) => (
                   <React.Fragment key={report.id}>
                     <ListItem
-                      button
-                      selected={selectedReport === report.id}
                       onClick={() => setSelectedReport(report.id)}
                       sx={{
                         borderRadius: 1,
                         mb: 1,
-                        '&.Mui-selected': {
-                          backgroundColor: `${report.color}15`,
-                          '&:hover': {
-                            backgroundColor: `${report.color}25`,
-                          },
+                        cursor: 'pointer',
+                        backgroundColor: selectedReport === report.id ? `${report.color}15` : 'transparent',
+                        '&:hover': {
+                          backgroundColor: selectedReport === report.id ? `${report.color}25` : 'rgba(0, 0, 0, 0.04)',
                         },
                       }}
                     >
-                      <ListItemIcon sx={{ color: selectedReport === report.id ? report.color : 'inherit' }}>
+                      <ListItemIcon sx={{ color: selectedReport === report.id ? report.color : 'text.secondary' }}>
                         {report.icon}
                       </ListItemIcon>
-                      <ListItemText
-                        primary={report.title}
-                        secondary={report.description}
-                        primaryTypographyProps={{
-                          fontWeight: selectedReport === report.id ? 'bold' : 'normal',
-                          color: selectedReport === report.id ? report.color : 'inherit',
-                        }}
-                      />
+                      <Box sx={{ flex: 1 }}>
+                        <Typography 
+                          variant="body1" 
+                          sx={{ 
+                            fontWeight: selectedReport === report.id ? 'bold' : 'normal',
+                            color: selectedReport === report.id ? report.color : '#000000',
+                            fontSize: '14px'
+                          }}
+                        >
+                          {report.title}
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            color: '#666666',
+                            fontSize: '12px'
+                          }}
+                        >
+                          {report.description}
+                        </Typography>
+                      </Box>
                     </ListItem>
                     {index < reportTypes.length - 1 && <Divider />}
                   </React.Fragment>
@@ -398,10 +667,10 @@ export default function ReportsPage() {
               </List>
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
 
         {/* Report Content */}
-        <Grid item xs={12} md={9}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           <Card>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
@@ -410,7 +679,7 @@ export default function ReportsPage() {
                 </Typography>
                 <Stack direction="row" spacing={1}>
                   <Tooltip title="Làm mới dữ liệu">
-                    <IconButton>
+                    <IconButton onClick={handleRefresh} disabled={loading}>
                       <RefreshIcon />
                     </IconButton>
                   </Tooltip>
@@ -418,6 +687,7 @@ export default function ReportsPage() {
                     variant="contained"
                     startIcon={<DownloadIcon />}
                     sx={{ backgroundColor: '#2e4c92' }}
+                    disabled={loading}
                   >
                     Xuất báo cáo
                   </Button>
@@ -427,8 +697,24 @@ export default function ReportsPage() {
               {renderReportContent()}
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
+
+      {/* Error Snackbar */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={() => setSnackbarOpen(false)} 
+          severity="error" 
+          sx={{ width: '100%' }}
+        >
+          {error}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

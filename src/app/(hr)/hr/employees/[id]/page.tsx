@@ -120,7 +120,7 @@ export default function EmployeeDetailPage() {
     const handleDelete = async () => {
         if (!employee) return;
 
-        if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employee.user?.full_name}?`)) {
+        if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employee.User?.full_name}?`)) {
             try {
                 const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employee.id), {
                     method: 'DELETE',
@@ -173,7 +173,7 @@ export default function EmployeeDetailPage() {
         );
     }
 
-    const primaryAssignment = employee.assignments?.find(a => a.is_primary);
+    const primaryAssignment = employee.OrgAssignment?.find(a => a.is_primary);
 
     return (
         <Box sx={{ p: 3 }}>
@@ -232,7 +232,7 @@ export default function EmployeeDetailPage() {
                                         Họ và tên
                                     </Typography>
                                     <Typography variant="body1" fontWeight="medium">
-                                        {employee.user?.full_name || 'N/A'}
+                                        {employee.User?.full_name || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -240,7 +240,7 @@ export default function EmployeeDetailPage() {
                                         Username
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.username || 'N/A'}
+                                        {employee.User?.username || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -248,7 +248,7 @@ export default function EmployeeDetailPage() {
                                         Email
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.email || 'N/A'}
+                                        {employee.User?.email || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -256,7 +256,7 @@ export default function EmployeeDetailPage() {
                                         Số điện thoại
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.phone || 'N/A'}
+                                        {employee.User?.phone || 'N/A'}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -328,7 +328,7 @@ export default function EmployeeDetailPage() {
                                         Ngày sinh
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.dob ? new Date(employee.user.dob).toLocaleDateString('vi-VN') : 'N/A'}
+                                        {employee.User?.dob ? new Date(employee.User.dob).toLocaleDateString('vi-VN') : 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -336,7 +336,7 @@ export default function EmployeeDetailPage() {
                                         Giới tính
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.gender || 'N/A'}
+                                        {employee.User?.gender || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -344,7 +344,7 @@ export default function EmployeeDetailPage() {
                                         Địa chỉ
                                     </Typography>
                                     <Typography variant="body1">
-                                        {employee.user?.address || 'N/A'}
+                                        {employee.User?.address || 'N/A'}
                                     </Typography>
                                 </Box>
                             </Box>
@@ -365,7 +365,7 @@ export default function EmployeeDetailPage() {
                                         Đơn vị
                                     </Typography>
                                     <Typography variant="body1" fontWeight="medium">
-                                        {primaryAssignment?.org_unit?.name || 'N/A'}
+                                        {primaryAssignment?.OrgUnit?.name || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -373,7 +373,7 @@ export default function EmployeeDetailPage() {
                                         Chức vụ
                                     </Typography>
                                     <Typography variant="body1">
-                                        {primaryAssignment?.job_positions?.title || 'N/A'}
+                                        {primaryAssignment?.JobPosition?.title || 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Box>
@@ -531,7 +531,7 @@ export default function EmployeeDetailPage() {
                                 </Button>
                             </Box>
                             <Typography variant="body2" color="text.secondary">
-                                Nhấn "Xem bằng cấp" để xem chi tiết các bằng cấp của nhân viên
+                                Nhấn &quot;Xem bằng cấp&quot; để xem chi tiết các bằng cấp của nhân viên
                             </Typography>
                         </CardContent>
                     </Card>

@@ -1,131 +1,214 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { OrgAssignmentRepository } from '@/modules/org-assignment/org-assignment.repo';
+import { db } from '@/lib/db';
+import { withIdParam, withIdAndBody, validateSchema } from '@/lib/api/api-handler';
+import { Schemas } from '@/lib/api/api-schemas';
 
-const orgAssignmentRepo = new OrgAssignmentRepository();
-
-// Simple validation helper
-function validateRequired(data: any, fields: string[]): string[] {
-  const errors: string[] = [];
-  for (const field of fields) {
-    if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
-      errors.push(`${field} is required`);
-    }
-  }
-  return errors;
-}
-
-// GET /api/org/assignments/[id] - Get org assignment by ID
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    
-    // Convert string id to number
-    const assignmentId = parseInt(id, 10);
-    if (isNaN(assignmentId)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid assignment ID' },
-        { status: 400 }
-      );
-    }
-    
-    // Call repository
-    const result = await orgAssignmentRepo.findById(assignmentId);
-    
-    if (!result) {
-      return NextResponse.json(
-        { success: false, error: 'Assignment not found' },
-        { status: 404 }
-      );
-    }
-    
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch assignment' 
+export const GET = withIdParam(
+  async (id: string) => {
+    const assignment = await db.orgAssignment.findUnique({
+      where: { id: BigInt(id) },
+      include: {
+        Employee: {
+          include: {
+            User: {
+              select: {
+                id: true,
+                full_name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        OrgUnit: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            type: true,
+          },
+        },
+        JobPosition: {
+          select: {
+            id: true,
+            title: true,
+            code: true,
+          },
+        },
       },
-      { status: 500 }
-    );
-  }
-}
+    });
 
-// PUT /api/org/assignments/[id] - Update org assignment
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    
-    // Convert string id to number
-    const assignmentId = parseInt(id, 10);
-    if (isNaN(assignmentId)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid assignment ID' },
-        { status: 400 }
-      );
+    if (!assignment) {
+      throw new Error('Không tìm thấy phân công');
     }
-    
-    // Validate body
-    const body = await request.json();
-    const errors = validateRequired(body, ['employee_id', 'org_unit_id']);
-    if (errors.length > 0) {
-      return NextResponse.json(
-        { success: false, error: errors.join(', ') },
-        { status: 400 }
-      );
-    }
-    
-    // Call repository
-    const result = await orgAssignmentRepo.update(assignmentId, body);
-    
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to update assignment' 
-      },
-      { status: 500 }
-    );
-  }
-}
 
-// DELETE /api/org/assignments/[id] - Delete org assignment
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    
-    // Convert string id to number
-    const assignmentId = parseInt(id, 10);
-    if (isNaN(assignmentId)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid assignment ID' },
-        { status: 400 }
-      );
+    return assignment;
+  },
+  'fetch assignment'
+);
+
+export const PUT = withIdAndBody(
+  async (id: string, body: unknown) => {
+    // Convert string allocation to number if needed
+    const data = body as Record<string, unknown>;
+    if (data.allocation && typeof data.allocation === 'string') {
+      data.allocation = parseFloat(data.allocation);
     }
     
-    // Call repository
-    const result = await orgAssignmentRepo.delete(assignmentId);
-    
-    return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    console.error('Route error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to delete assignment' 
+    const validatedData = validateSchema(Schemas.Assignment.Update, data);
+    const { employee_id, org_unit_id, job_position_id, start_date, end_date, assignment_type, is_primary, allocation } = validatedData;
+
+
+    const existingAssignment = await db.orgAssignment.findUnique({
+      where: { id: BigInt(id) },
+    });
+    if (!existingAssignment) {
+      throw new Error('Assignment not found');
+    }
+
+    if (employee_id) {
+      const employee = await db.employee.findUnique({
+        where: { id: BigInt(employee_id) },
+      });
+      if (!employee) {
+        throw new Error('Employee not found');
+      }
+    }
+
+    if (org_unit_id) {
+      const orgUnit = await db.orgUnit.findUnique({
+        where: { id: BigInt(org_unit_id) },
+      });
+      if (!orgUnit) {
+        throw new Error('Organization unit not found');
+      }
+    }
+
+    if (job_position_id) {
+      const jobPosition = await db.jobPosition.findUnique({
+        where: { id: BigInt(job_position_id) },
+      });
+      if (!jobPosition) {
+        throw new Error('Job position not found');
+      }
+    }
+
+    if (employee_id || org_unit_id) {
+      const checkEmployeeId = employee_id ? BigInt(employee_id) : existingAssignment.employee_id;
+      const checkOrgUnitId = org_unit_id ? BigInt(org_unit_id) : existingAssignment.org_unit_id;
+
+      const conflictingAssignment = await db.orgAssignment.findFirst({
+        where: {
+          id: { not: BigInt(id) },
+          employee_id: checkEmployeeId,
+          org_unit_id: checkOrgUnitId,
+          is_primary: true,
+          OR: [
+            { end_date: null },
+            { end_date: { gte: new Date(start_date || existingAssignment.start_date) } },
+          ],
+        },
+      });
+
+      if (conflictingAssignment) {
+        throw new Error('Nhân viên này đã có phân công chính trong đơn vị này');
+      }
+    }
+
+    // Update assignment
+    const updatedAssignment = await db.orgAssignment.update({
+      where: { id: BigInt(id) },
+      data: {
+        ...(employee_id && { employee_id: BigInt(employee_id) }),
+        ...(org_unit_id && { org_unit_id: BigInt(org_unit_id) }),
+        ...(job_position_id && { position_id: BigInt(job_position_id) }),
+        ...(start_date && { start_date: new Date(start_date) }),
+        ...(end_date && { end_date: new Date(end_date) }),
+        ...(assignment_type && { assignment_type }),
+        ...(is_primary !== undefined && { is_primary }),
+        ...(allocation && { allocation: parseFloat(allocation.toString()) }),
       },
-      { status: 500 }
-    );
-  }
-}
+      include: {
+        Employee: {
+          include: {
+            User: {
+              select: {
+                id: true,
+                full_name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        OrgUnit: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            type: true,
+          },
+        },
+        JobPosition: {
+          select: {
+            id: true,
+            title: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    return updatedAssignment;
+  },
+  'update assignment'
+);
+
+export const DELETE = withIdParam(
+  async (id: string) => {
+
+    const assignment = await db.orgAssignment.findUnique({
+      where: { id: BigInt(id) },
+    });
+    if (!assignment) {
+      throw new Error('Assignment not found');
+    }
+
+    // soft delete
+    const deletedAssignment = await db.orgAssignment.update({
+      where: { id: BigInt(id) },
+      data: {
+        end_date: new Date(),
+        is_primary: false,
+      },
+      include: {
+        Employee: {
+          include: {
+            User: {
+              select: {
+                id: true,
+                full_name: true,
+                email: true,
+              },
+            },
+          },
+        },
+        OrgUnit: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            type: true,
+          },
+        },
+        JobPosition: {
+          select: {
+            id: true,
+            title: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    return deletedAssignment;
+  },
+  'delete assignment'
+);

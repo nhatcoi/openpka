@@ -14,12 +14,12 @@ export async function GET(request: NextRequest) {
             };
         }
 
-        const employments = await db.employments.findMany({
+        const employments = await db.Employment.findMany({
             where: whereClause,
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             },
@@ -29,15 +29,15 @@ export async function GET(request: NextRequest) {
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedEmployments = employments.map((employment: any) => ({
+        const serializedEmployments = employments.map((employment: { id: bigint; [key: string]: unknown }) => ({
             ...employment,
             id: employment.id.toString(),
             employee_id: employment.employee_id.toString(),
-            employees: employment.employees ? {
+            Employee: employment.employees ? {
                 ...employment.employees,
                 id: employment.employees.id.toString(),
                 user_id: employment.employees.user_id?.toString() || null,
-                user: employment.employees.user ? {
+                User: employment.employees.user ? {
                     ...employment.employees.user,
                     id: employment.employees.user.id.toString()
                 } : null
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const employment = await db.employments.create({
+        const employment = await db.Employment.create({
             data: {
                 employee_id: BigInt(employee_id),
                 contract_no,
@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
                 salary_band
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -95,11 +95,11 @@ export async function POST(request: NextRequest) {
                 ...employment,
                 id: employment.id.toString(),
                 employee_id: employment.employee_id.toString(),
-                employees: employment.employees ? {
+                Employee: employment.employees ? {
                     ...employment.employees,
                     id: employment.employees.id.toString(),
                     user_id: employment.employees.user_id?.toString() || null,
-                    user: employment.employees.user ? {
+                    User: employment.employees.user ? {
                         ...employment.employees.user,
                         id: employment.employees.user.id.toString()
                     } : null

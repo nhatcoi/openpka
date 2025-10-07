@@ -1,17 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const requestType = searchParams.get('request_type') || 'created';
-    const status = searchParams.get('status');
+    const status = searchParams.get('status') || undefined;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const offset = (page - 1) * limit;
 
     // Build where clause
-    const whereClause: any = {
+    const whereClause: Prisma.OrgStructureRequestWhereInput = {
       request_type: requestType,
     };
 
@@ -20,71 +22,41 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch requests with related data
-    const requests = await db.orgStructureRequest.findMany({
-      where: whereClause,
-      include: {
-        org_units: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            type: true,
+    const [requests, totalCount] = await Promise.all([
+      db.orgStructureRequest.findMany({
+        where: whereClause,
+        include: {
+          org_units: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              type: true,
+            },
           },
         },
-      },
-      orderBy: {
-        created_at: 'desc',
-      },
-      skip: offset,
-      take: limit,
-    });
+        orderBy: {
+          created_at: 'desc',
+        },
+        skip: offset,
+        take: limit,
+      }),
+      db.orgStructureRequest.count({
+        where: whereClause,
+      }),
+    ]);
 
-    // Get total count for pagination
-    const totalCount = await db.orgStructureRequest.count({
-      where: whereClause,
-    });
-
-    // Serialize BigInt fields
-    const serializedRequests = requests.map((request) => ({
-      id: request.id.toString(),
-      requester_id: request.requester_id?.toString() || null,
-      request_type: request.request_type,
-      target_org_unit_id: request.target_org_unit_id?.toString() || null,
-      payload: request.payload,
-      status: request.status,
-      workflow_step: request.workflow_step,
-      created_at: request.created_at,
-      updated_at: request.updated_at,
-      owner_org_id: request.owner_org_id?.toString() || null,
-      attachments: request.attachments,
-      org_units: request.org_units ? {
-        id: request.org_units.id.toString(),
-        name: request.org_units.name,
-        code: request.org_units.code,
-        type: request.org_units.type,
-      } : null,
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: serializedRequests,
+    const result = {
+      items: requests,
       pagination: {
         page,
         limit,
         total: totalCount,
         totalPages: Math.ceil(totalCount / limit),
       },
-    });
+    };
 
-  } catch (error) {
-    console.error('Error fetching org requests:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch organization requests',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 }
-    );
-  }
-}
+    return result;
+  },
+  'fetch organization requests'
+);

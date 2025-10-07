@@ -1,21 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { OrgUnitRepository } from '@/modules/org/org.repo';
+import { NextRequest } from 'next/server';
+import { withErrorHandling, withBody } from '@/lib/api/api-handler';
+import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
+import { getUserAccessibleUnits } from '@/lib/auth/hierarchical-permissions';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
 
-const orgUnitRepo = new OrgUnitRepository();
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      throw new Error('Không có quyền');
+    }
 
-// Simple validation helper
-function validateRequired(obj: any, fields: string[]) {
-  const missing = fields.filter(field => !obj[field]);
-  if (missing.length > 0) {
-    throw new Error(`Missing required fields: ${missing.join(', ')}`);
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
     const { searchParams } = new URL(request.url);
     
-    // Simple parameter processing
+    // Parse query parameters
     const page = parseInt(searchParams.get('page') || '1');
     const size = parseInt(searchParams.get('size') || '20');
     const search = searchParams.get('search') || '';
@@ -23,64 +24,145 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || '';
     const sort = searchParams.get('sort') || 'created_at';
     const order = searchParams.get('order') as 'asc' | 'desc' || 'desc';
+    const fromDate = searchParams.get('fromDate');
+    const toDate = searchParams.get('toDate');
+    const include_children = searchParams.get('include_children') === 'true';
+    const include_employees = searchParams.get('include_employees') === 'true';
+    const include_parent = searchParams.get('include_parent') === 'true';
     
-    const result = await orgUnitRepo.findAll({
-      page,
-      size,
-      search,
-      status,
-      type,
-      sort,
-      order,
-      fromDate: searchParams.get('fromDate'),
-      toDate: searchParams.get('toDate'),
-      include_children: searchParams.get('include_children') === 'true',
-      include_employees: searchParams.get('include_employees') === 'true',
-      include_parent: searchParams.get('include_parent') === 'true',
-    });
+    // Lấy danh sách đơn vị user có quyền truy cập
+    const accessibleUnits = await getUserAccessibleUnits(session.user.id);
+    const accessibleUnitIds = accessibleUnits.map(unit => BigInt(unit.id));
+
     
-    return NextResponse.json({ 
-      success: true, 
-      data: result.items || result,
+    
+    // Build where clause với hierarchical permission
+    const where: Prisma.OrgUnitWhereInput = {
+      id: { in: accessibleUnitIds } // Chỉ lấy đơn vị user có quyền
+    };
+    
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    
+    if (status) {
+      where.status = status as any;
+    }
+    
+    if (type) {
+      where.type = type as any;
+    }
+    
+    if (fromDate || toDate) {
+      where.created_at = {};
+      if (fromDate) {
+        where.created_at.gte = new Date(fromDate);
+      }
+      if (toDate) {
+        where.created_at.lte = new Date(toDate);
+      }
+    }
+    
+    // Build include clause
+    const include: Record<string, unknown> = {};
+    
+    if (include_parent) {
+      include.parentRelations = {
+        include: {
+          parent: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+      };
+    }
+    
+    if (include_children) {
+      include.childRelations = {
+        include: {
+          child: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
+        },
+      };
+    }
+    
+    if (include_employees) {
+      include.OrgAssignment = {
+        include: {
+          Employee: {
+            select: {
+              id: true,
+              employee_no: true,
+              user_id: true,
+            },
+          },
+        },
+      };
+    }
+    
+    const skip = (page - 1) * size;
+    
+    const [units, total] = await Promise.all([
+      db.orgUnit.findMany({
+        where,
+        include,
+        orderBy: { [sort]: order },
+        skip,
+        take: size,
+      }),
+      db.orgUnit.count({ where }),
+    ]);
+    
+    const result = {
+      items: units,
       pagination: {
         page,
         size,
-        total: result.total || result.length,
-        totalPages: Math.ceil((result.total || result.length) / size),
-        hasNextPage: page < Math.ceil((result.total || result.length) / size),
-        hasPrevPage: page > 1
-      }
-    });
-  } catch (error) {
-    console.error('org-units GET error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch org units' 
+        total,
+        totalPages: Math.ceil(total / size),
+        hasNextPage: page < Math.ceil(total / size),
+        hasPrevPage: page > 1,
       },
-      { status: 500 }
-    );
-  }
-}
+    };
+    
+    return result;
+  },
+  'fetch org units'
+);
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
+export const POST = withBody(
+  async (body: unknown) => {
+    const data = body as Record<string, unknown>;
+    const { name, code, description, type, status, parent_id } = data;
     
-    // Simple validation
-    validateRequired(body, ['name', 'code']);
+    if (!name || !code) {
+      throw new Error('Name and code are required');
+    }
     
-    const result = await orgUnitRepo.create(body);
+    const newUnit = await db.orgUnit.create({
+      data: {
+        name: name as string,
+        code: (code as string).toUpperCase(),
+        description: description as string || null,
+        type: type ? (type as string).toUpperCase() : null,
+        status: status ? (status as string).toUpperCase() : null,
+        parent_id: parent_id ? BigInt(parent_id as string) : null,
+      } as any,
+    });
     
-    return NextResponse.json({ success: true, data: result }, { status: 201 });
-  } catch (error) {
-    console.error('org-units POST error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to create org unit' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return newUnit;
+  },
+  'create org unit'
+);

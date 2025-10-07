@@ -1,65 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withErrorHandling, withBody } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
+import { serializeBigInt } from '@/utils/serialize';
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    
-    // Validate required fields
+export const POST = withBody(
+  async (body: unknown) => {
+    const data = body as Record<string, unknown>;
+
     const requiredFields = ['code', 'name', 'campus_id', 'owner_org_id', 'requester_id'];
     for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { success: false, error: `Missing required field: ${field}` },
-          { status: 400 }
-        );
+      if (!data[field]) {
+        throw new Error(`Missing required field: ${field}`);
       }
     }
 
-    // Start database transaction
+    // transaction
     const result = await db.$transaction(async (tx) => {
-      // 1. Create OrgUnit with status 'draft'
+      // Tạo draft
       const orgUnit = await tx.orgUnit.create({
         data: {
-          code: body.code,
-          name: body.name,
-          type: body.type && body.type !== '' ? body.type : null,
-          campus_id: BigInt(body.campus_id),
-          parent_id: body.parent_id ? BigInt(body.parent_id) : null,
-          description: body.description || null,
-          status: 'draft',
-          planned_establishment_date: body.planned_establishment_date ? new Date(body.planned_establishment_date) : null,
-          effective_from: body.planned_establishment_date ? new Date(body.planned_establishment_date) : new Date(),
+          code: data.code as string,
+          name: data.name as string,
+          type: data.type && data.type !== '' ? (data.type as string).toUpperCase() : null,
+          campus_id: BigInt(data.campus_id as string),
+          parent_id: data.parent_id ? BigInt(data.parent_id as string) : null,
+          description: (data.description as string) || null,
+          status: 'DRAFT',
+          planned_establishment_date: data.planned_establishment_date ? new Date(data.planned_establishment_date as string) : null,
+          effective_from: data.planned_establishment_date ? new Date(data.planned_establishment_date as string) : new Date(),
           effective_to: null,
         },
       });
 
-      // 2. Create OrgStructureRequest
+      // tạo structure request
       const orgStructureRequest = await tx.orgStructureRequest.create({
         data: {
           request_type: 'created',
           status: 'SUBMITTED',
-          requester_id: BigInt(body.requester_id),
+          requester_id: BigInt(data.requester_id as string),
           target_org_unit_id: orgUnit.id,
-          owner_org_id: BigInt(body.owner_org_id),
-          payload: body.request_details ? (() => {
-            if (typeof body.request_details === 'string') {
+          owner_org_id: BigInt(data.owner_org_id as string),
+          payload: data.request_details ? (() => {
+            if (typeof data.request_details === 'string') {
               try {
-                return JSON.parse(body.request_details);
+                return JSON.parse(data.request_details as string);
               } catch {
-                // If not valid JSON, treat as plain text
-                return { description: body.request_details };
+                return { description: data.request_details };
               }
             }
-            return body.request_details;
+            return data.request_details;
           })() : {},
-          attachments: body.attachments ? JSON.stringify(body.attachments) : '[]',
+          attachments: data.attachments ? JSON.stringify(data.attachments) : '[]',
           created_at: new Date(),
           updated_at: new Date(),
         },
       });
 
-      // 3. Create OrgUnitHistory
+      // tạo history
       const orgUnitHistory = await tx.orgUnitHistory.create({
         data: {
           org_unit_id: orgUnit.id,
@@ -78,15 +75,15 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 4. Create OrgUnitRelation if parent_id is provided
+      // tạo relation với parent
       let orgUnitRelation = null;
-      if (body.parent_id) {
+      if (data.parent_id) {
         orgUnitRelation = await tx.orgUnitRelation.create({
           data: {
-            parent_id: BigInt(body.parent_id),
+            parent_id: BigInt(data.parent_id as string),
             child_id: orgUnit.id,
             relation_type: 'direct',
-            effective_from: body.planned_establishment_date ? new Date(body.planned_establishment_date) : new Date(),
+            effective_from: data.planned_establishment_date ? new Date(data.planned_establishment_date as string) : new Date(),
             effective_to: null,
             note: 'Initial parent-child relationship',
             created_at: new Date(),
@@ -124,12 +121,12 @@ export async function POST(request: NextRequest) {
     });
 
     // 5. Create OrgUnitAttachments if attachments provided (outside transaction)
-    let attachments = [];
+    let attachments: any[] = [];
     // TODO: Temporarily disabled attachments creation to debug
     /*
-    if (body.attachments && Array.isArray(body.attachments)) {
-      for (const attachment of body.attachments) {
-        const orgAttachment = await db.orgUnitAttachments.create({
+    if (data.attachments && Array.isArray(data.attachments)) {
+      for (const attachment of data.attachments) {
+        const orgAttachment = await db.OrgUnitAttachments.create({
           data: {
             org_unit_id: BigInt(result.orgUnit.id),
             attachment_type: 'document', // Default type
@@ -138,7 +135,7 @@ export async function POST(request: NextRequest) {
             file_size: attachment.file_size ? BigInt(attachment.file_size) : null,
             mime_type: attachment.mime_type,
             description: attachment.description || null,
-            uploaded_by: BigInt(body.requester_id),
+            uploaded_by: BigInt(data.requester_id),
             uploaded_at: new Date(),
             is_active: true,
             created_at: new Date(),
@@ -151,7 +148,7 @@ export async function POST(request: NextRequest) {
     */
 
     // Add attachments to result
-    result.attachments = attachments.map(att => ({
+    (result as any).attachments = attachments.map(att => ({
       ...att,
       id: att.id.toString(),
       org_unit_id: att.org_unit_id.toString(),
@@ -159,26 +156,14 @@ export async function POST(request: NextRequest) {
       uploaded_by: att.uploaded_by?.toString(),
     }));
 
-    return NextResponse.json({
-      success: true,
-      message: 'Unit initialized successfully',
-    }, { status: 201 });
+    const serializedResult = serializeBigInt(result as Record<string, unknown>);
+    return serializedResult;
+  },
+  'initialize unit'
+);
 
-  } catch (error) {
-    console.error('Initial units POST error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to initialize unit',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(request: NextRequest) {
-  try {
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'draft';
     
@@ -193,47 +178,12 @@ export async function GET(request: NextRequest) {
       orderBy: { created_at: 'desc' },
     });
 
-    // Serialize BigInt fields
-    const serializedUnits = units.map(unit => ({
-      ...unit,
-      id: unit.id.toString(),
-      parent_id: unit.parent_id?.toString(),
-      campus_id: unit.campus_id?.toString(),
-      org_structure_request: unit.org_structure_request?.map(req => ({
-        ...req,
-        id: req.id.toString(),
-        target_org_unit_id: req.target_org_unit_id?.toString(),
-        requester_id: req.requester_id?.toString(),
-        owner_org_id: req.owner_org_id?.toString(),
-      })) || [],
-      org_unit_attachments: unit.org_unit_attachments?.map(att => ({
-        ...att,
-        id: att.id.toString(),
-        org_unit_id: att.org_unit_id.toString(),
-        file_size: att.file_size?.toString(),
-        uploaded_by: att.uploaded_by?.toString(),
-      })) || [],
-      campus: unit.campus ? {
-        ...unit.campus,
-        id: unit.campus.id.toString(),
-      } : null,
-    }));
+    const result = {
+      items: units,
+      total: units.length,
+    };
 
-    return NextResponse.json({
-      success: true,
-      data: serializedUnits,
-      total: serializedUnits.length,
-    });
-
-  } catch (error) {
-    console.error('Initial units GET error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to fetch initial units',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
-  }
-}
+    return result;
+  },
+  'fetch initial units'
+);

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
     try {
         // Try direct user table access
-        const users = await db.users.findMany({
+        const users = await db.User.findMany({
             select: {
                 id: true,
                 full_name: true,
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
             ))
         });
     } catch (error) {
-        console.error('Error fetching users:', error);
+        console.error('Error fetching User:', error);
         console.error('Error details:', error);
         return NextResponse.json(
             { success: false, error: 'Failed to fetch users', details: error.message },
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if user already exists
-        const existingUser = await db.users.findFirst({
+        const existingUser = await db.User.findFirst({
             where: {
                 OR: [
                     { username: username },
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Create user
-        const user = await db.users.create({
+        const user = await db.User.create({
             data: {
                 username,
                 full_name,
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         }, { status: 201 });
 
     } catch (error) {
-        console.error('Error creating user:', error);
+        console.error('Error creating User:', error);
         return NextResponse.json(
             { error: 'Failed to create user', details: error.message },
             { status: 500 }
@@ -165,7 +165,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Check if user exists
-        const existingUser = await db.users.findUnique({
+        const existingUser = await db.User.findUnique({
             where: { id: BigInt(id) }
         });
 
@@ -177,7 +177,18 @@ export async function PUT(request: NextRequest) {
         }
 
         // Prepare update data
-        const updateData: any = {
+        const updateData: {
+            username?: string;
+            full_name?: string;
+            email?: string;
+            dob?: Date | null;
+            gender?: string;
+            phone?: string;
+            address?: string;
+            status?: string;
+            updated_at: Date;
+            password_hash?: string;
+        } = {
             username,
             full_name,
             email,
@@ -195,7 +206,7 @@ export async function PUT(request: NextRequest) {
         }
 
         // Update user
-        const user = await db.users.update({
+        const user = await db.User.update({
             where: { id: BigInt(id) },
             data: updateData,
             select: {
@@ -218,7 +229,7 @@ export async function PUT(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Error updating user:', error);
+        console.error('Error updating User:', error);
         return NextResponse.json(
             { error: 'Failed to update user', details: error.message },
             { status: 500 }
@@ -249,7 +260,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Check if user exists
-        const existingUser = await db.users.findUnique({
+        const existingUser = await db.User.findUnique({
             where: { id: BigInt(id) }
         });
 
@@ -261,7 +272,7 @@ export async function DELETE(request: NextRequest) {
         }
 
         // Delete user
-        await db.users.delete({
+        await db.User.delete({
             where: { id: BigInt(id) }
         });
 
@@ -271,7 +282,7 @@ export async function DELETE(request: NextRequest) {
         });
 
     } catch (error) {
-        console.error('Error deleting user:', error);
+        console.error('Error deleting User:', error);
         return NextResponse.json(
             { error: 'Failed to delete user', details: error.message },
             { status: 500 }

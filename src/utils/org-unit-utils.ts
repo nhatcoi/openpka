@@ -128,7 +128,7 @@ export const getTypeIcon = (type: string | null) => {
  * Filter organization units based on search term, type, and status
  */
 export const filterOrgUnits = (
-  units: any[],
+  units: Array<{ id: string; name: string; [key: string]: unknown }>,
   searchTerm: string,
   filterType: string,
   filterStatus: string
@@ -203,7 +203,7 @@ export const getInitialFormData = () => ({
 /**
  * Map organization unit to form data
  */
-export const mapUnitToFormData = (unit: any) => ({
+export const mapUnitToFormData = (unit: { id: string; name: string; [key: string]: unknown }) => ({
   name: unit.name,
   code: unit.code,
   type: unit.type || '',

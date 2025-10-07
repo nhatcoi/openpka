@@ -15,14 +15,14 @@ export async function POST(request: NextRequest) {
     }
 
         // Get evaluation record
-        const evaluation = await db.performance_reviews.findUnique({
+        const evaluation = await db.PerformanceReview.findUnique({
             where: {
                 id: BigInt(evaluationId)
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update evaluation with submitted data
-        const updatedEvaluation = await db.performance_reviews.update({
+        const updatedEvaluation = await db.PerformanceReview.update({
             where: {
                 id: BigInt(evaluationId)
             },
@@ -46,9 +46,9 @@ export async function POST(request: NextRequest) {
                 updated_at: new Date()
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }

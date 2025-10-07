@@ -35,6 +35,7 @@ import {
   Menu,
   ListItemIcon,
   ListItemText,
+  Autocomplete,
 } from '@mui/material';
 import { 
   orgApi,
@@ -52,7 +53,17 @@ import {
   getOrgUnitTypes,
   getOrgUnitStatuses,
 } from '@/utils/org-unit-utils';
-import { ORG_UNIT_ALERTS } from '@/utils/alert-utils';
+import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import {
+  convertTypesToOptions,
+  convertStatusesToOptions,
+  getTypeColorFromApi,
+  getStatusColorFromApi,
+  getTypeNameFromApi,
+  getStatusNameFromApi,
+  isStatusDeletableFromApi,
+} from '@/utils/org-data-converters';
+// import { ORG_UNIT_ALERTS } from '@/utils/alert-utils';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -63,12 +74,34 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useOrgUnitsPagination } from '@/hooks/use-org-units-pagination';
+import { PermissionGuard } from '@/components/auth/PermissionGuard';
+
+interface CreateUnitData {
+  name: string;
+  code: string;
+  type: string;
+  description: string;
+  parent_id: number | null;
+  status: string;
+  effective_from: string;
+  effective_to: string;
+}
 
 export default function OrgUnitManagementPage() {
   const router = useRouter();
 
+  // Fetch real types and statuses from API
+  const {
+    types: apiTypes,
+    statuses: apiStatuses,
+    typesLoading,
+    statusesLoading,
+    error: apiError,
+    refreshAll: refreshTypesStatuses,
+  } = useOrgTypesStatuses();
+
   // Simple state management
-  const [orgUnits, setOrgUnits] = React.useState<any[]>([]);
+  const [orgUnits, setOrgUnits] = React.useState<OrgUnit[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [totalCount, setTotalCount] = React.useState(0);
@@ -81,6 +114,65 @@ export default function OrgUnitManagementPage() {
     type: 'all',
     status: 'all',
   });
+
+  // Async searchable parent unit options (independent from paginated orgUnits)
+  const [parentOptions, setParentOptions] = React.useState<OrgUnit[]>([]);
+  const [parentQuery, setParentQuery] = React.useState('');
+  const [parentLoading, setParentLoading] = React.useState(false);
+
+  // Debounced fetch for parent options
+  React.useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const trimmed = parentQuery.trim();
+
+    // Only fetch when user types at least 2 characters
+    if (trimmed.length < 2) {
+      setParentOptions([]);
+      setParentLoading(false);
+      return () => {
+        active = false;
+        controller.abort();
+      };
+    }
+
+    const timeout = setTimeout(async () => {
+      try {
+        setParentLoading(true);
+        const params = new URLSearchParams({
+          page: '1',
+          size: '10',
+          sort: 'name',
+          order: 'asc',
+        });
+        params.set('search', trimmed);
+        const res = await fetch(`/api/org/units?${params.toString()}`, { signal: controller.signal });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Failed to fetch units');
+        const items = Array.isArray(json?.items)
+          ? json.items
+          : Array.isArray(json?.data?.items)
+          ? json.data.items
+          : Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json)
+          ? json
+          : [];
+        if (active) setParentOptions(items as any);
+      } catch (e) {
+        if (active) setParentOptions([]);
+        // swallow for now
+      } finally {
+        if (active) setParentLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [parentQuery]);
 
   // Fetch data function
   const fetchData = async () => {
@@ -106,9 +198,9 @@ export default function OrgUnitManagementPage() {
 
       
       if (response.success) {
-        setOrgUnits(response.data || []);
-        setTotalCount(response.pagination?.total || 0);
-        console.log('orgUnits state updated, totalCount:', response.pagination?.total);
+        setOrgUnits(response.data?.items || []);
+        setTotalCount(response.data?.pagination?.total || 0);
+        console.log('orgUnits state updated, totalCount:', response.data?.pagination?.total);
       } else {
         setError('Failed to fetch data');
       }
@@ -326,10 +418,18 @@ export default function OrgUnitManagementPage() {
         </Box>
       </Stack>
 
-      {error && (
+      {(error || apiError) && (
         <Alert severity="error" sx={{ mb: 3 }}>
           <AlertTitle>Lỗi</AlertTitle>
-          {error}
+          {error || apiError}
+        </Alert>
+      )}
+
+      {/* Loading indicator for types/statuses */}
+      {(typesLoading || statusesLoading) && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <AlertTitle>Đang tải dữ liệu</AlertTitle>
+          Đang tải danh sách loại đơn vị và trạng thái...
         </Alert>
       )}
 
@@ -372,9 +472,10 @@ export default function OrgUnitManagementPage() {
                    value={getFilterValue('type')}
                    label="Loại"
                    onChange={(e) => updateFilter('type', e.target.value)}
+                   disabled={typesLoading}
                  >
                    <MenuItem value="all">Tất cả</MenuItem>
-                   {getOrgUnitTypes().map((type) => (
+                   {convertTypesToOptions(apiTypes).map((type) => (
                      <MenuItem key={type.value} value={type.value}>
                        {type.label}
                      </MenuItem>
@@ -388,9 +489,10 @@ export default function OrgUnitManagementPage() {
                    value={getFilterValue('status')}
                    label="Trạng thái"
                    onChange={(e) => updateFilter('status', e.target.value)}
+                   disabled={statusesLoading}
                  >
                    <MenuItem value="all">Tất cả</MenuItem>
-                   {getOrgUnitStatuses().map((status) => (
+                   {convertStatusesToOptions(apiStatuses).map((status) => (
                      <MenuItem key={status.value} value={status.value}>
                        {status.label}
                      </MenuItem>
@@ -403,19 +505,24 @@ export default function OrgUnitManagementPage() {
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
-                onClick={() => window.location.reload()}
-                disabled={isLoading}
+                onClick={() => {
+                  fetchData();
+                  refreshTypesStatuses();
+                }}
+                disabled={isLoading || typesLoading || statusesLoading}
               >
                 Làm mới
               </Button>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenCreateDialog(true)}
-                sx={{ backgroundColor: '#2e4c92' }}
-              >
-                Thêm đơn vị
-              </Button>
+              <PermissionGuard permission="org_unit.unit.create">
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setOpenCreateDialog(true)}
+                  sx={{ backgroundColor: '#2e4c92' }}
+                >
+                  Thêm đơn vị
+                </Button>
+              </PermissionGuard>
             </Stack>
           </Stack>
         </CardContent>
@@ -493,7 +600,7 @@ export default function OrgUnitManagementPage() {
                 >
                   <TableCell>
                     <Stack direction="row" alignItems="center" spacing={2}>
-                      <Avatar sx={{ backgroundColor: getTypeColor(unit.type) }}>
+                      <Avatar sx={{ backgroundColor: getTypeColorFromApi(unit.type, apiTypes) }}>
                         {React.createElement(getTypeIcon(unit.type))}
                       </Avatar>
                       <Box>
@@ -502,7 +609,7 @@ export default function OrgUnitManagementPage() {
                         </Typography>
                         {unit.description && (
                           <Typography variant="caption" color="text.secondary">
-                            {unit.description}
+                            {String(unit.description)}
                           </Typography>
                         )}
                       </Box>
@@ -518,10 +625,10 @@ export default function OrgUnitManagementPage() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={unit.type || 'N/A'}
+                      label={String(unit.type || 'N/A')}
                       size="small"
                       sx={{
-                        backgroundColor: getTypeColor(unit.type),
+                        backgroundColor: getTypeColorFromApi(String(unit.type), apiTypes),
                         color: 'white',
                         fontSize: '0.75rem',
                       }}
@@ -529,10 +636,10 @@ export default function OrgUnitManagementPage() {
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={unit.status || 'N/A'}
+                      label={String(unit.status || 'N/A')}
                       size="small"
                       sx={{
-                        backgroundColor: getStatusColor(unit.status),
+                        backgroundColor: getStatusColorFromApi(String(unit.status), apiStatuses),
                         color: 'white',
                         fontSize: '0.75rem',
                       }}
@@ -541,7 +648,7 @@ export default function OrgUnitManagementPage() {
                   <TableCell>
                     {unit.parent ? (
                       <Typography variant="body2">
-                        {unit.parent.name}
+                        {String(unit.parent.name)}
                       </Typography>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
@@ -551,12 +658,12 @@ export default function OrgUnitManagementPage() {
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
-                      {unit.employees?.length || 0}
+                      {String(unit.Employee?.length || 0)}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
-                      {new Date(unit.created_at).toLocaleDateString('vi-VN')}
+                      {new Date(String(unit.created_at)).toLocaleDateString('vi-VN')}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
@@ -654,8 +761,9 @@ export default function OrgUnitManagementPage() {
                 value={formData.type}
                 label="Loại đơn vị"
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                disabled={typesLoading}
               >
-                {getOrgUnitTypes().map((type) => (
+                {convertTypesToOptions(apiTypes).map((type) => (
                   <MenuItem key={type.value} value={type.value}>
                     {type.label}
                   </MenuItem>
@@ -670,29 +778,37 @@ export default function OrgUnitManagementPage() {
               multiline
               rows={3}
             />
-            <FormControl fullWidth>
-              <InputLabel>Đơn vị cha</InputLabel>
-              <Select
-                value={formData.parent_id || ''}
-                label="Đơn vị cha"
-                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? Number(e.target.value) : null })}
-              >
-                <MenuItem value="">Không có</MenuItem>
-                {orgUnits.map((unit) => (
-                  <MenuItem key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={Array.isArray(parentOptions) ? parentOptions : []}
+              getOptionLabel={(option) => option.name || ''}
+              value={(Array.isArray(parentOptions) ? parentOptions : []).find(u => String(u.id) === String(formData.parent_id ?? '')) || null}
+              onChange={(_, newValue) => {
+                setFormData({ ...formData, parent_id: newValue ? Number(newValue.id) : null });
+              }}
+              onInputChange={(_, value) => setParentQuery(value)}
+              isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
+              loading={parentLoading}
+              ListboxProps={{
+                style: { maxHeight: 320, overflow: 'auto' },
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Đơn vị cha" placeholder="Tìm kiếm đơn vị..." />
+              )}
+              onOpen={() => {
+                if (!parentOptions || parentOptions.length === 0) setParentQuery('');
+              }}
+              clearOnEscape
+            />
             <FormControl fullWidth>
               <InputLabel>Trạng thái</InputLabel>
               <Select
                 value={formData.status}
                 label="Trạng thái"
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                disabled={statusesLoading}
               >
-                {getOrgUnitStatuses().map((status) => (
+                {convertStatusesToOptions(apiStatuses).map((status) => (
                   <MenuItem key={status.value} value={status.value}>
                     {status.label}
                   </MenuItem>
@@ -753,8 +869,9 @@ export default function OrgUnitManagementPage() {
                 value={formData.type}
                 label="Loại đơn vị"
                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                disabled={typesLoading}
               >
-                {getOrgUnitTypes().map((type) => (
+                {convertTypesToOptions(apiTypes).map((type) => (
                   <MenuItem key={type.value} value={type.value}>
                     {type.label}
                   </MenuItem>
@@ -769,29 +886,38 @@ export default function OrgUnitManagementPage() {
               multiline
               rows={3}
             />
-            <FormControl fullWidth>
-              <InputLabel>Đơn vị cha</InputLabel>
-              <Select
-                value={formData.parent_id || ''}
-                label="Đơn vị cha"
-                onChange={(e) => setFormData({ ...formData, parent_id: e.target.value ? Number(e.target.value) : null })}
-              >
-                <MenuItem value="">Không có</MenuItem>
-                {orgUnits.filter(unit => unit.id !== selectedUnit?.id).map((unit) => (
-                  <MenuItem key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              fullWidth
+              options={(Array.isArray(parentOptions) ? parentOptions : []).filter(unit => String(unit.id) !== String(selectedUnit?.id ?? ''))}
+              getOptionLabel={(option) => option.name || ''}
+              value={parentOptions.find(u => String(u.id) === String(formData.parent_id ?? '')) || null}
+              onChange={(_, newValue) => {
+                setFormData({ ...formData, parent_id: newValue ? Number(newValue.id) : null });
+              }}
+              onInputChange={(_, value) => setParentQuery(value)}
+              isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
+              loading={parentLoading}
+              ListboxProps={{
+                style: { maxHeight: 320, overflow: 'auto' },
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Đơn vị cha" placeholder="Tìm kiếm đơn vị..." />
+              )}
+              onOpen={() => {
+                // trigger initial fetch when opening if options empty
+                if (parentOptions.length === 0) setParentQuery('');
+              }}
+              clearOnEscape
+            />
             <FormControl fullWidth>
               <InputLabel>Trạng thái</InputLabel>
               <Select
                 value={formData.status}
                 label="Trạng thái"
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                disabled={statusesLoading}
               >
-                {getOrgUnitStatuses().map((status) => (
+                {convertStatusesToOptions(apiStatuses).map((status) => (
                   <MenuItem key={status.value} value={status.value}>
                     {status.label}
                   </MenuItem>
@@ -835,7 +961,7 @@ export default function OrgUnitManagementPage() {
         <DialogTitle>Xác nhận vô hiệu hóa</DialogTitle>
         <DialogContent>
           <Typography>
-            Bạn có chắc chắn muốn vô hiệu hóa đơn vị &quot;{selectedUnit?.name}&quot;? 
+            Bạn có chắc chắn muốn vô hiệu hóa đơn vị "{selectedUnit?.name}"? 
             Đơn vị sẽ bị xóa khỏi hệ thống và không thể khôi phục.
           </Typography>
           {selectedUnit?.status === 'active' && (

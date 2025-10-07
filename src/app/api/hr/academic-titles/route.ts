@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
     try {
-        const academicTitles = await db.academic_titles.findMany({
+        const academicTitles = await db.AcademicTitle.findMany({
             orderBy: {
                 title: 'asc',
             },
@@ -14,7 +14,11 @@ export async function GET(request: NextRequest) {
             id: title.id.toString(),
         }));
 
-        return NextResponse.json({ success: true, data: serializedTitles });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTitles }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -36,7 +40,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newTitle = await db.academic_titles.create({
+        const newTitle = await db.AcademicTitle.create({
             data: {
                 code,
                 title,

@@ -4,12 +4,13 @@ import { db } from '@/lib/db';
 // GET - Lấy thông tin bằng cấp theo ID
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
-        const qualification = await db.qualifications.findUnique({
+        const resolvedParams = await params;
+        const qualification = await db.Qualification.findUnique({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             }
         });
 
@@ -42,9 +43,10 @@ export async function GET(
 // PUT - Cập nhật bằng cấp
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
         const body = await request.json();
         const { code, title } = body;
 
@@ -55,9 +57,9 @@ export async function PUT(
             );
         }
 
-        const qualification = await db.qualifications.update({
+        const qualification = await db.Qualification.update({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             },
             data: {
                 code,
@@ -87,13 +89,15 @@ export async function PUT(
 // DELETE - Xóa bằng cấp
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string  }> }
 ) {
     try {
+        const resolvedParams = await params;
+    DELETE
         // Kiểm tra xem có nhân viên nào đang sử dụng bằng cấp này không
-        const employeeQualifications = await db.employee_qualification.findMany({
+        const employeeQualifications = await db.Employee_qualification.findMany({
             where: {
-                qualification_id: BigInt(params.id)
+                qualification_id: BigInt(resolvedParams.id)
             }
         });
 
@@ -107,9 +111,9 @@ export async function DELETE(
             );
         }
 
-        await db.qualifications.delete({
+        await db.Qualification.delete({
             where: {
-                id: BigInt(params.id)
+                id: BigInt(resolvedParams.id)
             }
         });
 

@@ -269,15 +269,15 @@ export default function LeaveRequestHistoryPage() {
                                         <TableCell>
                                             <Box>
                                                 <Typography variant="body2" fontWeight="medium">
-                                                    {request.employees.user.full_name}
+                                                    {request.Employee.User.full_name}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {request.employees.user.email}
+                                                    {request.Employee.User.email}
                                                 </Typography>
                                             </Box>
                                         </TableCell>
                                         <TableCell>
-                                            {request.employees.assignments[0]?.org_unit.name || 'N/A'}
+                                            {request.Employee.OrgAssignment[0]?.OrgUnit.name || 'N/A'}
                                         </TableCell>
                                         <TableCell>{getLeaveTypeLabel(request.leave_type)}</TableCell>
                                         <TableCell>

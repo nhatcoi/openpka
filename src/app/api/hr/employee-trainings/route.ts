@@ -7,15 +7,15 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const employeeId = searchParams.get('employee_id');
 
-        const employeeTrainings = await db.employee_training.findMany({
+        const employeeTrainings = await db.EmployeeTraining.findMany({
             where: employeeId ? { employee_id: BigInt(employeeId) } : {},
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true,
+                        User: true,
                     },
                 },
-                trainings: true,
+                Training: true,
             },
             orderBy: {
                 created_at: 'desc',
@@ -30,22 +30,22 @@ export async function GET(request: NextRequest) {
             completion_date: item.completion_date?.toISOString().split('T')[0] || null,
             created_at: item.created_at.toISOString(),
             updated_at: item.updated_at.toISOString(),
-            employees: item.employees ? {
-                ...item.employees,
-                id: item.employees.id.toString(),
-                user_id: item.employees.user_id?.toString() || null,
-                user: item.employees.user ? {
-                    ...item.employees.user,
-                    id: item.employees.user.id.toString(),
+            Employee: item.Employee ? {
+                ...item.Employee,
+                id: item.Employee.id.toString(),
+                user_id: item.Employee.user_id?.toString() || null,
+                User: item.Employee.User ? {
+                    ...item.Employee.User,
+                    id: item.Employee.User.id.toString(),
                 } : null,
             } : null,
-            trainings: item.trainings ? {
-                ...item.trainings,
-                id: item.trainings.id.toString(),
-                start_date: item.trainings.start_date.toISOString().split('T')[0],
-                end_date: item.trainings.end_date.toISOString().split('T')[0],
-                created_at: item.trainings.created_at.toISOString(),
-                updated_at: item.trainings.updated_at.toISOString(),
+            Training: item.Training ? {
+                ...item.Training,
+                id: item.Training.id.toString(),
+                start_date: item.Training.start_date.toISOString().split('T')[0],
+                end_date: item.Training.end_date.toISOString().split('T')[0],
+                created_at: item.Training.created_at.toISOString(),
+                updated_at: item.Training.updated_at.toISOString(),
             } : null,
         }));
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newEmployeeTraining = await db.employee_training.create({
+        const newEmployeeTraining = await db.EmployeeTraining.create({
             data: {
                 employee_id: BigInt(employee_id),
                 training_id: BigInt(training_id),

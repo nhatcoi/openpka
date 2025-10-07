@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Typography,
@@ -14,7 +14,6 @@ import {
     TableHead,
     TableRow,
     Paper,
-    Chip,
     CircularProgress,
     Alert,
     Grid
@@ -86,8 +85,8 @@ export default function EvaluationDemoPage() {
                                 <strong>1. Tạo kỳ đánh giá:</strong>
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                - Vào trang "Quản lý kỳ đánh giá"<br />
-                                - Nhấn "Tạo Kỳ Đánh Giá"<br />
+                                - Vào trang &quot;Quản lý kỳ đánh giá&quot;<br />
+                                - Nhấn &quot;Tạo Kỳ Đánh Giá&quot;<br />
                                 - Điền thông tin kỳ đánh giá
                             </Typography>
                         </Grid>
@@ -116,8 +115,8 @@ export default function EvaluationDemoPage() {
                                 <strong>4. Xem kết quả:</strong>
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                                - Giảng viên xem đánh giá tại "Đánh giá của tôi"<br />
-                                - Admin xem tất cả đánh giá tại "Đánh giá hiệu suất"
+                                - Giảng viên xem đánh giá tại &quot;Đánh giá của tôi&quot;<br />
+                                - Admin xem tất cả đánh giá tại &quot;Đánh giá hiệu suất&quot;
                             </Typography>
                         </Grid>
                     </Grid>
@@ -213,7 +212,7 @@ export default function EvaluationDemoPage() {
                     {evaluationUrls.length === 0 && !loading && (
                         <Box sx={{ textAlign: 'center', py: 4 }}>
                             <Typography variant="body1" color="text.secondary">
-                                Nhấn "Tạo URL Đánh Giá" để tạo danh sách URL cho giảng viên
+                                Nhấn &quot;Tạo URL Đánh Giá&quot; để tạo danh sách URL cho giảng viên
                             </Typography>
                         </Box>
                     )}

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Typography,
@@ -33,7 +34,7 @@ import {
   Analytics as AnalyticsIcon,
   People as PeopleIcon,
 } from '@mui/icons-material';
-import { type OrgUnit } from '@/features/org/api/use-org-units';
+import { type OrgUnit } from '@/features/org/api/api';
 import { getTypeColor, getTypeIcon } from '@/utils/org-unit-utils';
 
 interface BasicInfoTabProps {
@@ -62,29 +63,83 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
     type: unit.type || '',
     status: unit.status || '',
     description: unit.description || '',
-    effective_from: unit.effective_from ? new Date(unit.effective_from).toISOString().split('T')[0] : '',
-    effective_to: unit.effective_to ? new Date(unit.effective_to).toISOString().split('T')[0] : '',
+    effective_from: unit.effective_from ? String(unit.effective_from).split('T')[0] : '',
+    effective_to: unit.effective_to ? String(unit.effective_to).split('T')[0] : '',
   });
 
-  const orgUnitTypes = [
-    { value: 'U', label: 'University (Trường Đại học)' },
-    { value: 'F', label: 'Faculty (Khoa)' },
-    { value: 'D', label: 'Department (Bộ môn)' },
-    { value: 'B', label: 'Board (Ban)' },
-    { value: 'C', label: 'Center (Trung tâm)' },
-  ];
+  const [orgUnitTypes, setOrgUnitTypes] = useState<Array<{ value: string; label: string }>>([]);
+  const [orgUnitStatuses, setOrgUnitStatuses] = useState<Array<{ value: string; label: string }>>([]);
+  const [typesLoading, setTypesLoading] = useState(false);
+  const [statusesLoading, setStatusesLoading] = useState(false);
 
-  const orgUnitStatuses = [
-    { value: 'active', label: 'Hoạt động' },
-    { value: 'inactive', label: 'Không hoạt động' },
-    { value: 'pending', label: 'Chờ duyệt' },
-    { value: 'archived', label: 'Lưu trữ' },
-  ];
+  // Fetch org unit types
+  const fetchOrgUnitTypes = async () => {
+    try {
+      setTypesLoading(true);
+      const response = await fetch(API_ROUTES.ORG.TYPES);
+      const result = await response.json();
+      
+      if (result.success) {
+        const types = result.data.map((type: any) => ({
+          value: type.code, // Use code as value instead of ID
+          label: `${type.name} (${type.code})`
+        }));
+        setOrgUnitTypes(types);
+      }
+    } catch (err) {
+      console.error('Failed to fetch org unit types:', err);
+    } finally {
+      setTypesLoading(false);
+    }
+  };
 
-  const handleEdit = () => {
+  // Fetch org unit statuses
+  const fetchOrgUnitStatuses = async () => {
+    try {
+      setStatusesLoading(true);
+      const response = await fetch(API_ROUTES.ORG.STATUSES);
+      const result = await response.json();
+      
+      if (result.success) {
+        const statuses = result.data.map((status: any) => ({
+          value: status.code, // Use code as value instead of ID
+          label: `${status.name} (${status.code})`
+        }));
+        setOrgUnitStatuses(statuses);
+      }
+    } catch (err) {
+      console.error('Failed to fetch org unit statuses:', err);
+    } finally {
+      setStatusesLoading(false);
+    }
+  };
+
+  // Fetch data only when needed (on edit)
+  // useEffect removed - will fetch on demand
+
+  // Helper functions to get type and status names
+  const getTypeName = (typeCode: string | null) => {
+    if (!typeCode) return 'Chưa xác định';
+    const type = orgUnitTypes.find(t => t.value === typeCode);
+    return type ? type.label : typeCode; // Show code if no data available yet
+  };
+
+  const getStatusName = (statusCode: string | null) => {
+    if (!statusCode) return 'Chưa xác định';
+    const status = orgUnitStatuses.find(s => s.value === statusCode);
+    return status ? status.label : statusCode; // Show code if no data available yet
+  };
+
+  const handleEdit = async () => {
     setIsEditing(true);
     setError(null);
     setSuccess(null);
+    
+    // Fetch data when user starts editing
+    await Promise.all([
+      fetchOrgUnitTypes(),
+      fetchOrgUnitStatuses()
+    ]);
   };
 
   const handleCancel = () => {
@@ -237,7 +292,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                 
                 <Stack direction="row" spacing={2}>
                   <Chip
-                    label={unit.type || 'Chưa xác định'}
+                    label={getTypeName(unit.type)}
                     size="small"
                     sx={{
                       backgroundColor: getTypeColor(unit.type || ''),
@@ -247,10 +302,10 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                     }}
                   />
                   <Chip
-                    label={unit.status || 'Chưa xác định'}
+                    label={getStatusName(unit.status)}
                     size="small"
                     sx={{
-                      backgroundColor: unit.status === 'active' ? '#4caf50' : '#ff9800',
+                      backgroundColor: unit.status === 'ACTIVE' ? '#4caf50' : '#ff9800',
                       color: 'white',
                       fontWeight: 'bold',
                       boxShadow: 1
@@ -370,6 +425,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                         value={editData.type}
                         onChange={(e) => handleInputChange('type', e.target.value)}
                         displayEmpty
+                        disabled={typesLoading}
                       >
                         <MenuItem value="">
                           <em>Chọn loại đơn vị</em>
@@ -383,7 +439,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                     </FormControl>
                   ) : (
                     <Chip
-                      label={unit.type || 'Chưa xác định'}
+                      label={getTypeName(unit.type)}
                       size="small"
                       sx={{
                         backgroundColor: getTypeColor(unit.type || ''),
@@ -404,6 +460,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                         value={editData.status}
                         onChange={(e) => handleInputChange('status', e.target.value)}
                         displayEmpty
+                        disabled={statusesLoading}
                       >
                         <MenuItem value="">
                           <em>Chọn trạng thái</em>
@@ -417,7 +474,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                     </FormControl>
                   ) : (
                     <Chip
-                      label={unit.status || 'Chưa xác định'}
+                      label={getStatusName(unit.status)}
                       size="small"
                       sx={{
                         backgroundColor: getTypeColor(unit.status || ''),
@@ -576,7 +633,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
             transform: 'translateY(-2px)',
           }
         }}>
-          <CardContent sx={{ p: 3 }}>
+          {/* <CardContent sx={{ p: 3 }}>
             <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
               <Avatar sx={{ backgroundColor: '#ff9800', width: 40, height: 40 }}>
                 <AnalyticsIcon />
@@ -604,7 +661,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                   <PeopleIcon sx={{ fontSize: 24 }} />
                 </Avatar>
                 <Typography variant="h4" sx={{ fontWeight: 'bold', color: '#2e7d32', mb: 1 }}>
-                  {unit.employees?.length || 0}
+                  {unit.Employee?.length || 0}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
                   Tổng nhân viên
@@ -635,7 +692,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                 </Typography>
               </Box>
             </Box>
-          </CardContent>
+          </CardContent> */}
         </Card>
       </Box>
     </Box>

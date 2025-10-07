@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
 
-        const employeeAcademicTitle = await db.employee_academic_title.findUnique({
+        const employeeAcademicTitle = await db.Employee_academic_title.findUnique({
             where: { id: BigInt(titleId) },
             include: {
                 employees: {
@@ -55,13 +59,17 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
         const body = await request.json();
         const { employee_id, academic_title_id, awarded_date } = body;
 
-        const updatedTitle = await db.employee_academic_title.update({
+        const updatedTitle = await db.Employee_academic_title.update({
             where: { id: BigInt(titleId) },
             data: {
                 employee_id: employee_id ? BigInt(employee_id) : undefined,
@@ -91,11 +99,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+    request: NextRequest,
+    { params }: { params: Promise<{ id: string  }> }
+) {
     try {
-        const titleId = params.id;
+        const resolvedParams = await params;
+        const titleId = resolvedParams.id;
 
-        await db.employee_academic_title.delete({
+        await db.Employee_academic_title.delete({
             where: { id: BigInt(titleId) },
         });
 

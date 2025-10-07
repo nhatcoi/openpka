@@ -112,16 +112,9 @@ const menuItems: MenuItem[] = [
             },
             {
                 key: 'employee-logs',
-                label: 'Log nhân viên',
-                icon: <HistoryIcon />,
-                href: '/hr/employee-logs',
-                permission: 'employee.read',
-            },
-            {
-                key: 'employee-changes-history',
                 label: 'Lịch sử sửa đổi',
                 icon: <EditIcon />,
-                href: '/hr/employee-changes/history',
+                href: '/hr/employee-logs',
                 permission: 'employee.read',
             }
         ],

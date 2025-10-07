@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Typography,
@@ -56,13 +57,13 @@ interface OrgStructureRequest {
   requester_id: string | null;
   request_type: string;
   target_org_unit_id: string | null;
-  payload: any;
+  payload: { [key: string]: unknown };
   status: string;
   workflow_step: number;
   created_at: string | null;
   updated_at: string | null;
   owner_org_id?: string | null;
-  attachments?: any;
+  attachments?: Array<{ id: string; name: string; url: string; [key: string]: unknown }>;
 }
 
 interface OrgUnit {
@@ -125,7 +126,7 @@ export default function CreateApprovePage() {
         for (const request of requestsData) {
           if (request.target_org_unit_id) {
             try {
-              const unitResponse = await fetch(`/api/org/units/${request.target_org_unit_id}`);
+              const unitResponse = await fetch(API_ROUTES.ORG.UNITS_BY_ID(request.target_org_unit_id));
               if (unitResponse.ok) {
                 const unitData = await unitResponse.json();
                 if (unitData.success) {

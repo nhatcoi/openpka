@@ -8,6 +8,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const resolvedParams = await params;
         const { id } = await params;
         const rolePermissionId = BigInt(id);
 
@@ -16,16 +17,16 @@ export async function DELETE(
         const currentUserId = token?.sub ? BigInt(token.sub) : undefined;
 
         // Get old data for logging
-        const oldRolePermission = await db.role_permission.findUnique({
-            where: { id: rolePermissionId as any },
+        const oldRolePermission = await db.Role_permission.findUnique({
+            where: { id: BigInt(rolePermissionId) },
             include: {
                 roles: true,
                 permissions: true
             }
         });
 
-        await db.role_permission.delete({
-            where: { id: rolePermissionId as any },
+        await db.Role_permission.delete({
+            where: { id: BigInt(rolePermissionId) },
         });
 
         // Log the deletion activity

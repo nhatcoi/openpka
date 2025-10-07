@@ -12,12 +12,12 @@ export async function GET(request: NextRequest) {
             whereClause = { employee_id: BigInt(employeeId) };
         }
 
-        const performanceReviews = await db.performance_reviews.findMany({
+        const performanceReviews = await db.PerformanceReview.findMany({
             where: whereClause,
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             },
@@ -27,18 +27,18 @@ export async function GET(request: NextRequest) {
         });
 
         // Serialize BigInt and Decimal values
-        const serializedReviews = performanceReviews.map((review: any) => ({
+        const serializedReviews = performanceReviews.map((review: { id: bigint; [key: string]: unknown }) => ({
             ...review,
             id: review.id.toString(),
             employee_id: review.employee_id.toString(),
             score: review.score?.toString() || null,
-            employees: review.employees ? {
-                ...review.employees,
-                id: review.employees.id.toString(),
-                user_id: review.employees.user_id.toString(),
-                user: review.employees.user ? {
-                    ...review.employees.user,
-                    id: review.employees.user.id.toString()
+            Employee: review.Employee ? {
+                ...review.Employee,
+                id: review.Employee.id.toString(),
+                user_id: review.Employee.user_id.toString(),
+                User: review.Employee.User ? {
+                    ...review.Employee.User,
+                    id: review.Employee.User.id.toString()
                 } : null
             } : null
         }));
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Employee ID is required' }, { status: 400 });
         }
 
-        const performanceReview = await db.performance_reviews.create({
+        const performanceReview = await db.PerformanceReview.create({
             data: {
                 employee_id: BigInt(employee_id),
                 review_period,
@@ -78,9 +78,9 @@ export async function POST(request: NextRequest) {
                 comments,
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 }
             }
@@ -92,13 +92,13 @@ export async function POST(request: NextRequest) {
             id: performanceReview.id.toString(),
             employee_id: performanceReview.employee_id.toString(),
             score: performanceReview.score?.toString() || null,
-            employees: performanceReview.employees ? {
-                ...performanceReview.employees,
-                id: performanceReview.employees.id.toString(),
-                user_id: performanceReview.employees.user_id.toString(),
-                user: performanceReview.employees.user ? {
-                    ...performanceReview.employees.user,
-                    id: performanceReview.employees.user.id.toString()
+            Employee: performanceReview.Employee ? {
+                ...performanceReview.Employee,
+                id: performanceReview.Employee.id.toString(),
+                user_id: performanceReview.Employee.user_id.toString(),
+                User: performanceReview.Employee.User ? {
+                    ...performanceReview.Employee.User,
+                    id: performanceReview.Employee.User.id.toString()
                 } : null
             } : null
         };

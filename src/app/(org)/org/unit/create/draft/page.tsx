@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Typography,
@@ -35,21 +36,12 @@ import {
 } from '@mui/icons-material';
 import { useOrgUnits, useParentUnits } from '@/features/org/api/use-org-units';
 import { useCampuses } from '@/features/org/api/use-campuses';
+import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import { convertTypesToOptions, convertStatusesToOptions } from '@/utils/org-data-converters';
 import { AlertMessage, createSuccessAlert, createErrorAlert, closeAlert } from '@/utils/alert-utils';
+import { useSession } from 'next-auth/react';
 
 
-const UNIT_TYPES = [
-  { value: '', label: 'Chưa xác định', description: 'Loại đơn vị sẽ được xác định sau' },
-  { value: 'S', label: 'Trường', description: 'Cấp trường' },
-  { value: 'F', label: 'Khoa', description: 'Cấp khoa' },
-  { value: 'D', label: 'Bộ môn', description: 'Cấp bộ môn' },
-  { value: 'V', label: 'Phòng ban', description: 'Cấp phòng ban' },
-  { value: 'C', label: 'Trung tâm', description: 'Cấp trung tâm' },
-  { value: 'I', label: 'Viện', description: 'Cấp viện' },
-  { value: 'O', label: 'Văn phòng', description: 'Cấp văn phòng' },
-  { value: 'B', label: 'Ban', description: 'Cấp ban chuyên môn' },
-  { value: 'L', label: 'Phòng thí nghiệm', description: 'Cấp phòng thí nghiệm' },
-];
 
 // Campus and parent units data will be fetched from API
 
@@ -71,11 +63,11 @@ interface DraftUnitFormData {
   
   // SECTION 4: THÔNG TIN BỔ SUNG WORKFLOW
   request_details: string;
-  attachments: any[];
+  attachments: Array<{ id: string; name: string; url: string; [key: string]: unknown }>;
 }
 
 export default function CreateDraftPage() {
-  const [editingUnit, setEditingUnit] = useState<any>(null);
+  const [editingUnit, setEditingUnit] = useState<{ [key: string]: unknown } | null>(null);
   const [formData, setFormData] = useState<DraftUnitFormData>({
     code: '',
     name: '',
@@ -92,9 +84,16 @@ export default function CreateDraftPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [alert, setAlert] = useState<AlertMessage>(closeAlert());
 
+  // Key-value pairs for additional workflow information
+  const [workflowInfo, setWorkflowInfo] = useState<Array<{key: string, value: string}>>([
+    { key: 'budget', value: '2000000' },
+    { key: 'staff', value: '20' },
+    { key: 'equipment', value: 'computers' }
+  ]);
+
   // Fetch draft units from API
   const { data: draftUnitsResponse, isLoading, error, refetch } = useOrgUnits({
-    status: 'draft',
+    status: 'DRAFT',
     page: 1,
     size: 50,
     sort: 'created_at',
@@ -103,7 +102,7 @@ export default function CreateDraftPage() {
 
   // Fetch rejected units from API
   const { data: rejectedUnitsResponse, isLoading: rejectedLoading } = useOrgUnits({
-    status: 'rejected',
+    status: 'REJECTED',
     page: 1,
     size: 50,
     sort: 'created_at',
@@ -112,26 +111,93 @@ export default function CreateDraftPage() {
 
   // Fetch campuses from API
   const { data: campusesResponse, isLoading: campusesLoading } = useCampuses({
-    status: 'active',
+    status: 'ACTIVE',
   });
 
   // Fetch parent units from API
   const { data: parentUnitsResponse, isLoading: parentUnitsLoading } = useParentUnits();
 
-  const draftUnits = draftUnitsResponse || [];
-  const rejectedUnits = rejectedUnitsResponse || [];
+  // Fetch types and statuses from API
+  const { types: apiTypes, statuses: apiStatuses, typesLoading, statusesLoading, error: apiError } = useOrgTypesStatuses();
+
+  // Get current user session
+  const { data: session, status: sessionStatus } = useSession();
+
+  const draftUnits = draftUnitsResponse?.items || [];
+  const rejectedUnits = rejectedUnitsResponse?.items || [];
+
+  // Create dynamic types from API data
+  const dynamicTypes = [
+    { value: '', label: 'Chưa xác định', description: 'Loại đơn vị sẽ được xác định sau' },
+    ...convertTypesToOptions(apiTypes).map(type => ({
+      value: type.value,
+      label: type.label,
+      description: `Cấp ${type.label.toLowerCase()}`
+    }))
+  ];
+
+  // Group and sort parent units by type with group headers
+  const getSortedParentUnitsWithGroups = () => {
+    if (!parentUnitsResponse) return [];
+    
+    // Group units by type
+    const groupedUnits = parentUnitsResponse.items.reduce((acc: any, unit: any) => {
+      const type = unit.type || 'UNKNOWN';
+      if (!acc[type]) {
+        acc[type] = [];
+      }
+      acc[type].push(unit);
+      return acc;
+    }, {});
+
+    // Sort types based on hierarchy (University -> Faculty -> Department -> etc.)
+    const typeOrder = ['UNIVERSITY', 'FACULTY', 'DEPARTMENT', 'DIVISION', 'CENTER', 'INSTITUTE', 'OFFICE', 'BAN', 'UNKNOWN'];
+    
+    // Create sorted array with group headers
+    const sortedUnitsWithGroups: any[] = [];
+    typeOrder.forEach(type => {
+      if (groupedUnits[type] && groupedUnits[type].length > 0) {
+        // Add group header
+        sortedUnitsWithGroups.push({
+          id: `group-${type}`,
+          isGroupHeader: true,
+          type: type,
+          name: getTypeLabel(type),
+          count: groupedUnits[type].length
+        });
+        
+        // Sort units within each type by name
+        const sortedByType = groupedUnits[type].sort((a: any, b: any) => 
+          a.name.localeCompare(b.name, 'vi-VN')
+        );
+        sortedUnitsWithGroups.push(...sortedByType);
+      }
+    });
+
+    return sortedUnitsWithGroups;
+  };
 
   // Auto-select first parent unit for owner_org_id when data is loaded
   useEffect(() => {
-    if (parentUnitsResponse && parentUnitsResponse.length > 0 && !formData.owner_org_id) {
+    if (parentUnitsResponse?.items && parentUnitsResponse.items.length > 0 && !formData.owner_org_id) {
       setFormData(prev => ({
         ...prev,
-        owner_org_id: parentUnitsResponse[0].id
+        owner_org_id: parentUnitsResponse.items[0].id
       }));
     }
   }, [parentUnitsResponse, formData.owner_org_id]);
 
-  const handleInputChange = (field: keyof DraftUnitFormData, value: string | null | any[]) => {
+  // Auto-fill current user ID into requester field when session is loaded
+  useEffect(() => {
+    if (session?.user?.id && !formData.requester_id) {
+      setFormData(prev => ({
+        ...prev,
+        requester_id: session.user.id
+      }));
+    }
+  }, [session, formData.requester_id]);
+
+  const handleInputChange = (field: keyof DraftUnitFormData, value: string | null | Array<{ [key: string]: unknown }>) => {
     setFormData(prev => ({
       ...prev,
       [field]: value,
@@ -164,7 +230,7 @@ export default function CreateDraftPage() {
   const handleSubmitForReview = async () => {
     if (validateForm()) {
       try {
-        const response = await fetch('/api/org/initial-units', {
+        const response = await fetch(API_ROUTES.ORG.INITIAL_UNITS, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -186,12 +252,12 @@ export default function CreateDraftPage() {
             requester_id: formData.requester_id,
             
             // SECTION 4: THÔNG TIN BỔ SUNG WORKFLOW
-            request_details: formData.request_details ? (() => {
+            request_details: getWorkflowInfoJson() ? (() => {
               try {
-                return JSON.parse(formData.request_details);
+                return JSON.parse(getWorkflowInfoJson());
               } catch {
                 // If not valid JSON, treat as plain text
-                return { description: formData.request_details };
+                return { description: getWorkflowInfoJson() };
               }
             })() : null,
             attachments: formData.attachments,
@@ -217,7 +283,7 @@ export default function CreateDraftPage() {
     }
   };
 
-  const handleEditUnit = (unit: any) => {
+  const handleEditUnit = (unit: { id: string; name: string; [key: string]: unknown }) => {
     setEditingUnit(unit);
     setFormData({
       code: unit.code || '',
@@ -254,27 +320,67 @@ export default function CreateDraftPage() {
 
   const getTypeLabel = (type: string | null) => {
     if (!type || type === '') return 'Chưa xác định';
-    return UNIT_TYPES.find(t => t.value === type)?.label || type;
+    return dynamicTypes.find(t => t.value === type)?.label || type;
+  };
+
+  const getRequesterDisplay = () => {
+    if (sessionStatus === 'loading') return 'Đang tải...';
+    if (!session?.user) return 'Chưa đăng nhập';
+    const user = session.user;
+    return `${user.name || user.email || 'User'} (ID: ${user.id})`;
+  };
+
+  // Functions to manage workflow info key-value pairs
+  const addWorkflowInfo = () => {
+    setWorkflowInfo(prev => [...prev, { key: '', value: '' }]);
+  };
+
+  const removeWorkflowInfo = (index: number) => {
+    setWorkflowInfo(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateWorkflowInfo = (index: number, field: 'key' | 'value', value: string) => {
+    setWorkflowInfo(prev => prev.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    ));
+  };
+
+  // Convert workflow info to JSON string
+  const getWorkflowInfoJson = () => {
+    const obj: Record<string, string> = {};
+    workflowInfo.forEach(item => {
+      if (item.key.trim() && item.value.trim()) {
+        obj[item.key.trim()] = item.value.trim();
+      }
+    });
+    return JSON.stringify(obj);
   };
 
   return (
     <Box>
       <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 3 }}>
         <AddIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-        Khởi tạo đơn vị (Draft)
+        Đề xuất đơn vị mới
       </Typography>
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <AlertTitle>Quy trình khởi tạo</AlertTitle>
-        Tạo đơn vị mới ở trạng thái nháp với thông tin cơ bản. Sau khi hoàn thành có thể gửi thẩm định.
+        Tạo đơn vị mới ở trạng thái nháp với thông tin cơ bản. Sau khi hoàn thành có thể gửi cấp trên thẩm định.
       </Alert>
+
+      {apiError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          <AlertTitle>Lỗi tải dữ liệu</AlertTitle>
+          Không thể tải danh sách loại đơn vị và trạng thái: {apiError}
+        </Alert>
+      )}
 
       {/* Stats */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 3 }}>
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom color="primary">
-              Draft Units
+              Đơn vị đang đề xuất
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
               {isLoading ? <CircularProgress size={20} /> : draftUnits.length}
@@ -288,7 +394,7 @@ export default function CreateDraftPage() {
         <Card>
           <CardContent>
             <Typography variant="h6" gutterBottom color="error">
-              Rejected Units
+              Đơn vị bị từ chối
             </Typography>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
               {rejectedLoading ? <CircularProgress size={20} /> : rejectedUnits.length}
@@ -305,7 +411,7 @@ export default function CreateDraftPage() {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
             <Typography variant="h6">
-              {editingUnit ? 'Edit Unit' : 'Create New Unit'}
+              {editingUnit ? 'Chỉnh sửa đề xuất' : 'Tạo mới một đề xuất đơn vị'}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
               <Button
@@ -313,7 +419,7 @@ export default function CreateDraftPage() {
                 startIcon={<RefreshIcon />}
                 onClick={() => refetch()}
               >
-                Refresh
+                Làm mới
               </Button>
               {editingUnit && (
                 <Button
@@ -340,7 +446,7 @@ export default function CreateDraftPage() {
 
           {/* Basic Info */}
           <Typography variant="h6" sx={{ mb: 2, color: 'primary.main' }}>
-            Basic Information
+            Thông tin cơ bản
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 4 }}>
             <TextField
@@ -367,19 +473,29 @@ export default function CreateDraftPage() {
                 value={formData.type}
                 onChange={(e) => handleInputChange('type', e.target.value)}
                 label="Loại đơn vị *"
+                disabled={typesLoading}
               >
-                {UNIT_TYPES.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">
-                        {type.label}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {type.description}
-                      </Typography>
+                {typesLoading ? (
+                  <MenuItem disabled>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">Đang tải...</Typography>
                     </Box>
                   </MenuItem>
-                ))}
+                ) : (
+                  dynamicTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {type.label}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {type.description}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))
+                )}
               </Select>
               {errors.type && (
                 <Typography variant="caption" color="error" sx={{ mt: 1, ml: 2 }}>
@@ -395,7 +511,7 @@ export default function CreateDraftPage() {
                 label="Campus *"
                 disabled={campusesLoading}
               >
-                {campusesResponse?.map((campus: any) => (
+                {campusesResponse?.map((campus: { id: string; name: string; [key: string]: unknown }) => (
                   <MenuItem key={campus.id} value={campus.id}>
                     <Box>
                       <Typography variant="body2" fontWeight="bold">
@@ -445,18 +561,39 @@ export default function CreateDraftPage() {
                     </Box>
                   </MenuItem>
                 ) : (
-                  parentUnitsResponse?.map((unit: any) => (
-                    <MenuItem key={unit.id} value={unit.id}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="medium">
-                          {unit.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {unit.code} • {unit.type || 'Chưa xác định'}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))
+                  getSortedParentUnitsWithGroups().map((item: any) => {
+                    if (item.isGroupHeader) {
+                      return (
+                        <MenuItem key={item.id} disabled sx={{ 
+                          backgroundColor: 'grey.100',
+                          fontWeight: 'bold',
+                          '&:hover': { backgroundColor: 'grey.100' }
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Typography variant="body2" fontWeight="bold" color="primary">
+                              {item.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ({item.count} đơn vị)
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      );
+                    }
+                    
+                    return (
+                      <MenuItem key={item.id} value={item.id} sx={{ pl: 3 }}>
+                        <Box>
+                          <Typography variant="body2" fontWeight="medium">
+                            {item.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.code} • {getTypeLabel(item.type)}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })
                 )}
               </Select>
             </FormControl>
@@ -501,18 +638,39 @@ export default function CreateDraftPage() {
                     </Box>
                   </MenuItem>
                 ) : (
-                  parentUnitsResponse?.map((unit: any) => (
-                    <MenuItem key={unit.id} value={unit.id}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {unit.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {unit.code} • {unit.type || 'Chưa xác định'}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))
+                  getSortedParentUnitsWithGroups().map((item: any) => {
+                    if (item.isGroupHeader) {
+                      return (
+                        <MenuItem key={item.id} disabled sx={{ 
+                          backgroundColor: 'grey.100',
+                          fontWeight: 'bold',
+                          '&:hover': { backgroundColor: 'grey.100' }
+                        }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Typography variant="body2" fontWeight="bold" color="primary">
+                              {item.name}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              ({item.count} đơn vị)
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      );
+                    }
+                    
+                    return (
+                      <MenuItem key={item.id} value={item.id} sx={{ pl: 3 }}>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {item.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {item.code} • {getTypeLabel(item.type)}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    );
+                  })
                 )}
               </Select>
               {errors.owner_org_id && (
@@ -524,9 +682,9 @@ export default function CreateDraftPage() {
             <TextField
               fullWidth
               label="Người yêu cầu"
-              value={`User ID: ${formData.requester_id}`}
+              value={getRequesterDisplay()}
               disabled
-              helperText="Tự động lấy từ session"
+              
             />
           </Box>
 
@@ -535,17 +693,55 @@ export default function CreateDraftPage() {
             Additional Workflow Information
           </Typography>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mb: 4 }}>
-            <TextField
-              fullWidth
-              label="Chi tiết yêu cầu (JSON)"
-              multiline
-              rows={4}
-              value={formData.request_details}
-              onChange={(e) => handleInputChange('request_details', e.target.value)}
-              placeholder='{"budget": 2000000, "staff": 20, "equipment": "computers"}'
-              helperText="Nhập thông tin bổ sung dưới dạng JSON"
-              sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
-            />
+            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                Chi tiết yêu cầu 
+              </Typography>
+              
+              {workflowInfo.map((item, index) => (
+                <Box key={index} sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+                  <TextField
+                    label="Yêu cầu"
+                    value={item.key}
+                    onChange={(e) => updateWorkflowInfo(index, 'key', e.target.value)}
+                    placeholder="Ví dụ: budget"
+                    sx={{ flex: 1 }}
+                  />
+                  <TextField
+                    label="Giá trị"
+                    value={item.value}
+                    onChange={(e) => updateWorkflowInfo(index, 'value', e.target.value)}
+                    placeholder="Ví dụ: 2000000"
+                    sx={{ flex: 1 }}
+                  />
+                  <IconButton
+                    onClick={() => removeWorkflowInfo(index)}
+                    color="error"
+                    disabled={workflowInfo.length <= 1}
+                  >
+                    <RemoveIcon />
+                  </IconButton>
+                </Box>
+              ))}
+              
+              <Button
+                onClick={addWorkflowInfo}
+                startIcon={<AddIcon />}
+                variant="outlined"
+                sx={{ mb: 2 }}
+              >
+                Thêm thông tin
+              </Button>
+              
+              {/* <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  JSON Preview:
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                  {getWorkflowInfoJson()}
+                </Typography>
+              </Box> */}
+            </Box>
             <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 File đính kèm (Tùy chọn)
@@ -655,7 +851,7 @@ export default function CreateDraftPage() {
                 </TableCell>
               </TableRow>
             ) : (
-              draftUnits.map((unit: any) => (
+              draftUnits.map((unit: { id: string; name: string; [key: string]: unknown }) => (
                 <TableRow key={unit.id}>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
@@ -731,7 +927,7 @@ export default function CreateDraftPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  rejectedUnits.map((unit: any) => (
+                  rejectedUnits.map((unit: { id: string; name: string; [key: string]: unknown }) => (
                     <TableRow key={unit.id}>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">

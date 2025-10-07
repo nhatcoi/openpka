@@ -4,7 +4,7 @@ import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 
 export async function GET(request: NextRequest) {
     try {
-        const trainings = await db.trainings.findMany({
+        const trainings = await db.Training.findMany({
             orderBy: {
                 start_date: 'desc',
             },
@@ -19,7 +19,11 @@ export async function GET(request: NextRequest) {
             updated_at: training.updated_at.toISOString(),
         }));
 
-        return NextResponse.json({ success: true, data: serializedTrainings });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedTrainings }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newTraining = await db.trainings.create({
+        const newTraining = await db.Training.create({
             data: {
                 title,
                 provider,

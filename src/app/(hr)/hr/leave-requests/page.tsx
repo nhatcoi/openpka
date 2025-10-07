@@ -348,7 +348,7 @@ export default function LeaveRequestsPage() {
                         <TableBody>
                             {leaveRequests.map((request) => (
                                 <TableRow key={request.id}>
-                                    <TableCell>{request.employees.user.full_name}</TableCell>
+                                    <TableCell>{request.Employee.User.full_name}</TableCell>
                                     <TableCell>{getLeaveTypeLabel(request.leave_type)}</TableCell>
                                     <TableCell>{formatDate(request.start_date)}</TableCell>
                                     <TableCell>{formatDate(request.end_date)}</TableCell>
@@ -475,7 +475,7 @@ export default function LeaveRequestsPage() {
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                             <Box>
                                 <Typography variant="subtitle2">Nhân viên:</Typography>
-                                <Typography>{selectedRequest.employees.user.full_name}</Typography>
+                                <Typography>{selectedRequest.Employee.User.full_name}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="subtitle2">Loại nghỉ:</Typography>

@@ -1,37 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
-// GET /api/org/stats - Get organization statistics for dashboard
-export async function GET(request: NextRequest) {
-  try {
+// GET /api/org/stats
+export const GET = withErrorHandling(
+  async (request: NextRequest) => {
     // Get total units count
     const totalUnits = await db.orgUnit.count();
 
     // Get active/inactive units count
-    const activeUnits = await db.orgUnit.count({
-      where: { status: 'active' }
-    });
-    
-    const inactiveUnits = await db.orgUnit.count({
-      where: { status: 'inactive' }
-    });
+    const [activeUnits, inactiveUnits] = await Promise.all([
+      db.orgUnit.count({ where: { status: 'ACTIVE' } }),
+      db.orgUnit.count({ where: { status: 'INACTIVE' } })
+    ]);
 
     // Get units by type
     const [departments, divisions, teams, branches] = await Promise.all([
-      db.orgUnit.count({ where: { type: 'department' } }),
-      db.orgUnit.count({ where: { type: 'division' } }),
-      db.orgUnit.count({ where: { type: 'team' } }),
-      db.orgUnit.count({ where: { type: 'branch' } })
+      db.orgUnit.count({ where: { type: 'DEPARTMENT' } }),
+      db.orgUnit.count({ where: { type: 'DIVISION' } }),
+      db.orgUnit.count({ where: { type: 'TEAM' } }),
+      db.orgUnit.count({ where: { type: 'BRANCH' } })
     ]);
 
-    // Get total employees count from org_assignment
     const totalEmployees = await db.orgAssignment.count({
       where: {
         end_date: null // Only active assignments
       }
     });
 
-    // Get top 5 units by employee count
     const topUnits = await db.orgUnit.findMany({
       select: {
         id: true,
@@ -42,7 +38,7 @@ export async function GET(request: NextRequest) {
           select: {
             OrgAssignment: {
               where: {
-                end_date: null // Only active assignments
+                end_date: null // active
               }
             }
           }
@@ -56,15 +52,6 @@ export async function GET(request: NextRequest) {
       take: 5
     });
 
-    // Serialize BigInt fields and format top units
-    const serializedTopUnits = topUnits.map(unit => ({
-      id: unit.id.toString(),
-      name: unit.name,
-      code: unit.code,
-      type: unit.type || 'unknown',
-      employeeCount: unit._count.OrgAssignment
-    }));
-
     const stats = {
       totalUnits,
       totalEmployees,
@@ -74,21 +61,10 @@ export async function GET(request: NextRequest) {
       divisions,
       teams,
       branches,
-      topUnits: serializedTopUnits
+      topUnits
     };
 
-    return NextResponse.json({ 
-      success: true, 
-      data: stats 
-    });
-  } catch (error) {
-    console.error('org-stats GET error:', error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to fetch org stats' 
-      },
-      { status: 500 }
-    );
-  }
-}
+    return stats;
+  },
+  'fetch organization stats'
+);

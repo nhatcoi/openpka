@@ -14,15 +14,15 @@ export async function GET(request: NextRequest) {
             };
         }
 
-        const employeeQualifications = await db.employee_qualification.findMany({
+        const employeeQualifications = await db.EmployeeQualification.findMany({
             where: whereClause,
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 },
-                qualifications: true
+                Qualification: true
             },
             orderBy: {
                 awarded_date: 'desc'
@@ -30,23 +30,23 @@ export async function GET(request: NextRequest) {
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedData = employeeQualifications.map((eq: any) => ({
+        const serializedData = employeeQualifications.map((eq: { id: bigint; [key: string]: unknown }) => ({
             ...eq,
             id: eq.id.toString(),
             employee_id: eq.employee_id.toString(),
             qualification_id: eq.qualification_id.toString(),
-            employees: eq.employees ? {
-                ...eq.employees,
-                id: eq.employees.id.toString(),
-                user_id: eq.employees.user_id?.toString() || null,
-                user: eq.employees.user ? {
-                    ...eq.employees.user,
-                    id: eq.employees.user.id.toString()
+            Employee: eq.Employee ? {
+                ...eq.Employee,
+                id: eq.Employee.id.toString(),
+                user_id: eq.Employee.user_id?.toString() || null,
+                User: eq.Employee.User ? {
+                    ...eq.Employee.User,
+                    id: eq.Employee.User.id.toString()
                 } : null
             } : null,
-            qualifications: eq.qualifications ? {
-                ...eq.qualifications,
-                id: eq.qualifications.id.toString()
+            Qualification: eq.Qualification ? {
+                ...eq.Qualification,
+                id: eq.Qualification.id.toString()
             } : null
         }));
 
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const employeeQualification = await db.employee_qualification.create({
+        const employeeQualification = await db.EmployeeQualification.create({
             data: {
                 employee_id: BigInt(employee_id),
                 qualification_id: BigInt(qualification_id),
@@ -85,12 +85,12 @@ export async function POST(request: NextRequest) {
                 awarded_date: new Date(awarded_date)
             },
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true
+                        User: true
                     }
                 },
-                qualifications: true
+                Qualification: true
             }
         });
 
@@ -101,18 +101,18 @@ export async function POST(request: NextRequest) {
                 id: employeeQualification.id.toString(),
                 employee_id: employeeQualification.employee_id.toString(),
                 qualification_id: employeeQualification.qualification_id.toString(),
-                employees: employeeQualification.employees ? {
-                    ...employeeQualification.employees,
-                    id: employeeQualification.employees.id.toString(),
-                    user_id: employeeQualification.employees.user_id?.toString() || null,
-                    user: employeeQualification.employees.user ? {
-                        ...employeeQualification.employees.user,
-                        id: employeeQualification.employees.user.id.toString()
+                Employee: employeeQualification.Employee ? {
+                    ...employeeQualification.Employee,
+                    id: employeeQualification.Employee.id.toString(),
+                    user_id: employeeQualification.Employee.user_id?.toString() || null,
+                    User: employeeQualification.Employee.User ? {
+                        ...employeeQualification.Employee.User,
+                        id: employeeQualification.Employee.User.id.toString()
                     } : null
                 } : null,
-                qualifications: employeeQualification.qualifications ? {
-                    ...employeeQualification.qualifications,
-                    id: employeeQualification.qualifications.id.toString()
+                Qualification: employeeQualification.Qualification ? {
+                    ...employeeQualification.Qualification,
+                    id: employeeQualification.Qualification.id.toString()
                 } : null
             }
         });

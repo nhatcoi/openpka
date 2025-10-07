@@ -6,15 +6,15 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const employeeId = searchParams.get('employee_id');
 
-        const employeeAcademicTitles = await db.employee_academic_title.findMany({
+        const employeeAcademicTitles = await db.EmployeeAcademicTitle.findMany({
             where: employeeId ? { employee_id: BigInt(employeeId) } : {},
             include: {
-                employees: {
+                Employee: {
                     include: {
-                        user: true,
+                        User: true,
                     },
                 },
-                academic_titles: true,
+                AcademicTitle: true,
             },
             orderBy: {
                 awarded_date: 'desc',
@@ -27,18 +27,18 @@ export async function GET(request: NextRequest) {
             employee_id: item.employee_id.toString(),
             academic_title_id: item.academic_title_id.toString(),
             awarded_date: item.awarded_date.toISOString().split('T')[0], // Format as YYYY-MM-DD
-            employees: item.employees ? {
-                ...item.employees,
-                id: item.employees.id.toString(),
-                user_id: item.employees.user_id?.toString() || null,
-                user: item.employees.user ? {
-                    ...item.employees.user,
-                    id: item.employees.user.id.toString(),
+            Employee: item.Employee ? {
+                ...item.Employee,
+                id: item.Employee.id.toString(),
+                user_id: item.Employee.user_id?.toString() || null,
+                User: item.Employee.User ? {
+                    ...item.Employee.User,
+                    id: item.Employee.User.id.toString(),
                 } : null,
             } : null,
-            academic_titles: item.academic_titles ? {
-                ...item.academic_titles,
-                id: item.academic_titles.id.toString(),
+            AcademicTitle: item.AcademicTitle ? {
+                ...item.AcademicTitle,
+                id: item.AcademicTitle.id.toString(),
             } : null,
         }));
 
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Missing required fields' }, { status: 400 });
         }
 
-        const newEmployeeAcademicTitle = await db.employee_academic_title.create({
+        const newEmployeeAcademicTitle = await db.EmployeeAcademicTitle.create({
             data: {
                 employee_id: BigInt(employee_id),
                 academic_title_id: BigInt(academic_title_id),

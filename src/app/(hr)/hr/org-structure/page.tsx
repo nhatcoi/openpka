@@ -188,7 +188,7 @@ export default function OrgStructurePage() {
                     nodeSize={{ x: 300, y: 180 }}
                     renderCustomNodeElement={(rd3tProps) => {
                         const { nodeDatum } = rd3tProps;
-                        const isRoot = !(nodeDatum as any).parent || nodeDatum.attributes?.id === '1';
+                        const isRoot = !(nodeDatum as { parent?: unknown }).parent || nodeDatum.attributes?.id === '1';
                         const level = Number(nodeDatum.attributes?.level) || 0;
 
                         // Màu sắc theo level

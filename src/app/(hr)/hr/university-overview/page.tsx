@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
 import { Box, Typography, Button, CircularProgress, Alert, Grid, Card, CardContent, Chip } from '@mui/material';
 import { School as SchoolIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -69,7 +70,7 @@ export default function UniversityOverviewPage() {
         const fetchData = async () => {
             try {
                 setLoading(true);
-                const response = await fetch('/api/org/units');
+                const response = await fetch(API_ROUTES.ORG.UNITS);
                 const result = await response.json();
 
                 if (result.success) {

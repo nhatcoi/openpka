@@ -4,19 +4,23 @@ import { db } from '@/lib/db';
 // GET - Lấy danh sách tất cả bằng cấp
 export async function GET() {
     try {
-        const qualifications = await db.qualifications.findMany({
+        const qualifications = await db.Qualification.findMany({
             orderBy: {
                 title: 'asc'
             }
         });
 
         // Convert BigInt to string for JSON serialization
-        const serializedQualifications = qualifications.map((qualification: any) => ({
+        const serializedQualifications = qualifications.map((qualification: { id: bigint; [key: string]: unknown }) => ({
             ...qualification,
             id: qualification.id.toString()
         }));
 
-        return NextResponse.json({ success: true, data: serializedQualifications });
+        // Use JSON.stringify with replacer to handle BigInt
+        const jsonString = JSON.stringify({ success: true, data: serializedQualifications }, (key, value) =>
+            typeof value === 'bigint' ? value.toString() : value
+        );
+        return NextResponse.json(JSON.parse(jsonString));
     } catch (error) {
         console.error('Database error:', error);
         return NextResponse.json(
@@ -42,7 +46,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const qualification = await db.qualifications.create({
+        const qualification = await db.Qualification.create({
             data: {
                 code,
                 title
