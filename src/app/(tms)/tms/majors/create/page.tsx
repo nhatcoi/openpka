@@ -5,40 +5,22 @@ import {
   Box,
   Container,
   Typography,
-  Paper,
-  Stack,
-  Button,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   FormControlLabel,
-  Switch, 
-  Card,
-  CardContent,
-  CardHeader,
-  Divider,
-  IconButton,
-  Chip,
+  Switch,
   Alert,
   CircularProgress,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
+  Button,
+  Paper,
+  Stack,
 } from '@mui/material';
-import Grid from '@mui/material/Grid';
 import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  Language as LanguageIcon,
-  LocationOn as LocationIcon,
-  BookmarkBorder as BookmarkIcon,
-  Description as DescriptionIcon,
-  School as SchoolIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 
@@ -72,42 +54,18 @@ interface MajorFormData {
   closed_at: string;
   description: string;
   notes: string;
-  campuses: Array<{ campus_id: number; is_primary: boolean }>;
-  languages: Array<{ lang: string; level: string }>;
-  modalities: Array<{ modality: string; note: string }>;
-  accreditations: Array<{
-    scheme: string;
-    level: string;
-    valid_from: string;
-    valid_to: string;
-    cert_no: string;
-    agency: string;
-    note: string;
-  }>;
-  aliases: Array<{
-    name: string;
-    lang: string;
-    valid_from: string;
-    valid_to: string;
-  }>;
-  documents: Array<{
-    doc_type: string;
-    title: string;
-    ref_no: string;
-    issued_by: string;
-    issued_at: string;
-    file_url: string;
-    note: string;
-  }>;
 }
 
 export default function CreateMajorPage() {
   const router = useRouter();
-  const [activeStep, setActiveStep] = useState(0);
-  const [loading, setLoading] = useState(false);
+  
+  // State
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-  
+
+  // Form data
   const [formData, setFormData] = useState<MajorFormData>({
     code: '',
     name_vi: '',
@@ -132,79 +90,53 @@ export default function CreateMajorPage() {
     closed_at: '',
     description: '',
     notes: '',
-    campuses: [],
-    languages: [{ lang: 'vi', level: 'main' }],
-    modalities: [{ modality: 'fulltime', note: '' }],
-    accreditations: [],
-    aliases: [],
-    documents: [],
   });
 
   // Fetch org units
   useEffect(() => {
     const fetchOrgUnits = async () => {
       try {
+        setLoading(true);
         const response = await fetch('/api/tms/majors/org-units');
-        const data = await response.json();
-        if (data.success && Array.isArray(data.data)) {
-          setOrgUnits(data.data);
+        const result = await response.json();
+        
+        if (result.success) {
+          setOrgUnits(result.data);
         } else {
-          console.error('Invalid org units data:', data);
-          setOrgUnits([]);
+          throw new Error(result.error || 'Failed to fetch org units');
         }
       } catch (err) {
-        console.error('Failed to fetch org units:', err);
-        setOrgUnits([]);
+        console.error('Error fetching org units:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchOrgUnits();
   }, []);
 
-  const steps = [
-    'Thông tin cơ bản',
-    'Thông tin chi tiết',
-    'Campus & Ngôn ngữ',
-    'Chứng nhận & Tài liệu',
-  ];
-
-  const handleInputChange = (field: keyof MajorFormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleArrayChange = (field: keyof MajorFormData, index: number, value: any) => {
+  // Handle form input changes
+  const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
-      [field]: (prev[field] as any[]).map((item, i) => 
-        i === index ? { ...item, ...value } : item
-      )
+      [field]: value
     }));
   };
 
-  const addArrayItem = (field: keyof MajorFormData, newItem: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: [...(prev[field] as any[]), newItem]
-    }));
-  };
-
-  const removeArrayItem = (field: keyof MajorFormData, index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: (prev[field] as any[]).filter((_, i) => i !== index)
-    }));
-  };
-
+  // Handle form submission
   const handleSubmit = async () => {
     try {
-      setLoading(true);
+      setSaving(true);
       setError(null);
 
-      // Validation
-      if (!formData.code || !formData.name_vi || !formData.org_unit_id) {
+      // Basic validation
+      if (!formData.code.trim() || !formData.name_vi.trim() || !formData.org_unit_id) {
         setError('Vui lòng điền đầy đủ thông tin bắt buộc');
         return;
       }
 
+      // Submit new major
       const response = await fetch('/api/tms/majors', {
         method: 'POST',
         headers: {
@@ -213,60 +145,60 @@ export default function CreateMajorPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
+      if (result.success) {
+        alert('Tạo ngành đào tạo thành công!');
         router.push('/tms/majors');
       } else {
-        setError(data.error || 'Failed to create major');
+        setError(result.error || 'Không thể tạo ngành đào tạo');
       }
+
     } catch (err) {
-      setError('Network error occurred');
+      console.error('Error submitting form:', err);
+      setError('Lỗi mạng khi tạo ngành đào tạo');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handleNext = () => {
-    setActiveStep(prev => prev + 1);
-  };
-
-  const handleBack = () => {
-    setActiveStep(prev => prev - 1);
-  };
+  // Loading state
+  if (loading) {
+    return (
+      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
+        <Container maxWidth="lg">
+          <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 400 }}>
+            <CircularProgress size={60} />
+            <Typography variant="h6" sx={{ mt: 2 }}>
+              Đang tải dữ liệu...
+            </Typography>
+          </Stack>
+        </Container>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
       <Container maxWidth="lg">
         {/* Header */}
-        <Paper elevation={0} sx={{ p: 4, background: 'linear-gradient(135deg, #ed6c02 0%, #ff9800 100%)', color: 'white', borderRadius: 2, mb: 4 }}>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <IconButton
+        <Paper sx={{ p: 4, mb: 4, borderRadius: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+            <Button
+              startIcon={<ArrowBackIcon />}
               onClick={() => router.back()}
-              sx={{ color: 'white' }}
             >
-              <ArrowBackIcon />
-            </IconButton>
-            <Stack spacing={1}>
-              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold' }}>
-                Tạo ngành đào tạo mới
-              </Typography>
-              <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                Thêm ngành đào tạo mới vào hệ thống
-              </Typography>
-            </Stack>
+              Quay lại
+            </Button>
           </Stack>
-        </Paper>
-
-        {/* Stepper */}
-        <Paper sx={{ p: 3, mb: 4 }}>
-          <Stepper activeStep={activeStep} orientation="horizontal">
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+            Tạo ngành đào tạo mới
+          </Typography>
+          
+          <Typography variant="body1" color="text.secondary">
+            Nhập thông tin để tạo ngành đào tạo mới trong hệ thống
+          </Typography>
         </Paper>
 
         {/* Error Alert */}
@@ -276,482 +208,266 @@ export default function CreateMajorPage() {
           </Alert>
         )}
 
-        {/* Form Content */}
-        <Paper sx={{ p: 4 }}>
-          {/* Step 1: Basic Information */}
-          {activeStep === 0 && (
-            <Stack spacing={3}>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                Thông tin cơ bản
-              </Typography>
-              
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Mã ngành *"
-                    value={formData.code}
-                    onChange={(e) => handleInputChange('code', e.target.value)}
-                    placeholder="VD: CNTT"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Tên ngắn"
-                    value={formData.short_name}
-                    onChange={(e) => handleInputChange('short_name', e.target.value)}
-                    placeholder="VD: CNTT"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Tên tiếng Việt *"
-                    value={formData.name_vi}
-                    onChange={(e) => handleInputChange('name_vi', e.target.value)}
-                    placeholder="VD: Công nghệ thông tin"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Tên tiếng Anh"
-                    value={formData.name_en}
-                    onChange={(e) => handleInputChange('name_en', e.target.value)}
-                    placeholder="VD: Information Technology"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Đơn vị quản lý *</InputLabel>
-                    <Select
-                      value={formData.org_unit_id}
-                      label="Đơn vị quản lý *"
-                      onChange={(e) => handleInputChange('org_unit_id', e.target.value)}
-                    >
-                      {Array.isArray(orgUnits) && orgUnits.length > 0 ? (
-                        orgUnits.map((unit) => (
-                          <MenuItem key={unit.id} value={unit.id}>
-                            {unit.name} ({unit.code})
-                          </MenuItem>
-                        ))
-                      ) : (
-                        <MenuItem disabled>
-                          {orgUnits.length === 0 ? 'Đang tải đơn vị...' : 'Không có đơn vị nào'}
-                        </MenuItem>
-                      )}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Bằng cấp *</InputLabel>
-                    <Select
-                      value={formData.degree_level}
-                      label="Bằng cấp *"
-                      onChange={(e) => handleInputChange('degree_level', e.target.value)}
-                    >
-                      <MenuItem value="associate">Cao đẳng</MenuItem>
-                      <MenuItem value="bachelor">Cử nhân</MenuItem>
-                      <MenuItem value="master">Thạc sĩ</MenuItem>
-                      <MenuItem value="doctor">Tiến sĩ</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Thời gian đào tạo (năm)"
-                    type="number"
-                    value={formData.duration_years}
-                    onChange={(e) => handleInputChange('duration_years', parseFloat(e.target.value))}
-                    inputProps={{ min: 0.5, max: 10, step: 0.5 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Số tín chỉ tối thiểu"
-                    type="number"
-                    value={formData.total_credits_min}
-                    onChange={(e) => handleInputChange('total_credits_min', parseInt(e.target.value))}
-                    inputProps={{ min: 1, max: 1000 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Số tín chỉ tối đa"
-                    type="number"
-                    value={formData.total_credits_max}
-                    onChange={(e) => handleInputChange('total_credits_max', parseInt(e.target.value))}
-                    inputProps={{ min: 1, max: 1000 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Chỉ tiêu mặc định"
-                    type="number"
-                    value={formData.default_quota}
-                    onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={formData.is_moet_standard}
-                        onChange={(e) => handleInputChange('is_moet_standard', e.target.checked)}
-                      />
-                    }
-                    label="Chuẩn MOET"
-                  />
-                </Grid>
-              </Grid>
-            </Stack>
-          )}
+        {/* Form */}
+        <Paper sx={{ p: 4, borderRadius: 3 }}>
+          <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
+            Thông tin cơ bản
+          </Typography>
 
-          {/* Step 2: Detailed Information */}
-          {activeStep === 1 && (
-            <Stack spacing={3}>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                Thông tin chi tiết
-              </Typography>
+          <Stack spacing={3}>
+            {/* Basic Information */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Mã ngành *"
+                value={formData.code}
+                onChange={(e) => handleInputChange('code', e.target.value)}
+                placeholder="VD: CNTT"
+                required
+              />
               
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Mã quốc gia"
-                    value={formData.national_code}
-                    onChange={(e) => handleInputChange('national_code', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Slug"
-                    value={formData.slug}
-                    onChange={(e) => handleInputChange('slug', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Nhóm ngành"
-                    value={formData.field_cluster}
-                    onChange={(e) => handleInputChange('field_cluster', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Mô hình chuyên ngành</InputLabel>
-                    <Select
-                      value={formData.specialization_model}
-                      label="Mô hình chuyên ngành"
-                      onChange={(e) => handleInputChange('specialization_model', e.target.value)}
-                    >
-                      <MenuItem value="none">Không chuyên ngành</MenuItem>
-                      <MenuItem value="major">Có chuyên ngành</MenuItem>
-                      <MenuItem value="track">Có hướng chuyên sâu</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Số học kỳ/năm"
-                    type="number"
-                    value={formData.semesters_per_year}
-                    onChange={(e) => handleInputChange('semesters_per_year', parseInt(e.target.value))}
-                    inputProps={{ min: 1, max: 4 }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Học kỳ bắt đầu"
-                    value={formData.start_terms}
-                    onChange={(e) => handleInputChange('start_terms', e.target.value)}
-                    placeholder="VD: Fall, Spring"
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Ngày thành lập"
-                    type="date"
-                    value={formData.established_at}
-                    onChange={(e) => handleInputChange('established_at', e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Trạng thái</InputLabel>
-                    <Select
-                      value={formData.status}
-                      label="Trạng thái"
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                    >
-                      <MenuItem value="draft">Nháp</MenuItem>
-                      <MenuItem value="proposed">Đề xuất</MenuItem>
-                      <MenuItem value="active">Hoạt động</MenuItem>
-                      <MenuItem value="suspended">Tạm dừng</MenuItem>
-                      <MenuItem value="closed">Đã đóng</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Mô tả"
-                    multiline
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    label="Ghi chú"
-                    multiline
-                    rows={2}
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
-                  />
-                </Grid>
-              </Grid>
+              <TextField
+                fullWidth
+                label="Tên ngắn"
+                value={formData.short_name}
+                onChange={(e) => handleInputChange('short_name', e.target.value)}
+                placeholder="VD: CNTT"
+              />
             </Stack>
-          )}
 
-          {/* Step 3: Campus & Languages */}
-          {activeStep === 2 && (
-            <Stack spacing={3}>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                Campus & Ngôn ngữ giảng dạy
-              </Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Tên tiếng Việt *"
+                value={formData.name_vi}
+                onChange={(e) => handleInputChange('name_vi', e.target.value)}
+                placeholder="VD: Công nghệ thông tin"
+                required
+              />
               
-              {/* Languages */}
-              <Card>
-                <CardHeader 
-                  title="Ngôn ngữ giảng dạy"
-                  action={
-                    <Button
-                      startIcon={<AddIcon />}
-                      onClick={() => addArrayItem('languages', { lang: '', level: 'secondary' })}
-                    >
-                      Thêm ngôn ngữ
-                    </Button>
-                  }
+              <TextField
+                fullWidth
+                label="Tên tiếng Anh"
+                value={formData.name_en}
+                onChange={(e) => handleInputChange('name_en', e.target.value)}
+                placeholder="VD: Information Technology"
+              />
+            </Stack>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <FormControl fullWidth>
+                <InputLabel>Đơn vị quản lý *</InputLabel>
+                <Select
+                  value={formData.org_unit_id}
+                  label="Đơn vị quản lý *"
+                  onChange={(e) => handleInputChange('org_unit_id', Number(e.target.value))}
+                  required
+                >
+                  {orgUnits.map((unit) => (
+                    <MenuItem key={unit.id} value={unit.id}>
+                      {unit.name} ({unit.code})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth>
+                <InputLabel>Bằng cấp *</InputLabel>
+                <Select
+                  value={formData.degree_level}
+                  label="Bằng cấp *"
+                  onChange={(e) => handleInputChange('degree_level', e.target.value)}
+                  required
+                >
+                  <MenuItem value="associate">Cao đẳng</MenuItem>
+                  <MenuItem value="bachelor">Cử nhân</MenuItem>
+                  <MenuItem value="master">Thạc sĩ</MenuItem>
+                  <MenuItem value="doctor">Tiến sĩ</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Mã quốc gia"
+                value={formData.national_code}
+                onChange={(e) => handleInputChange('national_code', e.target.value)}
+                placeholder="VD: 7480101"
+              />
+              
+              <TextField
+                fullWidth
+                label="Slug"
+                value={formData.slug}
+                onChange={(e) => handleInputChange('slug', e.target.value)}
+                placeholder="VD: cong-nghe-thong-tin"
+              />
+            </Stack>
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.is_moet_standard}
+                  onChange={(e) => handleInputChange('is_moet_standard', e.target.checked)}
                 />
-                <CardContent>
-                  <Stack spacing={2}>
-                    {formData.languages.map((lang, index) => (
-                      <Stack key={index} direction="row" spacing={2} alignItems="center">
-                        <TextField
-                          label="Ngôn ngữ"
-                          value={lang.lang}
-                          onChange={(e) => handleArrayChange('languages', index, { lang: e.target.value })}
-                          sx={{ flex: 1 }}
-                        />
-                        <FormControl sx={{ minWidth: 120 }}>
-                          <InputLabel>Cấp độ</InputLabel>
-                          <Select
-                            value={lang.level}
-                            label="Cấp độ"
-                            onChange={(e) => handleArrayChange('languages', index, { level: e.target.value })}
-                          >
-                            <MenuItem value="main">Chính</MenuItem>
-                            <MenuItem value="secondary">Phụ</MenuItem>
-                          </Select>
-                        </FormControl>
-                        <IconButton
-                          color="error"
-                          onClick={() => removeArrayItem('languages', index)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
-                    ))}
-                  </Stack>
-                </CardContent>
-              </Card>
+              }
+              label="Chuẩn MOET"
+            />
 
-              {/* Modalities */}
-              <Card>
-                <CardHeader 
-                  title="Hình thức đào tạo"
-                  action={
-                    <Button
-                      startIcon={<AddIcon />}
-                      onClick={() => addArrayItem('modalities', { modality: '', note: '' })}
-                    >
-                      Thêm hình thức
-                    </Button>
-                  }
-                />
-                <CardContent>
-                  <Stack spacing={2}>
-                    {formData.modalities.map((mod, index) => (
-                      <Stack key={index} direction="row" spacing={2} alignItems="center">
-                        <TextField
-                          label="Hình thức"
-                          value={mod.modality}
-                          onChange={(e) => handleArrayChange('modalities', index, { modality: e.target.value })}
-                          sx={{ flex: 1 }}
-                          placeholder="VD: fulltime, parttime"
-                        />
-                        <TextField
-                          label="Ghi chú"
-                          value={mod.note}
-                          onChange={(e) => handleArrayChange('modalities', index, { note: e.target.value })}
-                          sx={{ flex: 1 }}
-                        />
-                        <IconButton
-                          color="error"
-                          onClick={() => removeArrayItem('modalities', index)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Stack>
-                    ))}
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Stack>
-          )}
+            {/* Academic Information */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 3, fontWeight: 'bold' }}>
+              Thông tin đào tạo
+            </Typography>
 
-          {/* Step 4: Accreditations & Documents */}
-          {activeStep === 3 && (
-            <Stack spacing={3}>
-              <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                Chứng nhận & Tài liệu
-              </Typography>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Thời gian đào tạo (năm)"
+                type="number"
+                value={formData.duration_years}
+                onChange={(e) => handleInputChange('duration_years', parseFloat(e.target.value))}
+                inputProps={{ min: 0.5, max: 10, step: 0.5 }}
+              />
               
-              {/* Accreditations */}
-              <Card>
-                <CardHeader 
-                  title="Chứng nhận"
-                  action={
-                    <Button
-                      startIcon={<AddIcon />}
-                      onClick={() => addArrayItem('accreditations', {
-                        scheme: '',
-                        level: '',
-                        valid_from: '',
-                        valid_to: '',
-                        cert_no: '',
-                        agency: '',
-                        note: ''
-                      })}
-                    >
-                      Thêm chứng nhận
-                    </Button>
-                  }
-                />
-                <CardContent>
-                  <Stack spacing={2}>
-                    {formData.accreditations.map((acc, index) => (
-                      <Paper key={index} sx={{ p: 2 }}>
-                        <Stack spacing={2}>
-                          <Stack direction="row" spacing={2}>
-                            <TextField
-                              label="Tên chứng nhận"
-                              value={acc.scheme}
-                              onChange={(e) => handleArrayChange('accreditations', index, { scheme: e.target.value })}
-                              sx={{ flex: 1 }}
-                            />
-                            <TextField
-                              label="Cấp độ"
-                              value={acc.level}
-                              onChange={(e) => handleArrayChange('accreditations', index, { level: e.target.value })}
-                              sx={{ flex: 1 }}
-                            />
-                          </Stack>
-                          <Stack direction="row" spacing={2}>
-                            <TextField
-                              label="Từ ngày"
-                              type="date"
-                              value={acc.valid_from}
-                              onChange={(e) => handleArrayChange('accreditations', index, { valid_from: e.target.value })}
-                              InputLabelProps={{ shrink: true }}
-                            />
-                            <TextField
-                              label="Đến ngày"
-                              type="date"
-                              value={acc.valid_to}
-                              onChange={(e) => handleArrayChange('accreditations', index, { valid_to: e.target.value })}
-                              InputLabelProps={{ shrink: true }}
-                            />
-                          </Stack>
-                          <Stack direction="row" spacing={2}>
-                            <TextField
-                              label="Số chứng nhận"
-                              value={acc.cert_no}
-                              onChange={(e) => handleArrayChange('accreditations', index, { cert_no: e.target.value })}
-                              sx={{ flex: 1 }}
-                            />
-                            <TextField
-                              label="Tổ chức cấp"
-                              value={acc.agency}
-                              onChange={(e) => handleArrayChange('accreditations', index, { agency: e.target.value })}
-                              sx={{ flex: 1 }}
-                            />
-                          </Stack>
-                          <Stack direction="row" spacing={2} alignItems="center">
-                            <TextField
-                              label="Ghi chú"
-                              value={acc.note}
-                              onChange={(e) => handleArrayChange('accreditations', index, { note: e.target.value })}
-                              sx={{ flex: 1 }}
-                            />
-                            <IconButton
-                              color="error"
-                              onClick={() => removeArrayItem('accreditations', index)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Stack>
-                        </Stack>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </CardContent>
-              </Card>
+              <TextField
+                fullWidth
+                label="Số học kỳ/năm"
+                type="number"
+                value={formData.semesters_per_year}
+                onChange={(e) => handleInputChange('semesters_per_year', parseInt(e.target.value))}
+                inputProps={{ min: 1, max: 4 }}
+              />
             </Stack>
-          )}
 
-          {/* Navigation Buttons */}
-          <Stack direction="row" justifyContent="space-between" mt={4}>
-            <Button
-              disabled={activeStep === 0}
-              onClick={handleBack}
-            >
-              Quay lại
-            </Button>
-            
-            {activeStep < steps.length - 1 ? (
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Số tín chỉ tối thiểu"
+                type="number"
+                value={formData.total_credits_min}
+                onChange={(e) => handleInputChange('total_credits_min', parseInt(e.target.value))}
+                inputProps={{ min: 1, max: 1000 }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Số tín chỉ tối đa"
+                type="number"
+                value={formData.total_credits_max}
+                onChange={(e) => handleInputChange('total_credits_max', parseInt(e.target.value))}
+                inputProps={{ min: 1, max: 1000 }}
+              />
+            </Stack>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Học kỳ bắt đầu"
+                value={formData.start_terms}
+                onChange={(e) => handleInputChange('start_terms', e.target.value)}
+                placeholder="VD: Fall, Spring"
+              />
+              
+              <TextField
+                fullWidth
+                label="Chỉ tiêu mặc định"
+                type="number"
+                value={formData.default_quota}
+                onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
+                inputProps={{ min: 0 }}
+              />
+            </Stack>
+
+            {/* Additional Information */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 3, fontWeight: 'bold' }}>
+              Thông tin bổ sung
+            </Typography>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Nhóm ngành"
+                value={formData.field_cluster}
+                onChange={(e) => handleInputChange('field_cluster', e.target.value)}
+              />
+              
+              <FormControl fullWidth>
+                <InputLabel>Mô hình chuyên ngành</InputLabel>
+                <Select
+                  value={formData.specialization_model}
+                  label="Mô hình chuyên ngành"
+                  onChange={(e) => handleInputChange('specialization_model', e.target.value)}
+                >
+                  <MenuItem value="none">Không chuyên ngành</MenuItem>
+                  <MenuItem value="major">Có chuyên ngành</MenuItem>
+                  <MenuItem value="track">Có hướng chuyên sâu</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
+              <TextField
+                fullWidth
+                label="Ngày thành lập"
+                type="date"
+                value={formData.established_at}
+                onChange={(e) => handleInputChange('established_at', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+              
+              <FormControl fullWidth>
+                <InputLabel>Trạng thái</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Trạng thái"
+                  onChange={(e) => handleInputChange('status', e.target.value)}
+                >
+                  <MenuItem value="draft">Nháp</MenuItem>
+                  <MenuItem value="proposed">Đề xuất</MenuItem>
+                  <MenuItem value="active">Hoạt động</MenuItem>
+                  <MenuItem value="suspended">Tạm dừng</MenuItem>
+                  <MenuItem value="closed">Đã đóng</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+
+            <TextField
+              fullWidth
+              label="Mô tả"
+              multiline
+              rows={3}
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
+            />
+
+            <TextField
+              fullWidth
+              label="Ghi chú"
+              multiline
+              rows={2}
+              value={formData.notes}
+              onChange={(e) => handleInputChange('notes', e.target.value)}
+            />
+
+            {/* Action Buttons */}
+            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
               <Button
-                variant="contained"
-                onClick={handleNext}
+                onClick={() => router.back()}
+                sx={{ minWidth: 100 }}
               >
-                Tiếp theo
+                Hủy
               </Button>
-            ) : (
               <Button
                 variant="contained"
-                startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={saving}
+                sx={{ minWidth: 150 }}
               >
-                {loading ? 'Đang tạo...' : 'Tạo ngành đào tạo'}
+                {saving ? 'Đang tạo...' : 'Tạo ngành đào tạo'}
               </Button>
-            )}
+            </Stack>
           </Stack>
         </Paper>
       </Container>

@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["academic", "auth", "finance", "hr", "org", "public", "report", "schedule", "student"]
+  schemas  = ["academic", "auth", "finance", "hr", "org", "public", "report", "schedule", "student", "notification"]
 }
 
 model Employee {
@@ -279,6 +279,7 @@ model User {
   EmployeeLog                            EmployeeLog[]
   Employee                               Employee[]
   org_unit_attachments                   OrgUnitAttachments[]
+  ApprovalRecord                        ApprovalRecord[]
 
   @@index([full_name], map: "idx_user_full_name")
   @@index([phone], map: "idx_user_phone")
@@ -479,13 +480,12 @@ model Course {
   status                    String                     @default("DRAFT") @db.VarChar(32)
   theory_credit             Decimal?                   @db.Decimal(4, 1)
   practical_credit          Decimal?                   @db.Decimal(4, 1)
-  course_approval_history   CourseApprovalHistory[]
+  // Legacy workflow relations removed - using unified workflow system
   audits                    CourseAudit[]
   contents                  CourseContent[]
   prerequisites             CoursePrerequisites[]      @relation("CoursePrerequisites")
   prerequisite_for          CoursePrerequisites[]      @relation("CoursePrerequisitesFor")
   CourseVersion             CourseVersion[]
-  workflows                 CourseWorkflow[]
   OrgUnit                   OrgUnit                    @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "course_org_unit_id_fkey")
   instructor_qualifications InstructorQualifications[]
   ProgramCourseMap          ProgramCourseMap[]
@@ -548,6 +548,11 @@ model MajorTuition {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// 
+/// OPTIMIZED: Removed unused JSON fields (campuses, languages, modalities, accreditations, aliases, documents)
+/// - Reduced from 35 to 29 fields (17% reduction)
+/// - Removed 6 unused JSON columns that were not being utilized
+/// - Improved performance and reduced complexity
 model Major {
   id                   BigInt               @id(map: "major_pkey") @default(autoincrement())
   code                 String               @db.VarChar(32)
@@ -574,13 +579,7 @@ model Major {
   description          String?
   notes                String?
   
-  // JSON fields for simplified data storage
-  campuses             Json?                @default("[]") // [{"campus_id": 1, "is_primary": true}]
-  languages            Json?                @default("[{\"lang\": \"vi\", \"level\": \"main\"}]") // [{"lang": "vi", "level": "main"}]
-  modalities           Json?                @default("[{\"modality\": \"fulltime\"}]") // [{"modality": "fulltime", "note": ""}]
-  accreditations       Json?                @default("[]") // [{"scheme": "AACSB", "level": "International", "valid_from": "2024-01-01", "valid_to": "2029-12-31", "cert_no": "ABC123", "agency": "AACSB"}]
-  aliases              Json?                @default("[]") // [{"name": "Computer Science", "lang": "en", "valid_from": "2024-01-01", "valid_to": null}]
-  documents            Json?                @default("[]") // [{"doc_type": "curriculum", "title": "Program Outline", "ref_no": "DOC001", "issued_by": "Ministry", "issued_at": "2024-01-01", "file_url": "/docs/outline.pdf", "note": ""}]
+  // JSON fields removed - not used in current implementation
   
   created_by           BigInt?
   updated_by           BigInt?
@@ -1090,29 +1089,7 @@ model OrgUnitStatus {
   @@schema("org")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model CourseApprovalHistory {
-  id             BigInt          @id @default(autoincrement())
-  course_id      BigInt?
-  action         String          @db.VarChar(32)
-  from_status    String          @db.VarChar(32)
-  to_status      String          @db.VarChar(32)
-  reviewer_id    BigInt
-  reviewer_role  String          @db.VarChar(32)
-  comments       String?
-  attachments    Json?
-  created_at     DateTime?       @default(now()) @db.Timestamptz(6)
-  workflow_id    BigInt?
-  courses        Course?         @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  CourseWorkflow CourseWorkflow? @relation(fields: [workflow_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_course_approval_history_workflow_id")
-
-  @@index([action], map: "idx_course_approval_history_action")
-  @@index([course_id], map: "idx_course_approval_history_course_id")
-  @@index([created_at], map: "idx_course_approval_history_created_at")
-  @@index([reviewer_id], map: "idx_course_approval_history_reviewer_id")
-  @@map("course_approval_history")
-  @@schema("academic")
-}
+// Legacy CourseApprovalHistory model removed - data migrated to unified workflow system
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model CoursePrerequisites {
@@ -1292,26 +1269,7 @@ model CourseContent {
   @@schema("academic")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model CourseWorkflow {
-  id                      BigInt                  @id @default(autoincrement())
-  course_id               BigInt
-  status                  String?                 @default("DRAFT") @db.VarChar(32)
-  workflow_stage          String?                 @default("FACULTY") @db.VarChar(32)
-  current_reviewer_id     BigInt?
-  priority                String?                 @default("medium") @db.VarChar(16)
-  notes                   String?
-  created_at              DateTime?               @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime?               @default(now()) @db.Timestamptz(6)
-  course_approval_history CourseApprovalHistory[]
-  courses                 Course                  @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_course_workflows_course_id")
-
-  @@index([course_id], map: "idx_course_workflows_course_id")
-  @@index([workflow_stage], map: "idx_course_workflows_stage")
-  @@index([status], map: "idx_course_workflows_status")
-  @@map("course_workflows")
-  @@schema("academic")
-}
+// Legacy CourseWorkflow model removed - data migrated to unified workflow system
 
 enum OrgRelationType {
   direct
@@ -1322,3 +1280,88 @@ enum OrgRelationType {
   @@map("org_relation_type")
   @@schema("public")
 }
+
+// Academic Workflow Models
+model WorkflowDefinition {
+  id                      BigInt            @id @default(autoincrement())
+  entity_type             String            @db.VarChar(50)
+  workflow_name           String            @db.VarChar(100)
+  description             String?
+  is_active               Boolean           @default(true)
+  auto_approval_threshold Int?              @default(7)
+  escalation_enabled      Boolean           @default(true)
+  created_at              DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime?         @default(now()) @db.Timestamptz(6)
+  
+  steps                   WorkflowStep[]
+  instances               WorkflowInstance[]
+
+  @@map("workflow_definitions")
+  @@schema("academic")
+}
+
+model WorkflowStep {
+  id                  BigInt            @id @default(autoincrement())
+  workflow_id         BigInt
+  step_order          Int
+  step_name           String            @db.VarChar(100)
+  approver_role       String?           @db.VarChar(50)
+  approver_org_level  String?           @db.VarChar(50)
+  timeout_days        Int?              @default(3)
+  escalation_enabled  Boolean           @default(true)
+  created_at          DateTime?         @default(now()) @db.Timestamptz(6)
+  
+  workflow            WorkflowDefinition @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  approval_records    ApprovalRecord[]
+
+  @@map("workflow_steps")
+  @@schema("academic")
+}
+
+model WorkflowInstance {
+  id            BigInt            @id @default(autoincrement())
+  workflow_id   BigInt
+  entity_type   String            @db.VarChar(50)
+  entity_id     BigInt
+  current_step  Int?              @default(1)
+  status        String?           @default("PENDING") @db.VarChar(50)
+  initiated_by  BigInt
+  initiated_at  DateTime?         @default(now()) @db.Timestamptz(6)
+  completed_at  DateTime?         @db.Timestamptz(6)
+  metadata      Json?
+  created_at    DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?         @default(now()) @db.Timestamptz(6)
+  
+  workflow      WorkflowDefinition @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
+  approval_records ApprovalRecord[]
+
+  @@index([entity_type, entity_id], map: "idx_workflow_instances_entity")
+  @@index([status], map: "idx_workflow_instances_status")
+  @@index([initiated_by], map: "idx_workflow_instances_initiated_by")
+  @@map("workflow_instances")
+  @@schema("academic")
+}
+
+model ApprovalRecord {
+  id                    BigInt            @id @default(autoincrement())
+  workflow_instance_id  BigInt
+  step_id               BigInt
+  approver_id           BigInt
+  action                String            @db.VarChar(50)
+  comments              String?
+  attachments           Json?
+  approved_at           DateTime?         @db.Timestamptz(6)
+  due_date              DateTime?         @db.Timestamptz(6)
+  is_escalated          Boolean           @default(false)
+  created_at            DateTime?         @default(now()) @db.Timestamptz(6)
+  
+  workflow_instance     WorkflowInstance  @relation(fields: [workflow_instance_id], references: [id], onDelete: Cascade)
+  step                  WorkflowStep      @relation(fields: [step_id], references: [id], onDelete: Cascade)
+  approver              User              @relation(fields: [approver_id], references: [id], onDelete: NoAction)
+
+  @@index([workflow_instance_id], map: "idx_approval_records_workflow")
+  @@index([approver_id], map: "idx_approval_records_approver")
+  @@map("approval_records")
+  @@schema("academic")
+}
+

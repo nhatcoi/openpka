@@ -44,7 +44,6 @@ import {
   AccountTree as AccountTreeIcon,
   Timeline as TimelineIcon,
   Person as PersonIcon,
-  AssignmentInd as AssignmentIndIcon,
   Logout as LogoutIcon,
   BookOnline as BookOnlineIcon,
   Subject as SubjectIcon,
@@ -72,6 +71,7 @@ export default function TmsLayout({
   const [programManagementOpen, setProgramManagementOpen] = useState(false);
   const [subjectManagementOpen, setSubjectManagementOpen] = useState(false);
   const [curriculumManagementOpen, setCurriculumManagementOpen] = useState(false);
+  const [majorManagementOpen, setMajorManagementOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   
@@ -176,6 +176,10 @@ export default function TmsLayout({
     setCurriculumManagementOpen(!curriculumManagementOpen);
   };
 
+  const handleMajorManagementToggle = () => {
+    setMajorManagementOpen(!majorManagementOpen);
+  };
+
   const menuItems = [
     {
       key: '/tms/dashboard',
@@ -203,15 +207,15 @@ export default function TmsLayout({
           permissions: ['tms.program.create'],
         },
         {
-          key: '/tms/programs/blocks',
-          icon: <ViewModuleIcon />,
-          label: 'Quản lý khối học phần',
-          permissions: ['tms.program.read'],
-        },
-        {
           key: '/tms/programs/map',
           icon: <ClassIcon />,
           label: 'Gán học phần',
+          permissions: ['tms.program.read'],
+        },
+        {
+          key: '/tms/programs/blocks',
+          icon: <ViewModuleIcon />,
+          label: 'Quản lý khối học phần',
           permissions: ['tms.program.read'],
         },
         {
@@ -229,7 +233,7 @@ export default function TmsLayout({
         {
           key: '/tms/programs/review',
           icon: <VisibilityIcon />,
-          label: 'Xem xét chương trình',
+          label: 'Phê duyệt chương trình',
           permissions: ['tms.program.review'],
         },
       ],
@@ -295,16 +299,25 @@ export default function TmsLayout({
       ],
     },
     {
-      key: '/tms/majors',
+      key: 'major-management',
       icon: <SchoolOutlinedIcon />,
       label: 'Quản lý ngành đào tạo',
+      hasSubmenu: true,
       permissions: ['tms.major.read'],
-    },
-    {
-      key: '/tms/faculty-subjects',
-      icon: <AssignmentIndIcon />,
-      label: 'Học phần thuộc Khoa',
-      permissions: ['tms.subject.read'],
+      submenu: [
+        {
+          key: '/tms/majors',
+          icon: <ListAltIcon />,
+          label: 'Danh sách ngành đào tạo',
+          permissions: ['tms.major.read'],
+        },
+        {
+          key: '/tms/majors/create',
+          icon: <AddIcon />,
+          label: 'Tạo ngành đào tạo mới',
+          permissions: ['tms.major.create'],
+        },
+      ],
     },
     {
       key: '/tms/curriculum/create/audit',
@@ -344,6 +357,8 @@ export default function TmsLayout({
         handleSubjectManagementToggle();
       } else if (item.key === 'curriculum-management') {
         handleCurriculumManagementToggle();
+      } else if (item.key === 'major-management') {
+        handleMajorManagementToggle();
       }
     } else {
       handleMenuClick(item.key);
@@ -434,6 +449,17 @@ export default function TmsLayout({
                             transition: 'transform 0.2s ease-in-out'
                           }} />
                         )
+                      ) : item.key === 'major-management' ? (
+                        majorManagementOpen ? (
+                          <ChevronRightIcon sx={{ 
+                            transform: 'rotate(90deg)',
+                            transition: 'transform 0.2s ease-in-out'
+                          }} />
+                        ) : (
+                          <ChevronRightIcon sx={{ 
+                            transition: 'transform 0.2s ease-in-out'
+                          }} />
+                        )
                       ) : (
                         <ChevronRightIcon />
                       )
@@ -448,7 +474,8 @@ export default function TmsLayout({
               <Collapse in={
                 (item.key === 'program-management' && programManagementOpen) || 
                 (item.key === 'subject-management' && subjectManagementOpen) ||
-                (item.key === 'curriculum-management' && curriculumManagementOpen)
+                (item.key === 'curriculum-management' && curriculumManagementOpen) ||
+                (item.key === 'major-management' && majorManagementOpen)
               } timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   {item.submenu.map((subItem) => (

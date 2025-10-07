@@ -38,11 +38,12 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   if (normalizedStatus && (Object.values(CourseStatus) as string[]).includes(normalizedStatus)) {
     where.status = normalizedStatus as CourseStatus;
   }
-  if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
-    where.workflows = {
-      some: { workflow_stage: normalizedWorkflowStage as WorkflowStage }
-    };
-  }
+  // Note: Legacy workflow filtering removed - use unified workflow system instead
+  // if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
+  //   where.workflows = {
+  //     some: { workflow_stage: normalizedWorkflowStage as WorkflowStage }
+  //   };
+  // }
 
   // Get total count and courses
   const [total, courses] = await Promise.all([
@@ -61,9 +62,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         OrgUnit: {
           select: { name: true }
         },
-        workflows: {
-          select: { status: true, workflow_stage: true, priority: true }
-        },
+        // Legacy workflow data removed - using unified workflow system
         contents: {
           select: { prerequisites: true, passing_grade: true }
         },
@@ -171,22 +170,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       }
     });
 
-    // 2. Create CourseWorkflow record
-    const lastWorkflow = await tx.courseWorkflow.findFirst({
-      orderBy: { id: 'desc' }
-    });
-    const nextWorkflowId = lastWorkflow ? lastWorkflow.id + BigInt(1) : BigInt(1);
-    
-    const workflow = await tx.courseWorkflow.create({
-      data: {
-        id: nextWorkflowId,
-        course_id: course.id,
-        status: CourseStatus.DRAFT,
-        workflow_stage: WorkflowStage.FACULTY,
-        priority: workflowPriorityValue,
-        notes: courseData.workflow_notes || null,
-      }
-    });
+    // 2. Legacy workflow creation removed - using unified workflow system
 
     // 3. Create CourseContent record
     const lastContent = await tx.courseContent.findFirst({

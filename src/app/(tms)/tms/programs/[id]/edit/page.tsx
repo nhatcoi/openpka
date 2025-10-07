@@ -603,13 +603,31 @@ export default function EditProgramPage(): JSX.Element {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
-          Quay lại
-        </Button>
-        <Typography variant="h4" component="h1">
-          Chỉnh sửa chương trình đào tạo
-        </Typography>
+      <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
+            Quay lại
+          </Button>
+          <Typography variant="h4" component="h1">
+            Chỉnh sửa chương trình đào tạo
+          </Typography>
+        </Stack>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            onClick={() => router.push(`/tms/programs/${programId}`)}
+          >
+            Hủy bỏ
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSubmit}
+            disabled={saving || loading}
+          >
+            {saving ? 'Đang lưu...' : 'Cập nhật chương trình'}
+          </Button>
+        </Stack>
       </Stack>
 
       {loadError && (
@@ -1375,22 +1393,7 @@ export default function EditProgramPage(): JSX.Element {
         </Stack>
       )}
 
-      <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 4 }}>
-        <Button
-          variant="outlined"
-          onClick={() => router.push(`/tms/programs/${programId}`)}
-        >
-          Hủy bỏ
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<SaveIcon />}
-          onClick={handleSubmit}
-          disabled={saving || loading}
-        >
-          {saving ? 'Đang lưu...' : 'Cập nhật chương trình'}
-        </Button>
-      </Stack>
+      
     </Container>
   );
 }

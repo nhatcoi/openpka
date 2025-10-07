@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { PermissionGuard } from '@/components/auth/permission-guard';
 import {
   Box,
@@ -26,6 +27,7 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  Collapse,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -62,12 +64,17 @@ import {
   School as SchoolIcon,
   Schedule as ScheduleIcon,
   Domain as DomainIcon,
-  Science as ScienceIcon
+  Science as ScienceIcon,
+  Description as DescriptionIcon
 } from '@mui/icons-material';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import {
   COURSE_PRIORITIES,
   COURSE_STATUSES,
   WORKFLOW_STAGES,
+  COURSE_PERMISSIONS,
   CoursePriority,
   CourseStatus,
   WorkflowStage,
@@ -105,6 +112,7 @@ const formatCredit = (value: any): string => {
 
 export default function SubjectApprovalPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [selectedStatus, setSelectedStatus] = useState<CourseStatus | 'all'>('all');
   const [selectedStage, setSelectedStage] = useState<WorkflowStage | 'all'>('all');
   const [selectedPriority, setSelectedPriority] = useState<CoursePriority | 'all'>('all');
@@ -120,13 +128,26 @@ export default function SubjectApprovalPage() {
     approved: 0,
     rejected: 0
   });
-  const [hasAcademicBoardRole, setHasAcademicBoardRole] = useState<boolean>(false);
   const [processIndex, setProcessIndex] = useState<number>(0);
+  const [showGuide, setShowGuide] = useState<boolean>(false);
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState<boolean>(false);
+  const [overrideSubjectId, setOverrideSubjectId] = useState<number | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState<boolean>(false);
+  const [pendingAction, setPendingAction] = useState<{ action: string; id: number } | null>(null);
+  const [confirmTitle, setConfirmTitle] = useState<string>('Xác nhận thao tác');
+  const [confirmDesc, setConfirmDesc] = useState<string>('Bạn có chắc muốn thực hiện thao tác này?');
+  const [focusedStatus, setFocusedStatus] = useState<CourseStatus | null>(null);
+  const [focusedStage, setFocusedStage] = useState<WorkflowStage | null>(null);
+
+  // Helper function to check permissions
+  const hasPermission = (permission: string): boolean => {
+    return session?.user?.permissions?.includes(permission) || false;
+  };
 
   const approvalSteps = [
-    { label: 'Khoa tạo', status: 'completed' },
-    { label: 'Văn phòng đào tạo', status: 'active' },
-    { label: 'Hội đồng khoa học', status: 'pending' }
+    { label: 'Trưởng bộ môn', status: 'completed' },
+    { label: 'Phòng đào tạo', status: 'active' },
+    { label: 'Hội đồng khoa học', status: 'pending' },
   ];
 
 
@@ -148,19 +169,6 @@ export default function SubjectApprovalPage() {
     }
   };
 
-  const fetchCurrentUserRoles = async () => {
-    try {
-      const response = await fetch('/api/hr/user-roles/current');
-      const result = await response.json();
-      if (result?.success && Array.isArray(result.data)) {
-        const hasRole = result.data.some((item: any) => (item?.role?.name || '').toLowerCase() === 'academic_board');
-        setHasAcademicBoardRole(hasRole);
-      }
-    } catch (error) {
-      console.error('Error fetching current user roles:', error);
-      setHasAcademicBoardRole(false);
-    }
-  };
 
   const fetchSubjectsData = async () => {
     try {
@@ -176,7 +184,10 @@ export default function SubjectApprovalPage() {
       if (result.success && result.data?.items) {
         const transformedSubjects = result.data.items.map((course: any) => {
           const status = (course.status || CourseStatus.DRAFT) as CourseStatus;
-          const workflowStage = (course.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY) as WorkflowStage;
+          // Use unified workflow data if available, fallback to legacy workflow
+          const workflowStage = course.unified_workflow ? 
+            (course.unified_workflow.workflow.steps.find(step => step.step_order === course.unified_workflow.current_step)?.step_name || WorkflowStage.FACULTY) :
+            (course.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY) as WorkflowStage;
           const priority = normalizeCoursePriority(course.workflows?.[0]?.priority || course.priority);
 
           return {
@@ -219,7 +230,6 @@ useEffect(() => {
       await Promise.all([
         fetchSubjectsData(),
         fetchStats(),
-        fetchCurrentUserRoles(),
       ]);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -233,9 +243,9 @@ useEffect(() => {
 }, []);
 
   const getProcessIndexBySubject = (subject: any): number => {
-    if (subject?.status === CourseStatus.DRAFT) return 0; // Khoa
-    if (subject?.status === CourseStatus.APPROVED) return 1; // Phòng Đào Tạo
-    if (subject?.status === CourseStatus.PUBLISHED) return 2; // Hội Đồng KH
+    if (subject?.status === CourseStatus.DRAFT) return 0; // Faculty Head
+    if (subject?.status === CourseStatus.APPROVED) return 2; // Academic Board approved
+    if (subject?.status === CourseStatus.PUBLISHED) return 2; // Board published
 
     switch (subject?.workflowStage) {
       case WorkflowStage.FACULTY: return 0;
@@ -260,10 +270,52 @@ useEffect(() => {
     router.push(`/tms/courses/${subject.id}`);
   };
 
+  const openConfirm = (action: string, subjectId: number) => {
+    setPendingAction({ action, id: subjectId });
+    const titleMap: Record<string, string> = {
+      approve: 'Xác nhận phê duyệt',
+      reject: 'Xác nhận từ chối',
+      review: 'Xác nhận xem xét',
+      publish: 'Xác nhận xuất bản',
+    };
+    const descMap: Record<string, string> = {
+      approve: 'Bạn muốn phê duyệt học phần này và chuyển sang bước tiếp theo?',
+      reject: 'Bạn muốn từ chối học phần này?',
+      review: 'Bạn muốn nhận và xem xét học phần này?',
+      publish: 'Bạn muốn phê duyệt cuối/xuất bản học phần này?',
+    };
+    setConfirmTitle(titleMap[action] || 'Xác nhận thao tác');
+    setConfirmDesc(descMap[action] || 'Bạn có chắc muốn thực hiện thao tác này?');
+    setConfirmOpen(true);
+  };
+
   const handleApprovalAction = async (action: string, subjectId: number) => {
     try {
       console.log(`Performing ${action} on subject ${subjectId}`);
       
+      if (action === 'review') {
+        const response = await fetch(`/api/tms/courses/${subjectId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            workflow_action: 'review',
+            status: CourseStatus.REVIEWING
+          }),
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+          await fetchSubjectsData();
+          await fetchStats();
+          alert('Đã chuyển sang trạng thái ĐANG XEM XÉT');
+        } else {
+          alert('Lỗi khi xem xét: ' + result.error);
+        }
+      }
+
       if (action === 'approve') {
         const response = await fetch(`/api/tms/courses/${subjectId}`, {
           method: 'PUT',
@@ -282,7 +334,7 @@ useEffect(() => {
           // Refresh the data
           await fetchSubjectsData();
           await fetchStats();
-          alert('Phê duyệt thành công!');
+          alert('Phê duyệt thành công! Trạng thái: ĐÃ PHÊ DUYỆT');
         } else {
           alert('Lỗi khi phê duyệt: ' + result.error);
         }
@@ -338,8 +390,24 @@ useEffect(() => {
     );
 
     if (subject.status === CourseStatus.DRAFT) {
+      // Allow Academic Office to "Xem xét" directly from DRAFT
       buttons.push(
-        <PermissionGuard key="approve-draft" requiredPermissions={['tms.course.approve']}>
+        <PermissionGuard key="review-draft" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CheckCircleIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              openConfirm('review', subject.id);
+            }}
+          >
+            Xem xét
+          </Button>
+        </PermissionGuard>
+      );
+      buttons.push(
+        <PermissionGuard key="approve-draft" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
           <Button
             size="small"
             variant="contained"
@@ -347,7 +415,13 @@ useEffect(() => {
             startIcon={<CheckCircleIcon />}
             onClick={(e) => {
               e.stopPropagation();
-              handleApprovalAction('approve', subject.id);
+              // Nếu người dùng KHÔNG thuộc Phòng đào tạo (không có quyền REVIEW), hiển thị cảnh báo gợi ý
+              if (!hasPermission(COURSE_PERMISSIONS.REVIEW)) {
+                setOverrideSubjectId(subject.id);
+                setOverrideDialogOpen(true);
+                return;
+              }
+              openConfirm('approve', subject.id);
             }}
           >
             Phê duyệt
@@ -358,25 +432,58 @@ useEffect(() => {
 
     if (subject.status === CourseStatus.SUBMITTED && subject.workflowStage === WorkflowStage.ACADEMIC_OFFICE) {
       buttons.push(
-        <Button
-          key="review"
-          size="small"
-          variant="contained"
-          startIcon={<CheckCircleIcon />}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleApprovalAction('review', subject.id);
-          }}
-        >
-          Xem xét
-        </Button>
+        <PermissionGuard key="review" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<CheckCircleIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              openConfirm('review', subject.id);
+            }}
+          >
+            Xem xét
+          </Button>
+        </PermissionGuard>
+      );
+      buttons.push(
+        <PermissionGuard key="approve-from-ao" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              openConfirm('approve', subject.id);
+            }}
+          >
+            Phê duyệt
+          </Button>
+        </PermissionGuard>
       );
     }
 
     if (subject.status === CourseStatus.REVIEWING) {
       if (subject.workflowStage === WorkflowStage.ACADEMIC_OFFICE) {
+        // Show both Xem xét and Phê duyệt at AO stage as well
         buttons.push(
-          <PermissionGuard key="approve" requiredPermissions={['tms.course.approve']}>
+          <PermissionGuard key="review-ao" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<CheckCircleIcon />}
+              onClick={(e) => {
+                e.stopPropagation();
+                openConfirm('review', subject.id);
+              }}
+            >
+              Xem xét
+            </Button>
+          </PermissionGuard>
+        );
+        buttons.push(
+          <PermissionGuard key="approve" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
             <Button
               size="small"
               variant="contained"
@@ -384,7 +491,7 @@ useEffect(() => {
               startIcon={<CheckCircleIcon />}
               onClick={(e) => {
                 e.stopPropagation();
-                handleApprovalAction('approve', subject.id);
+                openConfirm('approve', subject.id);
               }}
             >
               Phê duyệt
@@ -392,14 +499,14 @@ useEffect(() => {
           </PermissionGuard>
         );
         buttons.push(
-          <PermissionGuard key="reject" requiredPermissions={['tms.course.reject']}>
+          <PermissionGuard key="reject" requiredPermissions={[COURSE_PERMISSIONS.REJECT]}>
             <Button
               size="small"
               color="error"
               startIcon={<CancelIcon />}
               onClick={(e) => {
                 e.stopPropagation();
-                handleApprovalAction('reject', subject.id);
+                openConfirm('reject', subject.id);
               }}
             >
               Từ chối
@@ -407,24 +514,57 @@ useEffect(() => {
           </PermissionGuard>
         );
       }
+      if (subject.workflowStage === WorkflowStage.ACADEMIC_BOARD) {
+        buttons.push(
+          <PermissionGuard key="board-approve" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<CheckCircleIcon />}
+              onClick={(e) => {
+                e.stopPropagation();
+                openConfirm('approve', subject.id);
+              }}
+            >
+              Thẩm định đạt
+            </Button>
+          </PermissionGuard>
+        );
+        buttons.push(
+          <PermissionGuard key="board-reject" requiredPermissions={[COURSE_PERMISSIONS.REJECT]}>
+            <Button
+              size="small"
+              color="error"
+              startIcon={<CancelIcon />}
+              onClick={(e) => {
+                e.stopPropagation();
+                openConfirm('reject', subject.id);
+              }}
+            >
+              Thẩm định không đạt
+            </Button>
+          </PermissionGuard>
+        );
+      }
     }
 
-    if (subject.status === CourseStatus.APPROVED) {
+    if (subject.status === CourseStatus.APPROVED || subject.workflowStage === WorkflowStage.ACADEMIC_BOARD) {
       buttons.push(
-        <Button
-          key="publish"
-          size="small"
-          variant="contained"
-          color="info"
-          startIcon={<PublishIcon />}
-          disabled={!hasAcademicBoardRole}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleApprovalAction('publish', subject.id);
-          }}
-        >
-          Xuất bản
-        </Button>
+        <PermissionGuard key="publish" requiredPermissions={[COURSE_PERMISSIONS.PUBLISH]}>
+          <Button
+            size="small"
+            variant="contained"
+            color="info"
+            startIcon={<PublishIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              openConfirm('publish', subject.id);
+            }}
+          >
+            Phê duyệt cuối / Xuất bản
+          </Button>
+        </PermissionGuard>
       );
     }
 
@@ -432,7 +572,7 @@ useEffect(() => {
   };
 
   return (
-    <PermissionGuard requiredPermissions={['tms.course.approve', 'tms.course.reject']}>
+    <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE, COURSE_PERMISSIONS.REJECT, COURSE_PERMISSIONS.PUBLISH]}>
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
@@ -442,9 +582,148 @@ useEffect(() => {
           <Typography variant="body1" color="text.secondary">
             Xem xét và phê duyệt các học phần trong hệ thống
           </Typography>
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Chỉ có <strong>Văn phòng đào tạo</strong> và <strong>Hội đồng khoa học</strong> mới được phê duyệt.
-          </Alert>
+
+          <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => setShowGuide((v) => !v)}
+            >
+              {showGuide ? 'Ẩn hướng dẫn quy trình' : 'Hiển thị hướng dẫn quy trình'}
+            </Button>
+          </Box>
+
+          <Collapse in={showGuide} timeout="auto" unmountOnExit>
+            <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: 'background.paper' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                {showGuide ? <ExpandLessIcon sx={{ mr: 1 }} /> : <ExpandMoreIcon sx={{ mr: 1 }} />}
+                <Typography variant="h6">Hướng dẫn quy trình phê duyệt học phần</Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                Quy trình phê duyệt học phần gồm 3 bước chính: Đơn vị cấp Khoa khởi tạo → Phòng đào tạo xem xét và phê duyệt → Hội đồng khoa học công bố.
+              </Typography>
+
+              {/* Quy trình tổng quan */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  Quy trình tổng quan
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Học phần sẽ trải qua các bước: <strong>Khởi tạo → Xem xét & Phê duyệt → Công bố</strong>
+                </Typography>
+              </Box>
+
+              {/* Các bước chi tiết */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  1. Bước 1: Đơn vị cấp Khoa khởi tạo
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Người thực hiện:</strong> Đơn vị cấp Khoa
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Trạng thái đầu:</strong> Bản nháp (DRAFT)
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Nhiệm vụ:</strong>
+                </Typography>
+                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                  <li>Tạo và hoàn thiện thông tin học phần</li>
+                  <li>Kiểm tra tính đầy đủ và chính xác của dữ liệu</li>
+                  <li>Gửi học phần sang Phòng đào tạo để xem xét</li>
+                </Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Kết quả:</strong> Học phần được chuyển sang trạng thái "Đang xem xét" tại Phòng đào tạo
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  2. Bước 2: Phòng đào tạo xem xét và phê duyệt
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Người thực hiện:</strong> Phòng đào tạo (cấp Phòng)
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Trạng thái đầu:</strong> Đang xem xét tại Phòng đào tạo
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Các hành động có thể thực hiện:</strong>
+                </Typography>
+                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                  <li><strong>Xem xét:</strong> Kiểm tra nội dung, yêu cầu và quy định</li>
+                  <li><strong>Phê duyệt:</strong> Chấp nhận và chuyển học phần lên Hội đồng khoa học</li>
+                  <li><strong>Từ chối:</strong> Từ chối học phần nếu không đạt yêu cầu</li>
+                  <li><strong>Trả về:</strong> Yêu cầu Đơn vị cấp Khoa chỉnh sửa và bổ sung</li>
+                </Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Kết quả:</strong> Nếu phê duyệt → học phần được chuyển sang Hội đồng khoa học để công bố
+                </Typography>
+              </Box>
+
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                  3. Bước 3: Hội đồng khoa học công bố
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Người thực hiện:</strong> Hội đồng khoa học (cấp Trường)
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Trạng thái đầu:</strong> Đang xem xét tại Hội đồng khoa học
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Các hành động có thể thực hiện:</strong>
+                </Typography>
+                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                  <li><strong>Công bố:</strong> Phê duyệt cuối và xuất bản học phần chính thức</li>
+                  <li><strong>Từ chối:</strong> Từ chối học phần ở giai đoạn cuối</li>
+                  <li><strong>Yêu cầu chỉnh sửa:</strong> Trả về để bổ sung hoặc chỉnh sửa</li>
+                </Box>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Kết quả:</strong> Nếu công bố → học phần được xuất bản chính thức (PUBLISHED) và có thể sử dụng
+                </Typography>
+              </Box>
+
+              {/* Thời gian xử lý */}
+              <Alert severity="info" sx={{ mt: 2, mb: 3 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Thời gian xử lý quy định (SLA):
+                </Typography>
+                <Box component="ul" sx={{ mb: 1, pl: 2 }}>
+                  <li>Đơn vị cấp Khoa: 5 ngày làm việc (để hoàn thiện và gửi)</li>
+                  <li>Phòng đào tạo: 7 ngày làm việc (để xem xét và phê duyệt)</li>
+                  <li>Hội đồng khoa học: 3 ngày làm việc (để công bố)</li>
+                </Box>
+                <Typography variant="body2">
+                  Hệ thống sẽ hiển thị cảnh báo khi quá thời gian quy định.
+                </Typography>
+              </Alert>
+
+              <Divider sx={{ my: 2 }} />
+              
+             
+
+              <Divider sx={{ my: 2 }} />
+              
+              {/* Lưu ý quan trọng */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ color: 'warning.main' }}>
+                  Lưu ý quan trọng
+                </Typography>
+                <Box component="ul" sx={{ pl: 3 }}>
+                  <li>Quy trình gồm 3 bước chính: Khởi tạo → Xem xét & Phê duyệt → Công bố</li>
+                  <li>Mỗi bước có quyền hạn và trách nhiệm riêng, không thể bỏ qua</li>
+                  <li>Đơn vị cấp Khoa chịu trách nhiệm khởi tạo và hoàn thiện thông tin học phần</li>
+                  <li>Phòng đào tạo có quyền xem xét, phê duyệt hoặc từ chối học phần</li>
+                  <li>Chỉ có Hội đồng khoa học mới có quyền công bố học phần chính thức</li>
+                  <li>Học phần có thể bị trả về để chỉnh sửa ở bất kỳ giai đoạn nào</li>
+                  <li>Hệ thống sẽ gửi thông báo khi có học phần cần xử lý</li>
+                  <li>Thời gian xử lý được tính theo ngày làm việc (không bao gồm cuối tuần và ngày lễ)</li>
+                </Box>
+              </Box>
+            </Paper>
+          </Collapse>
         </Box>
 
       {/* Loading and Error States */}
@@ -550,11 +829,20 @@ useEffect(() => {
         {/* Enhanced animated progress bar with icons and knob */}
         <Box sx={{ position: 'relative', px: 1, py: 3 }}>
           {(() => {
-            const progress = (processIndex / 2) * 100; // 0, 50, 100
+            const progress = (() => {
+              switch (focusedStatus) {
+                case 'DRAFT': return 0;
+                case 'REVIEWING': return 33.33;
+                case 'APPROVED': return 66.66;
+                case 'PUBLISHED': return 100;
+                default: return 0;
+              }
+            })();
             const stages = [
-              { label: 'Khoa', Icon: SchoolIcon },
-              { label: 'Văn phòng đào tạo', Icon: DomainIcon },
-              { label: 'Hội đồng khoa học', Icon: ScienceIcon },
+              { label: 'Giảng viên soạn thảo', Icon: DescriptionIcon, status: 'DRAFT' },
+              { label: 'Khoa xem xét', Icon: SchoolIcon, status: 'REVIEWING' },
+              { label: 'Phòng đào tạo phê duyệt', Icon: DomainIcon, status: 'APPROVED' },
+              { label: 'Hội đồng khoa học công bố', Icon: ScienceIcon, status: 'PUBLISHED' },
             ];
             return (
               <>
@@ -595,7 +883,18 @@ useEffect(() => {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5 }}>
                   {stages.map((s, idx) => {
                     const ActiveIcon = s.Icon as any;
-                    const active = idx <= processIndex;
+                    const isCurrent = focusedStatus === s.status;
+                    const isCompleted = (() => {
+                      switch (focusedStatus) {
+                        case 'DRAFT': return idx === 0;
+                        case 'REVIEWING': return idx <= 1;
+                        case 'APPROVED': return idx <= 2;
+                        case 'PUBLISHED': return idx <= 3;
+                        default: return false;
+                      }
+                    })();
+                    const isActive = isCurrent || isCompleted;
+                    
                     return (
                       <Box key={s.label} sx={{ textAlign: 'center', minWidth: 0 }}>
                         <Box sx={{ position: 'relative', height: 28 }}>
@@ -607,24 +906,42 @@ useEffect(() => {
                               width: 24,
                               height: 24,
                               borderRadius: '50%',
-                              backgroundColor: active ? 'primary.main' : 'divider',
-                              color: active ? 'primary.contrastText' : 'text.secondary',
+                              backgroundColor: isActive ? 'primary.main' : 'divider',
+                              color: isActive ? 'primary.contrastText' : 'text.secondary',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                               transition: 'background-color 250ms ease',
+                              animation: isCurrent ? 'pulse 1.8s infinite ease-in-out' : 'none',
                             }}
                           >
                             <ActiveIcon sx={{ fontSize: 16 }} />
                           </Box>
                         </Box>
-                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontWeight: isCurrent ? 600 : 400 }}>
                           {s.label}
                         </Typography>
                       </Box>
                     );
                   })}
                 </Box>
+                {(() => {
+                  let note: string | null = null;
+                  switch (focusedStatus) {
+                    case 'DRAFT':
+                      note = 'Giảng viên đang soạn thảo khóa học';
+                      break;
+                    case 'REVIEWING':
+                      note = 'Khoa đang xem xét và thẩm định';
+                      break;
+                    case 'APPROVED':
+                      note = 'Phòng đào tạo đã phê duyệt';
+                      break;
+                    case 'PUBLISHED':
+                      note = 'Hội đồng khoa học đã công bố';
+                      break;
+                  }
+                })()}
               </>
             );
           })()}
@@ -689,7 +1006,11 @@ useEffect(() => {
                 <TableRow 
                   key={subject.id} 
                   hover
-                  onClick={() => setProcessIndex(getProcessIndexBySubject(subject))}
+                  onClick={() => {
+                    setProcessIndex(getProcessIndexBySubject(subject));
+                    setFocusedStage(subject.workflowStage);
+                    setFocusedStatus(subject.status);
+                  }}
                   sx={{ cursor: 'default' }}
                 >
                   <TableCell>
@@ -907,6 +1228,60 @@ useEffect(() => {
           <Button onClick={() => setOpenDialog(false)}>Đóng</Button>
           <Button variant="contained" onClick={() => setOpenDialog(false)}>
             Thực hiện thao tác
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Override Suggestion Dialog for Draft approval by non-AO role */}
+      <Dialog open={overrideDialogOpen} onClose={() => setOverrideDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Phê duyệt ở bước Khoa</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Người dùng hiện không thuộc <strong>Phòng đào tạo</strong>. Nên để <strong>Phòng đào tạo</strong> xem xét ở bước tiếp theo.
+          </Alert>
+          <Typography variant="body2" color="text.secondary">
+            Bạn vẫn có thể phê duyệt để chuyển hồ sơ sang <strong>Phòng đào tạo</strong> ngay bây giờ.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOverrideDialogOpen(false)}>Hủy</Button>
+          <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={async () => {
+                if (overrideSubjectId) {
+                  await handleApprovalAction('approve', overrideSubjectId);
+                }
+                setOverrideDialogOpen(false);
+                setOverrideSubjectId(null);
+              }}
+            >
+              Vẫn phê duyệt
+            </Button>
+          </PermissionGuard>
+        </DialogActions>
+      </Dialog>
+
+      {/* Global Confirm Dialog for all actions */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{confirmTitle}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">{confirmDesc}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)}>Hủy</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (pendingAction) {
+                await handleApprovalAction(pendingAction.action, pendingAction.id);
+              }
+              setConfirmOpen(false);
+              setPendingAction(null);
+            }}
+          >
+            Xác nhận
           </Button>
         </DialogActions>
       </Dialog>

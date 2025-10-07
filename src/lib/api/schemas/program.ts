@@ -4,6 +4,23 @@ export interface ProgramCourseMapInput {
   course_id: number | string;
   is_required?: boolean;
   display_order?: number;
+  // Optional code of the group within the same block that this course belongs to
+  group_code?: string | null;
+}
+
+export interface ProgramBlockGroupRuleInput {
+  min_credits?: number | null;
+  max_credits?: number | null;
+  min_courses?: number | null;
+  max_courses?: number | null;
+}
+
+export interface ProgramBlockGroupInput {
+  code: string;
+  title: string;
+  group_type: string; // accepts values like REQUIRED, ELECTIVE, CORE, OTHER (case-insensitive)
+  display_order?: number;
+  rules?: ProgramBlockGroupRuleInput[];
 }
 
 export interface ProgramBlockInput {
@@ -12,7 +29,10 @@ export interface ProgramBlockInput {
   block_type: string;
   display_order?: number;
   courses?: ProgramCourseMapInput[];
+  groups?: ProgramBlockGroupInput[];
 }
+
+export type ProgramWorkflowAction = 'submit' | 'review' | 'approve' | 'reject' | 'publish';
 
 export interface CreateProgramInput {
   code: string;
@@ -32,7 +52,10 @@ export interface CreateProgramInput {
   standalone_courses?: ProgramCourseMapInput[];
 }
 
-export type UpdateProgramInput = Partial<CreateProgramInput>;
+export interface UpdateProgramInput extends Partial<CreateProgramInput> {
+  workflow_action?: ProgramWorkflowAction;
+  workflow_notes?: string | null;
+}
 
 export interface ProgramQueryInput {
   page?: number;

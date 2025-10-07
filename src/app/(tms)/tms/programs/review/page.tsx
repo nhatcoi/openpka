@@ -1,657 +1,1166 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Alert,
-  Avatar,
   Box,
-  Button,
-  Chip,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  FormControl,
+  Typography,
   Grid,
-  IconButton,
-  InputAdornment,
-  InputLabel,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  MenuItem,
-  Paper,
-  Select,
-  Snackbar,
+  Card,
+  CardContent,
   Stack,
+  Chip,
+  Button,
+  TextField,
+  InputAdornment,
+  IconButton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
+  Paper,
+  Avatar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  LinearProgress,
+  Alert,
+  Snackbar,
   Tooltip,
-  Typography,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Stepper,
+  Step,
+  StepLabel,
 } from '@mui/material';
 import {
-  Assessment as AssessmentIcon,
-  CheckCircle as CheckCircleIcon,
-  Comment as CommentIcon,
-  FilterList as FilterIcon,
-  Replay as ReplayIcon,
-  Reply as ReplyIcon,
   Search as SearchIcon,
+  Refresh as RefreshIcon,
   Visibility as VisibilityIcon,
+  CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Publish as PublishIcon,
+  RocketLaunch as RocketLaunchIcon,
+  Description as DescriptionIcon,
+  Timeline as TimelineIcon,
+  School as SchoolIcon,
 } from '@mui/icons-material';
+import { PermissionGuard } from '@/components/auth/permission-guard';
 import {
-  DEFAULT_PROGRAM_PAGE_SIZE,
-  PROGRAM_PRIORITIES,
-  PROGRAM_STATUSES,
   ProgramPriority,
   ProgramStatus,
-  getProgramPriorityColor,
-  getProgramPriorityLabel,
+  PROGRAM_STATUSES,
+  PROGRAM_PRIORITIES,
+  ProgramWorkflowStage,
+  PROGRAM_WORKFLOW_STAGES,
+  PROGRAM_PERMISSIONS,
   getProgramStatusColor,
   getProgramStatusLabel,
+  getProgramPriorityColor,
+  getProgramPriorityLabel,
+  getProgramWorkflowStageLabel,
+  getProgramStageFromStatus,
+  normalizeProgramPriority,
 } from '@/constants/programs';
+import type { ProgramWorkflowAction } from '@/lib/api/schemas/program';
 import {
-  OrgUnitApiItem,
-  OrgUnitOption,
+  ProgramListItem,
+  ProgramListApiResponse,
   ProgramApiResponseItem,
   ProgramDetail,
-  ProgramDetailApiResponse,
-  ProgramListApiResponse,
-  ProgramListItem,
-  mapOrgUnitOptions,
-  mapProgramDetail,
   mapProgramResponse,
+  mapProgramDetail,
 } from '../program-utils';
 
+interface ProgramReviewItem extends ProgramListItem {
+  stage: ProgramWorkflowStage;
+}
+
+interface ApprovalHistoryEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  role: string;
+  action: string;
+  status: ProgramStatus | string;
+  note?: string;
+}
+
+interface ApprovalHistoryDataset {
+  programId: string;
+  entries: ApprovalHistoryEntry[];
+}
+
 interface ProgramStatsSummary {
-  total: number;
-  draft: number;
-  submitted: number;
+  pending: number;
   reviewing: number;
   approved: number;
   rejected: number;
-  published: number;
-  archived: number;
+  total: number;
 }
 
-interface ProgramStatsApiResponse {
-  success: boolean;
-  data?: {
-    summary?: ProgramStatsSummary;
-  };
-  error?: string;
-}
-
-const INITIAL_STATS: ProgramStatsSummary = {
-  total: 0,
-  draft: 0,
-  submitted: 0,
+const defaultStats: ProgramStatsSummary = {
+  pending: 0,
   reviewing: 0,
   approved: 0,
   rejected: 0,
-  published: 0,
-  archived: 0,
+  total: 0,
 };
 
-export default function ProgramsReviewPage(): JSX.Element {
-  const [programs, setPrograms] = useState<ProgramListItem[]>([]);
-  const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
-  const [selectedProgram, setSelectedProgram] = useState<ProgramDetail | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
+const stageChipColor: Record<ProgramWorkflowStage, 'default' | 'info' | 'success' | 'warning'> = {
+  [ProgramWorkflowStage.DRAFT]: 'default',
+  [ProgramWorkflowStage.REVIEWING]: 'info',
+  [ProgramWorkflowStage.APPROVED]: 'success',
+  [ProgramWorkflowStage.PUBLISHED]: 'success',
+};
+
+const actionCopy: Record<ProgramWorkflowAction, { title: string; description: string; success?: string }> = {
+  submit: {
+    title: 'Gửi phê duyệt',
+    description: 'Bạn muốn gửi chương trình đào tạo này vào quy trình phê duyệt?',
+    success: 'Đã gửi chương trình vào quy trình phê duyệt.',
+  },
+  review: {
+    title: 'Tiếp nhận chương trình',
+    description: 'Bạn xác nhận tiếp nhận và chuyển chương trình sang trạng thái Đang xem xét?',
+    success: 'Đã chuyển sang trạng thái Đang xem xét.',
+  },
+  approve: {
+    title: 'Phê duyệt chương trình',
+    description: 'Bạn muốn phê duyệt chương trình đào tạo này?',
+    success: 'Chương trình đã được phê duyệt.',
+  },
+  reject: {
+    title: 'Từ chối chương trình',
+    description: 'Bạn muốn từ chối chương trình đào tạo này?',
+    success: 'Đã từ chối chương trình.',
+  },
+  publish: {
+    title: 'Xuất bản chương trình',
+    description: 'Bạn muốn xuất bản chương trình đào tạo này?',
+    success: 'Chương trình đã được xuất bản.',
+  },
+};
+
+const formatDateTime = (value?: string | null): string => {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString('vi-VN');
+  } catch {
+    return value;
+  }
+};
+
+const computeStepIndex = (status: ProgramStatus): number => {
+  const stage = getProgramStageFromStatus(status);
+  const index = PROGRAM_WORKFLOW_STAGES.indexOf(stage);
+  return index >= 0 ? index : 0;
+};
+
+const processStages = [
+  { stage: ProgramWorkflowStage.DRAFT, label: 'Trưởng bộ môn', Icon: DescriptionIcon },
+  { stage: ProgramWorkflowStage.REVIEWING, label: 'Phòng đào tạo', Icon: SchoolIcon },
+  { stage: ProgramWorkflowStage.APPROVED, label: 'Ban phê duyệt', Icon: CheckCircleIcon },
+  { stage: ProgramWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học', Icon: RocketLaunchIcon },
+];
+
+
+const buildReviewItemFromDetail = (detail: ProgramDetail): ProgramReviewItem => ({
+  id: detail.id,
+  code: detail.code,
+  nameVi: detail.nameVi,
+  nameEn: detail.nameEn,
+  description: detail.description,
+  version: detail.version,
+  status: detail.status,
+  totalCredits: detail.totalCredits,
+  priority: detail.priority,
+  effectiveFrom: detail.effectiveFrom,
+  effectiveTo: detail.effectiveTo,
+  createdAt: detail.createdAt,
+  updatedAt: detail.updatedAt,
+  orgUnit: detail.orgUnit,
+  major: detail.major,
+  stats: detail.stats,
+  stage: getProgramStageFromStatus(detail.status),
+});
+
+export default function ProgramReviewPage(): JSX.Element {
+  const router = useRouter();
+  const [programs, setPrograms] = useState<ProgramReviewItem[]>([]);
+  const [stats, setStats] = useState<ProgramStatsSummary>(defaultStats);
   const [selectedStatus, setSelectedStatus] = useState<ProgramStatus | 'all'>('all');
+  const [selectedStage, setSelectedStage] = useState<ProgramWorkflowStage | 'all'>('all');
   const [selectedPriority, setSelectedPriority] = useState<ProgramPriority | 'all'>('all');
-  const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
   const [searchValue, setSearchValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState<ProgramStatsSummary>(INITIAL_STATS);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detail, setDetail] = useState<ProgramDetail | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ program: ProgramReviewItem; action: ProgramWorkflowAction } | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success',
   });
+  const [processIndex, setProcessIndex] = useState<number>(0);
+  const [focusedStatus, setFocusedStatus] = useState<ProgramStatus>(ProgramStatus.DRAFT);
+  const [focusedStage, setFocusedStage] = useState<ProgramWorkflowStage>(ProgramWorkflowStage.DRAFT);
+  const [historyDatasets, setHistoryDatasets] = useState<ApprovalHistoryDataset[]>([]);
+  const [historyEntries, setHistoryEntries] = useState<ApprovalHistoryEntry[]>([]);
 
-  const fetchOrgUnits = useCallback(async () => {
-    try {
-      const response = await fetch('/api/tms/faculties?limit=200');
-      const result = (await response.json()) as {
-        data?: { items?: OrgUnitApiItem[] };
-      };
-      if (response.ok && result?.data?.items) {
-        setOrgUnits(mapOrgUnitOptions(result.data.items));
-      }
-    } catch (err) {
-      console.error('Failed to load faculties', err);
+  const updateProcessContext = (program?: { status: ProgramStatus }) => {
+    if (!program) {
+      setProcessIndex(0);
+      setFocusedStatus(ProgramStatus.DRAFT);
+      setFocusedStage(ProgramWorkflowStage.DRAFT);
+      return;
     }
-  }, []);
+    const stage = getProgramStageFromStatus(program.status);
+    setProcessIndex(computeStepIndex(program.status));
+    setFocusedStatus(program.status);
+    setFocusedStage(stage);
+  };
 
-  const fetchStats = useCallback(async () => {
+  const resolveHistoryEntries = (programId: string): ApprovalHistoryEntry[] => {
+    const entries =
+      historyDatasets.find((dataset) => dataset.programId.toString() === programId.toString())?.entries ?? [];
+    return [...entries]
+      .map((entry) => ({ ...entry }))
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
+  const fetchStats = async () => {
     try {
       const response = await fetch('/api/tms/programs/stats');
-      const result = (await response.json()) as ProgramStatsApiResponse;
+      const result = await response.json();
       if (response.ok && result?.success) {
-        setStats(result.data?.summary ?? INITIAL_STATS);
+        setStats(result.data ?? defaultStats);
       }
     } catch (err) {
-      console.error('Failed to load program stats', err);
+      console.error('Failed to fetch program stats', err);
     }
-  }, []);
+  };
 
-  const fetchPrograms = useCallback(async () => {
+  const fetchPrograms = async () => {
     try {
       setLoading(true);
       setError(null);
 
       const params = new URLSearchParams({
         page: '1',
-        limit: String(DEFAULT_PROGRAM_PAGE_SIZE * 3),
+        limit: '100',
       });
-
-      if (selectedStatus !== 'all') {
-        params.set('status', selectedStatus);
-      }
-
-      if (selectedOrgUnit !== 'all') {
-        params.set('orgUnitId', selectedOrgUnit);
-      }
-
-      if (searchTerm) {
-        params.set('search', searchTerm);
-      }
 
       const response = await fetch(`/api/tms/programs?${params.toString()}`);
       const result = (await response.json()) as ProgramListApiResponse;
 
-      if (!response.ok || !result.success) {
+      if (!response.ok || !result.success || !result.data) {
         throw new Error(result.error || 'Không thể tải danh sách chương trình');
       }
 
-      const items: ProgramApiResponseItem[] = result.data?.items ?? [];
-      setPrograms(items.map(mapProgramResponse));
+      const mapped = (result.data.items ?? []).map(mapProgramResponse).map((item) => ({
+        ...item,
+        priority: normalizeProgramPriority(item.priority),
+        stage: getProgramStageFromStatus(item.status),
+      }));
+
+      setPrograms(mapped);
+      setHistoryEntries([]);
+      if (mapped.length > 0) {
+        updateProcessContext({ status: mapped[0].status });
+      } else {
+        updateProcessContext();
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
       setError(message);
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, selectedOrgUnit, selectedStatus]);
-
-  const fetchProgramDetail = useCallback(async (programId: string) => {
-    try {
-      const response = await fetch(`/api/tms/programs/${programId}`);
-      const result = (await response.json()) as {
-        success: boolean;
-        data: ProgramDetailApiResponse;
-        error?: string;
-      };
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải chi tiết chương trình');
-      }
-
-      const detail = mapProgramDetail(result.data);
-      setSelectedProgram(detail);
-      setDialogOpen(true);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể tải chi tiết chương trình';
-      setSnackbar({ open: true, message, severity: 'error' });
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchOrgUnits();
-    fetchStats();
-  }, [fetchOrgUnits, fetchStats]);
+  };
 
   useEffect(() => {
     fetchPrograms();
-  }, [fetchPrograms]);
+    fetchStats();
+    const loadHistorySamples = async () => {
+      try {
+        const response = await fetch('/review/data.json');
+        if (!response.ok) throw new Error('Failed to load approval history sample data');
+        const data = (await response.json()) as { histories?: ApprovalHistoryDataset[] };
+        setHistoryDatasets(data.histories ?? []);
+      } catch (err) {
+        console.error('Failed to load approval history samples', err);
+        setHistoryDatasets([]);
+      }
+    };
+    loadHistorySamples();
+  }, []);
 
-  const applySearch = () => {
+  useEffect(() => {
+    if (detail) {
+      setHistoryEntries(resolveHistoryEntries(detail.id));
+    }
+  }, [historyDatasets, detail?.id]);
+
+  const filteredPrograms = useMemo(() => {
+    return programs.filter((program) => {
+      const matchesStatus = selectedStatus === 'all' || program.status === selectedStatus;
+      const matchesStage = selectedStage === 'all' || program.stage === selectedStage;
+      const matchesPriority = selectedPriority === 'all' || program.priority === selectedPriority;
+      const haystack = `${program.code} ${program.nameVi}`.toLowerCase();
+      const matchesSearch = searchTerm === '' || haystack.includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesStage && matchesPriority && matchesSearch;
+    });
+  }, [programs, searchTerm, selectedStatus, selectedStage, selectedPriority]);
+
+  const handleSearch = () => {
     setSearchTerm(searchValue.trim());
   };
 
-  const resetFilters = () => {
+  const handleResetFilters = () => {
     setSelectedStatus('all');
+    setSelectedStage('all');
     setSelectedPriority('all');
-    setSelectedOrgUnit('all');
     setSearchValue('');
     setSearchTerm('');
   };
 
-  const filteredPrograms = useMemo(() => {
-    return programs.filter((program) => {
-      if (selectedPriority !== 'all' && program.priority !== selectedPriority) {
-        return false;
-      }
-      return true;
-    });
-  }, [programs, selectedPriority]);
+  const openActionConfirm = (program: ProgramReviewItem, action: ProgramWorkflowAction) => {
+    setPendingAction({ program, action });
+    setConfirmOpen(true);
+  };
 
-  const handleReviewAction = async (action: 'review' | 'approve' | 'reject' | 'return' | 'publish', program: ProgramListItem) => {
-    const statusMap: Record<typeof action, ProgramStatus> = {
-      review: ProgramStatus.REVIEWING,
-      approve: ProgramStatus.APPROVED,
-      reject: ProgramStatus.REJECTED,
-      return: ProgramStatus.SUBMITTED,
-      publish: ProgramStatus.PUBLISHED,
-    };
+  const closeActionConfirm = () => {
+    setConfirmOpen(false);
+    setPendingAction(null);
+  };
+
+  const performWorkflowAction = async () => {
+    if (!pendingAction) return;
 
     try {
-      const response = await fetch(`/api/tms/programs/${program.id}`, {
+      setConfirmLoading(true);
+      const response = await fetch(`/api/tms/programs/${pendingAction.program.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: statusMap[action] }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ workflow_action: pendingAction.action }),
       });
-      const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể cập nhật trạng thái chương trình');
+      const result = await response.json();
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Thao tác không thành công');
       }
 
-      setSnackbar({ open: true, message: 'Đã cập nhật trạng thái chương trình', severity: 'success' });
-      setDialogOpen(false);
+      const successMessage = actionCopy[pendingAction.action]?.success || 'Thao tác thành công.';
+      setSnackbar({ open: true, message: successMessage, severity: 'success' });
+      closeActionConfirm();
       fetchPrograms();
       fetchStats();
+      if (detail) {
+        setHistoryEntries(resolveHistoryEntries(detail.id));
+      }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể cập nhật trạng thái chương trình';
+      const message = err instanceof Error ? err.message : 'Không thể thực hiện thao tác';
       setSnackbar({ open: true, message, severity: 'error' });
+    } finally {
+      setConfirmLoading(false);
     }
   };
 
-  return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={2} sx={{ mb: 4 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            <AssessmentIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-            Xem xét chương trình đào tạo
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Quản lý quy trình phê duyệt chương trình đào tạo và theo dõi tiến độ xử lý
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<FilterIcon />} onClick={resetFilters}>
-            Đặt lại bộ lọc
+  const openDetailDialog = async (programId: string) => {
+    setDetailOpen(true);
+    setDetailLoading(true);
+    try {
+      const response = await fetch(`/api/tms/programs/${programId}`);
+      const result = await response.json();
+
+      if (!response.ok || !result?.success || !result?.data) {
+        throw new Error(result?.error || 'Không thể tải chi tiết chương trình');
+      }
+
+      const detailData = mapProgramDetail(result.data as ProgramApiResponseItem);
+      setDetail(detailData);
+      setHistoryEntries(resolveHistoryEntries(detailData.id));
+      updateProcessContext({ status: detailData.status });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tải chi tiết chương trình';
+      setDetail(null);
+      setSnackbar({ open: true, message, severity: 'error' });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetailDialog = () => {
+    setDetailOpen(false);
+    setDetail(null);
+    setHistoryEntries([]);
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
+
+  const clampedProcessIndex = Math.max(0, Math.min(processStages.length - 1, processIndex));
+  const progressValue =
+    processStages.length <= 1 ? 100 : (clampedProcessIndex / (processStages.length - 1)) * 100;
+  const activeStageLabel = getProgramWorkflowStageLabel(focusedStage);
+  const activeStatusLabel = getProgramStatusLabel(focusedStatus);
+
+  const getActionButtons = (program: ProgramReviewItem, context: 'table' | 'detail' = 'table') => {
+    const buttons: JSX.Element[] = [];
+
+    if (context === 'table') {
+      buttons.push(
+        <Tooltip key={`view-${program.id}`} title="Xem chi tiết">
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<VisibilityIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openDetailDialog(program.id);
+            }}
+          >
+            Xem
           </Button>
-        </Stack>
-      </Stack>
+        </Tooltip>,
+      );
+    }
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Đang chờ xử lý
-            </Typography>
-            <Typography variant="h5" sx={{ mt: 1 }}>
-              {stats.submitted}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Đang xem xét
-            </Typography>
-            <Typography variant="h5" sx={{ mt: 1 }}>
-              {stats.reviewing}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Đã phê duyệt
-            </Typography>
-            <Typography variant="h5" sx={{ mt: 1 }}>
-              {stats.approved}
-            </Typography>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" color="text.secondary">
-              Tổng số chương trình
-            </Typography>
-            <Typography variant="h5" sx={{ mt: 1 }}>
-              {stats.total}
-            </Typography>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ xs: 'stretch', lg: 'center' }}>
-          <TextField
-            placeholder="Tìm kiếm chương trình..."
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                applySearch();
-              }
+    if (program.status === ProgramStatus.DRAFT || program.status === ProgramStatus.SUBMITTED) {
+      buttons.push(
+        <PermissionGuard key={`review-${program.id}`} requiredPermissions={[PROGRAM_PERMISSIONS.REVIEW]}>
+          <Button
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, 'review');
             }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
+          >
+            Tiếp nhận
+          </Button>
+        </PermissionGuard>,
+      );
+    }
+
+    if (program.status === ProgramStatus.REVIEWING) {
+      buttons.push(
+        <PermissionGuard key={`approve-${program.id}`} requiredPermissions={[PROGRAM_PERMISSIONS.APPROVE]}>
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, 'approve');
             }}
-            sx={{ flexGrow: 1, minWidth: 220 }}
-          />
+          >
+            Phê duyệt
+          </Button>
+        </PermissionGuard>,
+      );
+      buttons.push(
+        <PermissionGuard key={`reject-${program.id}`} requiredPermissions={[PROGRAM_PERMISSIONS.REJECT]}>
+          <Button
+            size="small"
+            color="error"
+            variant="outlined"
+            startIcon={<CancelIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, 'reject');
+            }}
+          >
+            Từ chối
+          </Button>
+        </PermissionGuard>,
+      );
+    }
 
-          <FormControl sx={{ minWidth: 160 }}>
-            <InputLabel>Trạng thái</InputLabel>
-            <Select value={selectedStatus} label="Trạng thái" onChange={(event) => setSelectedStatus(event.target.value as ProgramStatus | 'all')}>
-              <MenuItem value="all">Tất cả</MenuItem>
-              {PROGRAM_STATUSES.filter((status) => status !== ProgramStatus.DRAFT && status !== ProgramStatus.ARCHIVED).map((status) => (
-                <MenuItem key={status} value={status}>
-                  {getProgramStatusLabel(status)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+    if (program.status === ProgramStatus.APPROVED) {
+      buttons.push(
+        <PermissionGuard key={`publish-${program.id}`} requiredPermissions={[PROGRAM_PERMISSIONS.PUBLISH]}>
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            startIcon={<RocketLaunchIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, 'publish');
+            }}
+          >
+            Xuất bản
+          </Button>
+        </PermissionGuard>,
+      );
+    }
 
-          <FormControl sx={{ minWidth: 160 }}>
-            <InputLabel>Độ ưu tiên</InputLabel>
-            <Select value={selectedPriority} label="Độ ưu tiên" onChange={(event) => setSelectedPriority(event.target.value as ProgramPriority | 'all')}>
-              <MenuItem value="all">Tất cả</MenuItem>
-              {PROGRAM_PRIORITIES.map((priority) => (
-                <MenuItem key={priority} value={priority}>
-                  {getProgramPriorityLabel(priority)}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+    return buttons;
+  };
 
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Đơn vị</InputLabel>
-            <Select value={selectedOrgUnit} label="Đơn vị" onChange={(event) => setSelectedOrgUnit(event.target.value)}>
-              <MenuItem value="all">Tất cả đơn vị</MenuItem>
-              {orgUnits.map((unit) => (
-                <MenuItem key={unit.id} value={unit.id}>
-                  {unit.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+  const detailActionButtons = detail
+    ? getActionButtons(buildReviewItemFromDetail(detail), 'detail')
+    : [];
 
-          <Stack direction="row" spacing={1}>
-            <Button variant="contained" onClick={applySearch}>
-              Tìm kiếm
-            </Button>
-            <Button variant="text" onClick={resetFilters}>
-              Xóa bộ lọc
-            </Button>
-          </Stack>
-        </Stack>
-      </Paper>
-
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Mã</TableCell>
-                <TableCell>Tên chương trình</TableCell>
-                <TableCell>Đơn vị</TableCell>
-                <TableCell align="center">Trạng thái</TableCell>
-                <TableCell align="center">Ưu tiên</TableCell>
-                <TableCell>Thống kê</TableCell>
-                <TableCell align="center">Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading && (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
-                    Đang tải dữ liệu...
-                  </TableCell>
-                </TableRow>
-              )}
-
-              {error && !loading && (
-                <TableRow>
-                  <TableCell colSpan={7}>
-                    <Alert severity="error" action={<Button color="inherit" size="small" onClick={fetchPrograms}>Thử lại</Button>}>
-                      {error}
-                    </Alert>
-                  </TableCell>
-                </TableRow>
-              )}
-
-              {!loading && !error && filteredPrograms.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7}>
-                    <Alert severity="info">Không có chương trình nào.</Alert>
-                  </TableCell>
-                </TableRow>
-              )}
-
-              {!loading && !error && filteredPrograms.map((program) => (
-                <TableRow key={program.id} hover>
-                  <TableCell>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {program.code}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" fontWeight="medium">
-                      {program.nameVi}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Phiên bản {program.version || 'Mặc định'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {program.orgUnit ? (
-                      <>
-                        <Typography variant="body2" fontWeight="medium">
-                          {program.orgUnit.name}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {program.orgUnit.code}
-                        </Typography>
-                      </>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        Chưa cập nhật
-                      </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={getProgramStatusLabel(program.status)}
-                      color={getProgramStatusColor(program.status)}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={getProgramPriorityLabel(program.priority)}
-                      color={getProgramPriorityColor(program.priority)}
-                      size="small"
-                      variant="outlined"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" color="text.secondary">
-                      {program.stats.courseCount} học phần • {program.stats.studentCount} sinh viên
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      <Tooltip title="Xem chi tiết">
-                        <IconButton size="small" color="primary" onClick={() => fetchProgramDetail(program.id)}>
-                          <VisibilityIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {program.status === ProgramStatus.SUBMITTED && (
-                        <Tooltip title="Đánh giá">
-                          <IconButton size="small" color="inherit" onClick={() => handleReviewAction('review', program)}>
-                            <CommentIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {program.status === ProgramStatus.REVIEWING && (
-                        <>
-                          <Tooltip title="Phê duyệt">
-                            <IconButton size="small" color="success" onClick={() => handleReviewAction('approve', program)}>
-                              <CheckCircleIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Từ chối">
-                            <IconButton size="small" color="error" onClick={() => handleReviewAction('reject', program)}>
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Trả lại chỉnh sửa">
-                            <IconButton size="small" color="warning" onClick={() => handleReviewAction('return', program)}>
-                              <ReplyIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      {program.status === ProgramStatus.APPROVED && (
-                        <Tooltip title="Xuất bản">
-                          <IconButton size="small" color="primary" onClick={() => handleReviewAction('publish', program)}>
-                            <PublishIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Chi tiết chương trình
-        </DialogTitle>
-        <DialogContent dividers>
-          {selectedProgram ? (
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="h6">Thông tin cơ bản</Typography>
-                <Divider sx={{ my: 1 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      Mã chương trình
-                    </Typography>
-                    <Typography variant="body1">{selectedProgram.code}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="caption" color="text.secondary">
-                      Trạng thái
-                    </Typography>
-                    <Box sx={{ mt: 0.5 }}>
-                      <Chip
-                        label={getProgramStatusLabel(selectedProgram.status)}
-                        color={getProgramStatusColor(selectedProgram.status)}
-                        size="small"
-                      />
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="caption" color="text.secondary">
-                      Tên chương trình
-                    </Typography>
-                    <Typography variant="body1">{selectedProgram.nameVi}</Typography>
-                  </Grid>
-                  {selectedProgram.description && (
-                    <Grid item xs={12}>
-                      <Typography variant="caption" color="text.secondary">
-                        Mô tả
-                      </Typography>
-                      <Typography variant="body2">{selectedProgram.description}</Typography>
-                    </Grid>
-                  )}
-                </Grid>
-              </Box>
-
-              {selectedProgram.blocks.length > 0 && (
-                <Box>
-                  <Typography variant="h6">Cấu trúc chương trình</Typography>
-                  <Divider sx={{ my: 1 }} />
-                  <List dense>
-                    {selectedProgram.blocks.map((block) => (
-                      <React.Fragment key={block.id}>
-                        <ListItem>
-                          <ListItemAvatar>
-                            <Avatar>
-                              <ReplayIcon />
-                            </Avatar>
-                          </ListItemAvatar>
-                          <ListItemText
-                            primary={`${block.code} - ${block.title}`}
-                            secondary={`${block.courses.length} học phần`}
-                          />
-                        </ListItem>
-                        {block.courses.map((course) => (
-                          <ListItem key={course.id} sx={{ pl: 8 }}>
-                            <ListItemText
-                              primary={`${course.code} - ${course.name}`}
-                              secondary={`${course.credits} tín chỉ • ${course.required ? 'Bắt buộc' : 'Tự chọn'}`}
-                            />
-                          </ListItem>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                </Box>
-              )}
+  return (
+    <PermissionGuard requiredPermissions={[PROGRAM_PERMISSIONS.REVIEW, PROGRAM_PERMISSIONS.APPROVE, PROGRAM_PERMISSIONS.PUBLISH]} fallback={
+      <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Typography variant="h6" color="error">
+          Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.
+        </Typography>
+      </Box>
+    }>
+      <Box sx={{ py: 4, backgroundColor: 'background.default', minHeight: '100vh' }}>
+        <Container maxWidth="xl">
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} spacing={3} mb={4}>
+            <Stack spacing={1}>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+                Phê duyệt chương trình đào tạo
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Giám sát trạng thái phê duyệt và thực hiện các thao tác nhanh cho chương trình đào tạo.
+              </Typography>
             </Stack>
-          ) : (
-            <Typography variant="body2" color="text.secondary">
-              Đang tải thông tin chương trình...
-            </Typography>
-          )}
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<RefreshIcon />}
+                onClick={() => {
+                  fetchPrograms();
+                  fetchStats();
+                }}
+              >
+                Làm mới dữ liệu
+              </Button>
+            </Stack>
+          </Stack>
+
+        {/* Stats */}
+        <Grid container spacing={2} mb={4}>
+          <Grid item xs={12} md={3}>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'warning.main' }}>
+                    <RocketLaunchIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Đang chờ xử lý
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {stats.pending}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'info.main' }}>
+                    <TimelineIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Đang xem xét
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {stats.reviewing}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'success.main' }}>
+                    <CheckCircleIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Đã phê duyệt
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {stats.approved}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Card sx={{ borderRadius: 3 }}>
+              <CardContent>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'error.main' }}>
+                    <CancelIcon fontSize="small" />
+                  </Avatar>
+                  <Stack spacing={0.5}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Bị từ chối
+                    </Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                      {stats.rejected}
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 3,
+            border: '1px solid',
+            borderColor: 'divider',
+            backgroundColor: 'background.paper',
+          }}
+        >
+          <Stack spacing={2.5}>
+            <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+              <Stack spacing={0.5}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Quy trình phê duyệt chương trình
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Theo dõi tiến độ xử lý hiện tại dựa trên trạng thái chương trình đang được chọn.
+                </Typography>
+              </Stack>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', md: 'center' }}>
+                <Chip
+                  label={`Bước hiện tại: ${activeStageLabel}`}
+                  color="info"
+                  variant="outlined"
+                  size="small"
+                />
+                <Chip
+                  label={`Trạng thái: ${activeStatusLabel}`}
+                  color={getProgramStatusColor(focusedStatus)}
+                  variant="outlined"
+                  size="small"
+                />
+              </Stack>
+            </Stack>
+
+            <Box sx={{ position: 'relative', px: 1, py: 3 }}>
+              <Box
+                sx={{
+                  '@keyframes glow': {
+                    '0%': { boxShadow: '0 0 0 0 rgba(25,118,210,0.4)' },
+                    '70%': { boxShadow: '0 0 0 12px rgba(25,118,210,0)' },
+                    '100%': { boxShadow: '0 0 0 0 rgba(25,118,210,0)' },
+                  },
+                  '@keyframes pulse': {
+                    '0%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.05)' },
+                    '100%': { transform: 'scale(1)' },
+                  },
+                }}
+              />
+              <Box sx={{ position: 'relative', height: 10, bgcolor: 'action.hover', borderRadius: 9999 }}>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    height: 10,
+                    width: `${progressValue}%`,
+                    background: 'linear-gradient(90deg, #42a5f5 0%, #1e88e5 50%, #1565c0 100%)',
+                    borderRadius: 9999,
+                    transition: 'width 400ms cubic-bezier(0.22, 1, 0.36, 1)',
+                  }}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5 }}>
+                {processStages.map((stageDef, idx) => {
+                  const StageIcon = stageDef.Icon as typeof SchoolIcon;
+                  const isReached = idx <= clampedProcessIndex;
+                  const isCurrent = stageDef.stage === focusedStage;
+                  return (
+                    <Box key={stageDef.stage} sx={{ textAlign: 'center', minWidth: 0 }}>
+                      <Box sx={{ position: 'relative', height: 32 }}>
+                        <Box
+                          sx={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 32,
+                            height: 32,
+                            borderRadius: '50%',
+                            border: '2px solid',
+                            borderColor: isCurrent ? 'primary.main' : isReached ? 'primary.light' : 'divider',
+                            backgroundColor: isReached ? 'primary.light' : 'background.paper',
+                            color: isReached ? 'primary.contrastText' : 'text.secondary',
+                            animation: isCurrent ? 'pulse 1.8s infinite ease-in-out' : 'none',
+                          }}
+                        >
+                          <StageIcon sx={{ fontSize: 18 }} />
+                        </Box>
+                      </Box>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          mt: 0.5,
+                          display: 'block',
+                          fontWeight: isCurrent ? 700 : 500,
+                          color: isCurrent ? 'primary.main' : 'text.secondary',
+                        }}
+                      >
+                        {stageDef.label}
+                      </Typography>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
+          </Stack>
+        </Paper>
+
+        {/* Filters */}
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Tìm kiếm theo mã hoặc tên"
+                value={searchValue}
+                onChange={(event) => setSearchValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton edge="end" onClick={handleSearch}>
+                        <SearchIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2.5}>
+              <FormControl fullWidth>
+                <InputLabel id="status-filter-label">Trạng thái</InputLabel>
+                <Select
+                  labelId="status-filter-label"
+                  label="Trạng thái"
+                  value={selectedStatus}
+                  onChange={(event) => setSelectedStatus(event.target.value as ProgramStatus | 'all')}
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {PROGRAM_STATUSES.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {getProgramStatusLabel(status)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2.5}>
+              <FormControl fullWidth>
+                <InputLabel id="stage-filter-label">Bước xử lý</InputLabel>
+                <Select
+                  labelId="stage-filter-label"
+                  label="Bước xử lý"
+                  value={selectedStage}
+                  onChange={(event) => setSelectedStage(event.target.value as ProgramWorkflowStage | 'all')}
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {PROGRAM_WORKFLOW_STAGES.map((stage) => (
+                    <MenuItem key={stage} value={stage}>
+                      {getProgramWorkflowStageLabel(stage)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={2.5}>
+              <FormControl fullWidth>
+                <InputLabel id="priority-filter-label">Độ ưu tiên</InputLabel>
+                <Select
+                  labelId="priority-filter-label"
+                  label="Độ ưu tiên"
+                  value={selectedPriority}
+                  onChange={(event) => setSelectedPriority(event.target.value as ProgramPriority | 'all')}
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {PROGRAM_PRIORITIES.map((priority) => (
+                    <MenuItem key={priority} value={priority}>
+                      {getProgramPriorityLabel(priority)}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={1}>
+              <Button fullWidth variant="text" color="inherit" onClick={handleResetFilters}>
+                Xóa lọc
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          {loading && <LinearProgress sx={{ borderRadius: 'inherit' }} />}
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Mã</TableCell>
+                  <TableCell>Tên chương trình</TableCell>
+                  <TableCell>Khoa phụ trách</TableCell>
+                  <TableCell align="center">Trạng thái</TableCell>
+                  <TableCell align="center">Bước xử lý</TableCell>
+                  <TableCell align="center">Số tín chỉ</TableCell>
+                  <TableCell align="center">Cập nhật</TableCell>
+                  <TableCell align="center">Thao tác</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredPrograms.length === 0 && !loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <Typography color="text.secondary">Không có chương trình nào phù hợp.</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPrograms.map((program) => (
+                    <TableRow
+                      key={program.id}
+                      hover
+                      onClick={() => {
+                        updateProcessContext({ status: program.status });
+                      }}
+                      sx={{ cursor: 'default' }}
+                    >
+                      <TableCell sx={{ fontWeight: 600 }}>{program.code}</TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                            {program.nameVi}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Phiên bản: {program.version ?? '—'}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Avatar sx={{ width: 28, height: 28, bgcolor: 'secondary.main' }}>
+                            <SchoolIcon fontSize="small" />
+                          </Avatar>
+                          <Typography variant="body2" color="text.secondary">
+                            {program.orgUnit?.name ?? 'Chưa gán đơn vị'}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={getProgramStatusLabel(program.status)}
+                          color={getProgramStatusColor(program.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={getProgramWorkflowStageLabel(program.stage)}
+                          color={stageChipColor[program.stage]}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {program.totalCredits}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2" color="text.secondary">
+                          {formatDateTime(program.updatedAt)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} justifyContent="center" flexWrap="wrap">
+                          {getActionButtons(program)}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+        </Container>
+
+      {/* Confirm Dialog */}
+      <Dialog open={confirmOpen} onClose={confirmLoading ? undefined : closeActionConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          {pendingAction ? actionCopy[pendingAction.action].title : 'Xác nhận thao tác'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            {pendingAction ? actionCopy[pendingAction.action].description : 'Bạn có chắc muốn tiếp tục?'}
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Đóng</Button>
-          {selectedProgram && (
-            <Button
-              variant="contained"
-              startIcon={<CheckCircleIcon />}
-              onClick={() => handleReviewAction('approve', selectedProgram)}
-            >
-              Phê duyệt
-            </Button>
-          )}
+          <Button onClick={closeActionConfirm} disabled={confirmLoading}>
+            Hủy
+          </Button>
+          <Button
+            onClick={performWorkflowAction}
+            variant="contained"
+            color="primary"
+            disabled={confirmLoading}
+          >
+            {confirmLoading ? 'Đang xử lý...' : 'Xác nhận'}
+          </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Detail Dialog */}
+      <Dialog open={detailOpen} onClose={closeDetailDialog} maxWidth="md" fullWidth>
+        <DialogTitle>Chi tiết chương trình đào tạo</DialogTitle>
+        <DialogContent dividers sx={{ minHeight: 260 }}>
+          {detailLoading && <LinearProgress sx={{ mb: 2 }} />}
+
+          {detail && (
+            <Stack spacing={3}>
+              <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                <Stack spacing={1}>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {detail.nameVi}
+                  </Typography>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Chip
+                      label={getProgramStatusLabel(detail.status)}
+                      color={getProgramStatusColor(detail.status)}
+                      size="small"
+                    />
+                    <Chip
+                      label={getProgramWorkflowStageLabel(getProgramStageFromStatus(detail.status))}
+                      color={stageChipColor[getProgramStageFromStatus(detail.status)]}
+                      size="small"
+                    />
+                    <Chip
+                      label={`Ưu tiên: ${getProgramPriorityLabel(detail.priority)}`}
+                      color={getProgramPriorityColor(detail.priority) === 'default' ? 'default' : getProgramPriorityColor(detail.priority)}
+                      size="small"
+                    />
+                  </Stack>
+                </Stack>
+                <Stack spacing={0.5} alignItems={{ xs: 'flex-start', md: 'flex-end' }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Mã chương trình: <strong>{detail.code}</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Phiên bản: <strong>{detail.version ?? '—'}</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Cập nhật: <strong>{formatDateTime(detail.updatedAt)}</strong>
+                  </Typography>
+                </Stack>
+              </Stack>
+
+              <Stepper activeStep={computeStepIndex(detail.status)} alternativeLabel>
+                {PROGRAM_WORKFLOW_STAGES.map((stage) => (
+                  <Step key={stage}>
+                    <StepLabel>{getProgramWorkflowStageLabel(stage)}</StepLabel>
+                  </Step>
+                ))}
+              </Stepper>
+
+              {detail.description && (
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                    Mô tả chương trình
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {detail.description}
+                  </Typography>
+                </Box>
+              )}
+
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Lịch sử phê duyệt
+                </Typography>
+                {historyEntries.length > 0 ? (
+                  <List dense disablePadding>
+                    {historyEntries.map((entry, index) => {
+                      const normalizedStatus = entry.status?.toString().toUpperCase() ?? ProgramStatus.DRAFT;
+                      const statusLabel = getProgramStatusLabel(normalizedStatus);
+                      const statusChipColor = getProgramStatusColor(normalizedStatus);
+
+                      const renderIcon = () => {
+                        const normalized = normalizedStatus;
+                        if (normalized === ProgramStatus.REJECTED) return <CancelIcon color="error" fontSize="small" />;
+                        if (normalized === ProgramStatus.PUBLISHED) return <RocketLaunchIcon color="primary" fontSize="small" />;
+                        if (normalized === ProgramStatus.APPROVED) return <CheckCircleIcon color="success" fontSize="small" />;
+                        return <TimelineIcon color="info" fontSize="small" />;
+                      };
+
+                      return (
+                        <React.Fragment key={entry.id}>
+                          <ListItem alignItems="flex-start" sx={{ px: 0 }}>
+                            <ListItemIcon sx={{ minWidth: 32 }}>{renderIcon()}</ListItemIcon>
+                            <ListItemText
+                              primary={
+                                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {entry.actor}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {entry.role}
+                                  </Typography>
+                                  <Chip label={statusLabel} size="small" color={statusChipColor} variant="outlined" />
+                                </Stack>
+                              }
+                              secondary={
+                                <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+                                  <Typography variant="caption" color="text.secondary">
+                                    {formatDateTime(entry.timestamp)}
+                                  </Typography>
+                                  {entry.note && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      {entry.note}
+                                    </Typography>
+                                  )}
+                                </Stack>
+                              }
+                            />
+                          </ListItem>
+                          {index < historyEntries.length - 1 && <Divider variant="inset" component="li" sx={{ ml: 4 }} />}
+                        </React.Fragment>
+                      );
+                    })}
+                  </List>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Chưa có lịch sử phê duyệt cho chương trình này.
+                  </Typography>
+                )}
+              </Box>
+
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} justifyContent="space-between">
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Khoa phụ trách
+                    </Typography>
+                    <Typography variant="body1">
+                      {detail.orgUnit?.name ?? 'Chưa gán đơn vị'}
+                    </Typography>
+                  </Stack>
+                  <Divider orientation="vertical" flexItem sx={{ display: { xs: 'none', md: 'block' } }} />
+                  <Stack spacing={1}>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      Thống kê nhanh
+                    </Typography>
+                    <Stack direction="row" spacing={2}>
+                      <Chip
+                        icon={<DescriptionIcon fontSize="small" />}
+                        label={`${detail.stats.blockCount} khối học phần`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <Chip
+                        icon={<DescriptionIcon fontSize="small" />}
+                        label={`${detail.stats.courseCount} học phần`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </Stack>
+                  </Stack>
+                </Stack>
+              </Paper>
+            </Stack>
+      )}
+
+        {/* history approval */}
+
+      {!detailLoading && !detail && (
+        <Typography variant="body2" color="text.secondary">
+          Không tìm thấy thông tin chương trình.
+        </Typography>
+      )}
+    </DialogContent>
+    <DialogActions>
+      {detailActionButtons.length > 0 && (
+        <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mr: 'auto' }}>
+          {detailActionButtons}
+        </Stack>
+      )}
+      {detail && (
+        <Button
+          variant="outlined"
+          onClick={() => {
+            router.push(`/tms/programs/${detail.id}`);
+            closeDetailDialog();
+          }}
+        >
+          Mở trang chi tiết
+        </Button>
+      )}
+      <Button variant="contained" onClick={closeDetailDialog}>
+        Đóng
+      </Button>
+    </DialogActions>
       </Dialog>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+      </Box>
+    </PermissionGuard>
   );
 }

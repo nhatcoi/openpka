@@ -57,6 +57,7 @@ export interface ProgramApiResponseItem {
   ProgramBlock?: ProgramBlockApiItem[];
   ProgramCourseMap?: ProgramCourseMapApiItem[];
   plo?: unknown;
+  unified_workflow?: unknown;
 }
 
 export interface ProgramListApiData {
@@ -321,7 +322,7 @@ export const mapPloToOutcomeItems = (plo: unknown): ProgramOutcomeFormItem[] => 
           const categoryValue = typeof record.category === 'string' ? record.category.toLowerCase() : 'general';
           const category: ProgramOutcomeCategory = categoryValue === 'specific' ? 'specific' : 'general';
           return {
-            id: safeId(record.id, 'outcome'),
+            id: safeId(record.id as string | number | null | undefined, 'outcome'),
             label,
             category,
           };
@@ -353,19 +354,21 @@ export const mapProgramResponse = (program: ProgramApiResponseItem): ProgramList
   effectiveTo: program.effective_to ?? null,
   createdAt: program.created_at ?? undefined,
   updatedAt: program.updated_at ?? undefined,
-  orgUnit: program.orgUnit
+  // Some API responses may use `OrgUnit` (Prisma include default) instead of `orgUnit`. Handle both.
+  orgUnit: (program.orgUnit ?? (program as unknown as { OrgUnit?: { id?: string | number; code: string; name: string } | null }).OrgUnit)
     ? {
-        id: program.orgUnit.id?.toString(),
-        code: program.orgUnit.code,
-        name: program.orgUnit.name,
+        id: (program.orgUnit ?? (program as unknown as { OrgUnit?: { id?: string | number } }).OrgUnit)?.id?.toString() ?? '',
+        code: (program.orgUnit ?? (program as unknown as { OrgUnit?: { code: string } }).OrgUnit)!.code,
+        name: (program.orgUnit ?? (program as unknown as { OrgUnit?: { name: string } }).OrgUnit)!.name,
       }
     : null,
-  major: program.major
+  // Similarly, handle `Major` vs `major` differences gracefully.
+  major: (program.major ?? (program as unknown as { Major?: { id?: string | number; name_vi: string; degree_level?: string | null; duration_years?: number | null } | null }).Major)
     ? {
-        id: program.major.id?.toString(),
-        name: program.major.name_vi,
-        degreeLevel: program.major.degree_level ?? null,
-        durationYears: program.major.duration_years ?? null,
+        id: (program.major ?? (program as unknown as { Major?: { id?: string | number } }).Major)?.id?.toString() ?? '',
+        name: (program.major ?? (program as unknown as { Major?: { name_vi: string } }).Major)!.name_vi,
+        degreeLevel: (program.major ?? (program as unknown as { Major?: { degree_level?: string | null } }).Major)?.degree_level ?? null,
+        durationYears: (program.major ?? (program as unknown as { Major?: { duration_years?: number | null } }).Major)?.duration_years ?? null,
       }
     : null,
   stats: {
@@ -444,6 +447,7 @@ export const mapProgramDetail = (data: ProgramApiResponseItem): ProgramDetail =>
         : courseMap.Course?.id != null
         ? courseMap.Course.id.toString()
         : '',
+    groupId: null,
   }));
 
   return {
@@ -520,12 +524,27 @@ export const buildProgramPayloadFromForm = (form: ProgramFormState) => ({
     title: block.title.trim(),
     block_type: normalizeProgramBlockType(block.blockType),
     display_order: Math.max(1, block.displayOrder || index + 1),
+    groups: block.groups.map((group, groupIndex) => ({
+      code: group.code,
+      title: group.title,
+      group_type: group.rawGroupType || group.groupType,
+      display_order: Math.max(1, group.displayOrder || groupIndex + 1),
+      rules: group.rules.map((rule) => ({
+        min_credits: rule.minCredits,
+        max_credits: rule.maxCredits,
+        min_courses: rule.minCourses,
+        max_courses: rule.maxCourses,
+      })),
+    })),
     courses: block.courses
       .filter((course) => course.courseId)
       .map((course, courseIndex) => ({
         course_id: Number(course.courseId),
         is_required: course.required,
         display_order: Math.max(1, course.displayOrder || courseIndex + 1),
+        // map course.groupId to the corresponding group's code for stable server mapping
+        group_code:
+          (block.groups.find((g) => g.id === course.groupId)?.code) || undefined,
       })),
   })),
   standalone_courses: form.standaloneCourses

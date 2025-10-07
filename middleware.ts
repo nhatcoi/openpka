@@ -68,7 +68,12 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/tms/courses/new': ['tms.course.create'],
     '/tms/courses/[id]': ['tms.course.view'],
     '/tms/courses/[id]/edit': ['tms.course.update'],
-    '/tms/courses/approval': ['tms.course.approve', 'tms.course.reject'],
+    '/tms/courses/approval': ['tms.course.review', 'tms.course.approve', 'tms.course.reject', 'tms.course.publish'],
+    '/tms/programs': ['tms.program.view'],
+    '/tms/programs/new': ['tms.program.create'],
+    '/tms/programs/[id]': ['tms.program.view'],
+    '/tms/programs/[id]/edit': ['tms.program.update'],
+    '/tms/programs/review': ['tms.program.review', 'tms.program.approve', 'tms.program.publish'],
     '/tms/syllabus': ['tms.syllabus.manage'],
     '/tms/instructors': ['tms.instructor.manage'],
 };
@@ -200,6 +205,13 @@ const API_ROUTE_PERMISSIONS: Record<string, string[]> = {
     'GET:/api/tms/courses/[id]': ['tms.course.view'],
     'PUT:/api/tms/courses/[id]': ['tms.course.update'],
     'DELETE:/api/tms/courses/[id]': ['tms.course.delete'],
+    'GET:/api/tms/programs': ['tms.program.view'],
+    'POST:/api/tms/programs': ['tms.program.create'],
+    'GET:/api/tms/programs/[id]': ['tms.program.view'],
+    'PUT:/api/tms/programs/[id]': ['tms.program.update'],
+    'PATCH:/api/tms/programs/[id]': ['tms.program.update'],
+    'DELETE:/api/tms/programs/[id]': ['tms.program.delete'],
+    'GET:/api/tms/programs/stats': ['tms.program.view'],
 };
 
 export default withAuth(
@@ -240,7 +252,10 @@ export default withAuth(
 
             if (!hasPermission) {
                 console.log('❌ Access denied - Missing permissions:', requiredPermissions);
+                console.log('User permissions:', userPermissions);
+                console.log('Required permissions:', requiredPermissions);
                 
+                return NextResponse.redirect(new URL('/auth/signin', req.url));
             }
         }
 

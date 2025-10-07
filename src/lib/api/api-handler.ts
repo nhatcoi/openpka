@@ -47,17 +47,23 @@ export function serializeIdsOnly<T extends Record<string, unknown>>(obj: T): T {
       // Prisma Decimal object detection — always convert to number
       if (value && 's' in (value as Record<string, unknown>) && 'e' in (value as Record<string, unknown>) && 'd' in (value as Record<string, unknown>)) {
         const decimal = value as unknown as { s: number; e: number; d: number[] };
-        const sign = decimal.s;
-        const exponent = decimal.e;
-        const digits = decimal.d;
-        let result = 0;
-        for (let i = 0; i < digits.length; i++) {
-          result += digits[i] * Math.pow(10, exponent - i);
+        
+        // Use Prisma Decimal's toNumber() method if available
+        if (typeof (value as any).toNumber === 'function') {
+          serialized[key] = (value as any).toNumber();
+        } else {
+          // Fallback to manual conversion
+          const sign = decimal.s;
+          const exponent = decimal.e;
+          const digits = decimal.d;
+          
+          let result = 0;
+          for (let i = 0; i < digits.length; i++) {
+            result += digits[i] * Math.pow(10, exponent - i);
+          }
+          
+          serialized[key] = sign * result;
         }
-        if (exponent < 0) {
-          result = result / Math.pow(10, Math.abs(exponent));
-        }
-        serialized[key] = sign * result;
       } else {
         serialized[key] = serializeIdsOnly(value as Record<string, unknown>);
       }
@@ -110,23 +116,23 @@ export function serializeBigInt<T extends Record<string, unknown>>(obj: T): T {
     } else if (serialized[key] && typeof serialized[key] === 'object' && !Array.isArray(serialized[key])) {
       // Check if it's a Decimal object (Prisma Decimal)
       if (serialized[key] && typeof serialized[key] === 'object' && 's' in serialized[key] && 'e' in serialized[key] && 'd' in serialized[key]) {
-        // Convert Decimal to number
-        const decimal = serialized[key] as { s: number; e: number; d: number[] };
-        const sign = decimal.s;
-        const exponent = decimal.e;
-        const digits = decimal.d;
-        
-        // Convert to number - handle negative exponent correctly
-        let result = 0;
-        for (let i = 0; i < digits.length; i++) {
-          result += digits[i] * Math.pow(10, exponent - i);
+        // Use Prisma Decimal's toNumber() method if available
+        if (typeof (serialized[key] as any).toNumber === 'function') {
+          serialized[key] = (serialized[key] as any).toNumber();
+        } else {
+          // Fallback to manual conversion
+          const decimal = serialized[key] as { s: number; e: number; d: number[] };
+          const sign = decimal.s;
+          const exponent = decimal.e;
+          const digits = decimal.d;
+          
+          let result = 0;
+          for (let i = 0; i < digits.length; i++) {
+            result += digits[i] * Math.pow(10, exponent - i);
+          }
+          
+          serialized[key] = sign * result;
         }
-        // For Prisma Decimal, we need to divide by appropriate power of 10
-        // If exponent is negative, we need to handle it differently
-        if (exponent < 0) {
-          result = result / Math.pow(10, Math.abs(exponent));
-        }
-        serialized[key] = sign * result;
       } else {
         serialized[key] = serializeBigInt(serialized[key] as Record<string, unknown>);
       }
@@ -147,23 +153,23 @@ export function serializeBigIntArray<T extends unknown[]>(arr: T): T {
     } else if (item && typeof item === 'object') {
       // Check if it's a Decimal object (Prisma Decimal)
       if (item && typeof item === 'object' && 's' in item && 'e' in item && 'd' in item) {
-        // Convert Decimal to number
-        const decimal = item as { s: number; e: number; d: number[] };
-        const sign = decimal.s;
-        const exponent = decimal.e;
-        const digits = decimal.d;
-        
-        // Convert to number - handle negative exponent correctly
-        let result = 0;
-        for (let i = 0; i < digits.length; i++) {
-          result += digits[i] * Math.pow(10, exponent - i);
+        // Use Prisma Decimal's toNumber() method if available
+        if (typeof (item as any).toNumber === 'function') {
+          return (item as any).toNumber();
+        } else {
+          // Fallback to manual conversion
+          const decimal = item as { s: number; e: number; d: number[] };
+          const sign = decimal.s;
+          const exponent = decimal.e;
+          const digits = decimal.d;
+          
+          let result = 0;
+          for (let i = 0; i < digits.length; i++) {
+            result += digits[i] * Math.pow(10, exponent - i);
+          }
+          
+          return sign * result;
         }
-        // For Prisma Decimal, we need to divide by appropriate power of 10
-        // If exponent is negative, we need to handle it differently
-        if (exponent < 0) {
-          result = result / Math.pow(10, Math.abs(exponent));
-        }
-        return sign * result;
       } else {
         return serializeBigInt(item as Record<string, unknown>);
       }

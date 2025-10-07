@@ -12,6 +12,7 @@ import {
   ProgramPriority,
   ProgramStatus,
   normalizeProgramPriority,
+  normalizeProgramBlockTypeForDb,
 } from '@/constants/programs';
 import { CreateProgramInput } from '@/lib/api/schemas/program';
 
@@ -179,7 +180,7 @@ export const POST = withBody(async (body: unknown) => {
             program_id: program.id,
             code: blockInput.code?.trim() || `BLOCK-${index + 1}`,
             title: blockInput.title?.trim() || `Khối học phần ${index + 1}`,
-            block_type: blockInput.block_type?.trim() || 'core',
+            block_type: normalizeProgramBlockTypeForDb(blockInput.block_type),
             display_order: blockInput.display_order ? Math.max(1, blockInput.display_order) : index + 1,
           },
         });

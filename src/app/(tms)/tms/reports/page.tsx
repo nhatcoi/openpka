@@ -1,200 +1,631 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
+  Avatar,
   Box,
-  Container,
-  Typography,
-  Paper,
-  Stack,
   Card,
   CardContent,
-  Button,
+  Chip,
+  ChipProps,
+  CircularProgress,
+  Container,
+  Divider,
+  Grid,
+  LinearProgress,
   List,
   ListItem,
-  ListItemIcon,
+  ListItemAvatar,
   ListItemText,
-  Divider,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
 import {
   Assessment as AssessmentIcon,
-  TrendingUp as TrendingUpIcon,
-  School as SchoolIcon,
-  BookOnline as BookOnlineIcon,
-  Schedule as ScheduleIcon,
-  People as PeopleIcon,
   BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
+  Business as BusinessIcon,
+  MenuBook as MenuBookIcon,
+  PendingActions as PendingActionsIcon,
+  School as SchoolIcon,
   Timeline as TimelineIcon,
-  Download as DownloadIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
+import {
+  getProgramStatusColor,
+  getProgramStatusLabel,
+  ProgramStatus,
+} from '@/constants/programs';
+import type { ReportsOverviewResponse } from '@/lib/api/schemas/reports';
 
-export default function TmsReportsPage() {
-  const reportCategories = [
-    {
-      title: 'Báo cáo chương trình đào tạo',
-      icon: <SchoolIcon sx={{ fontSize: 40 }} />,
-      color: '#1976d2',
-      reports: [
-        'Danh sách chương trình đào tạo theo khoa',
-        'Thống kê số lượng sinh viên theo chương trình',
-        'Báo cáo chất lượng chương trình đào tạo',
-        'So sánh chương trình đào tạo',
-      ],
-    },
-    {
-      title: 'Báo cáo học phần',
-      icon: <BookOnlineIcon sx={{ fontSize: 40 }} />,
-      color: '#2e7d32',
-      reports: [
-        'Danh sách học phần theo khoa',
-        'Thống kê học phần bắt buộc/tự chọn',
-        'Báo cáo tình hình mở lớp học phần',
-        'Đánh giá chất lượng học phần',
-      ],
-    },
-    {
-      title: 'Báo cáo kế hoạch đào tạo',
-      icon: <ScheduleIcon sx={{ fontSize: 40 }} />,
-      color: '#ed6c02',
-      reports: [
-        'Kế hoạch đào tạo theo học kỳ',
-        'Thời khóa biểu giảng dạy',
-        'Báo cáo sử dụng phòng học',
-        'Thống kê giờ giảng của giảng viên',
-      ],
-    },
-    {
-      title: 'Báo cáo sinh viên',
-      icon: <PeopleIcon sx={{ fontSize: 40 }} />,
-      color: '#9c27b0',
-      reports: [
-        'Thống kê sinh viên theo ngành',
-        'Báo cáo tình hình đăng ký học phần',
-        'Thống kê sinh viên theo khoa',
-        'Báo cáo kết quả học tập',
-      ],
-    },
-  ];
+const numberFormatter = new Intl.NumberFormat('vi-VN');
+const decimalFormatter = new Intl.NumberFormat('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-  const quickReports = [
-    {
-      title: 'Dashboard TMS',
-      description: 'Tổng quan hệ thống quản lý đào tạo',
-      icon: <BarChartIcon />,
-      color: '#1976d2',
-    },
-    {
-      title: 'Thống kê theo biểu đồ',
-      description: 'Biểu đồ thống kê các chỉ số đào tạo',
-      icon: <PieChartIcon />,
-      color: '#2e7d32',
-    },
-    {
-      title: 'Xu hướng đào tạo',
-      description: 'Phân tích xu hướng đào tạo theo thời gian',
-      icon: <TimelineIcon />,
-      color: '#ed6c02',
-    },
-  ];
+const chipColorFromStatus = (status: string | null): ChipProps['color'] => {
+  if (!status) return 'default';
+  const mapped = getProgramStatusColor(status as ProgramStatus | string);
+  switch (mapped) {
+    case 'error':
+    case 'info':
+    case 'success':
+    case 'warning':
+      return mapped;
+    default:
+      return 'default';
+  }
+};
+
+const formatDateTime = (value: string | null): string => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('vi-VN');
+};
+
+export default function TmsReportsPage(): JSX.Element {
+  const [data, setData] = useState<ReportsOverviewResponse | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchReports = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/tms/reports/overview');
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Không thể tải dữ liệu báo cáo');
+        }
+
+        if (!cancelled) {
+          setData(result.data as ReportsOverviewResponse);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải báo cáo';
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchReports();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const totalStatusCount = useMemo(() => {
+    if (!data) return 0;
+    return data.programStatus.reduce((sum, item) => sum + item.count, 0);
+  }, [data]);
+
+  const totalCoursesCount = useMemo(() => {
+    if (!data) return 0;
+    return data.courseTypeBreakdown.reduce((sum, item) => sum + item.count, 0);
+  }, [data]);
+
+  const totalCourseStatus = useMemo(() => {
+    if (!data) return 0;
+    return data.courseStatusBreakdown.reduce((sum, item) => sum + item.count, 0);
+  }, [data]);
+
+  const summaryCards = useMemo(() => {
+    if (!data) return [];
+    return [
+      {
+        title: 'Tổng số chương trình',
+        value: numberFormatter.format(data.summary.totalPrograms),
+        subtitle: `${numberFormatter.format(data.summary.activePrograms)} chương trình đang hoạt động`,
+        icon: <SchoolIcon />,
+        color: '#1976d2',
+      },
+      {
+        title: 'Chương trình đang chờ duyệt',
+        value: numberFormatter.format(data.summary.pendingPrograms),
+        subtitle: `${numberFormatter.format(data.summary.draftPrograms)} chương trình ở trạng thái nháp`,
+        icon: <PendingActionsIcon />,
+        color: '#ed6c02',
+      },
+      {
+        title: 'Tổng số học phần',
+        value: numberFormatter.format(data.summary.totalCourses),
+        subtitle: `${numberFormatter.format(totalCoursesCount)} lượt phân loại học phần`,
+        icon: <MenuBookIcon />,
+        color: '#2e7d32',
+      },
+      {
+        title: 'Ngành đào tạo',
+        value: numberFormatter.format(data.summary.totalMajors),
+        subtitle: 'Số lượng ngành hiện có trong hệ thống',
+        icon: <BusinessIcon />,
+        color: '#6d4c41',
+      },
+      {
+        title: 'Tổng tín chỉ',
+        value: numberFormatter.format(data.summary.totalCredits),
+        subtitle: 'Tổng tín chỉ tích lũy của tất cả chương trình',
+        icon: <TimelineIcon />,
+        color: '#0288d1',
+      },
+      {
+        title: 'Học phần trung bình',
+        value: decimalFormatter.format(data.summary.averageCoursesPerProgram),
+        subtitle: 'Số học phần/ chương trình (trung bình)',
+        icon: <TrendingUpIcon />,
+        color: '#ab47bc',
+      },
+    ];
+  }, [data, totalCoursesCount]);
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
-      <Container maxWidth="lg">
-        <Paper elevation={0} sx={{ p: 4, background: 'linear-gradient(135deg, #00695c 0%, #26a69a 100%)', color: 'white', borderRadius: 2, mb: 4 }}>
+      <Container maxWidth="xl">
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 3, md: 5 },
+            mb: 4,
+            color: 'white',
+            borderRadius: 2,
+            background: 'linear-gradient(135deg, #00695c 0%, #26a69a 100%)',
+          }}
+        >
           <Stack spacing={2} alignItems="center" textAlign="center">
             <AssessmentIcon sx={{ fontSize: 64 }} />
             <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold' }}>
-              Báo cáo & Phân tích TMS
+              Báo cáo &amp; Phân tích TMS
             </Typography>
             <Typography variant="h6" sx={{ opacity: 0.9 }}>
-              Hệ thống báo cáo và phân tích dữ liệu đào tạo
+              Tổng quan số liệu đào tạo được tổng hợp trực tiếp từ hệ thống
             </Typography>
           </Stack>
         </Paper>
 
-        {/* Quick Reports */}
-        <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
-          Báo cáo nhanh
-        </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3, mb: 4 }}>
-          {quickReports.map((report, index) => (
-            <Card key={index} sx={{ height: '100%', '&:hover': { transform: 'translateY(-4px)', transition: 'transform 0.2s ease-in-out' } }}>
-              <CardContent>
-                <Stack spacing={2}>
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box sx={{ color: report.color }}>
-                      {report.icon}
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                        {report.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {report.description}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                  <Button 
-                    variant="contained" 
-                    sx={{ backgroundColor: report.color }}
-                    startIcon={<TrendingUpIcon />}
-                  >
-                    Xem báo cáo
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+        {loading && (
+          <Paper sx={{ p: 6, textAlign: 'center', mb: 4 }}>
+            <Stack spacing={2} alignItems="center">
+              <CircularProgress />
+              <Typography variant="body1">Đang tải dữ liệu báo cáo...</Typography>
+            </Stack>
+          </Paper>
+        )}
 
-        {/* Report Categories */}
-        <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
-          Danh mục báo cáo chi tiết
-        </Typography>
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 3 }}>
-          {reportCategories.map((category, index) => (
-            <Card key={index} sx={{ height: '100%' }}>
-              <CardContent>
-                <Stack spacing={3}>
-                  <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box sx={{ color: category.color }}>
-                      {category.icon}
-                    </Box>
-                    <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                      {category.title}
+        {!loading && error && (
+          <Alert severity="error" sx={{ mb: 4 }}>
+            {error}
+          </Alert>
+        )}
+
+        {!loading && !error && data && (
+          <Stack spacing={4}>
+            {/* Summary cards */}
+            <Grid container spacing={3}>
+              {summaryCards.map((item) => (
+                <Grid key={item.title} item xs={12} sm={6} md={4}>
+                  <Card sx={{ height: '100%' }}>
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                        <Stack spacing={0.5}>
+                          <Typography variant="subtitle1" color="text.secondary">
+                            {item.title}
+                          </Typography>
+                          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                            {item.value}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.subtitle}
+                          </Typography>
+                        </Stack>
+                        <Avatar sx={{ bgcolor: item.color, width: 48, height: 48 }}>
+                          {item.icon}
+                        </Avatar>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Status & course breakdown */}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Trạng thái chương trình đào tạo
                     </Typography>
+                    {data.programStatus.length === 0 ? (
+                      <Typography color="text.secondary">Không có dữ liệu</Typography>
+                    ) : (
+                      <List disablePadding>
+                        {data.programStatus.map((item, index) => {
+                          const percent = totalStatusCount ? Math.round((item.count / totalStatusCount) * 100) : 0;
+                          const chipColor = chipColorFromStatus(item.status);
+                          return (
+                            <React.Fragment key={item.status || index}>
+                              {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                              <ListItem sx={{ px: 0 }}>
+                                <Stack sx={{ width: '100%' }} spacing={1.5}>
+                                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Chip
+                                      size="small"
+                                      label={getProgramStatusLabel(item.status)}
+                                      color={chipColor}
+                                      variant={chipColor === 'default' ? 'outlined' : 'filled'}
+                                    />
+                                    <Typography variant="body2" color="text.secondary">
+                                      {numberFormatter.format(item.count)} ({percent}%)
+                                    </Typography>
+                                  </Stack>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={percent}
+                                    sx={{ height: 8, borderRadius: 4 }}
+                                  />
+                                </Stack>
+                              </ListItem>
+                            </React.Fragment>
+                          );
+                        })}
+                      </List>
+                    )}
                   </Stack>
-                  
-                  <List dense>
-                    {category.reports.map((report, reportIndex) => (
-                      <React.Fragment key={reportIndex}>
-                        <ListItem>
-                          <ListItemIcon>
-                            <AssessmentIcon sx={{ color: category.color }} />
-                          </ListItemIcon>
-                          <ListItemText 
-                            primary={report}
-                            primaryTypographyProps={{ variant: 'body2' }}
-                          />
-                        </ListItem>
-                        {reportIndex < category.reports.length - 1 && <Divider />}
-                      </React.Fragment>
-                    ))}
-                  </List>
-                  
-                  <Button 
-                    variant="outlined" 
-                    sx={{ borderColor: category.color, color: category.color }}
-                    startIcon={<DownloadIcon />}
-                  >
-                    Xem tất cả
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Box>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Phân bổ học phần theo loại
+                    </Typography>
+                    {data.courseTypeBreakdown.length === 0 ? (
+                      <Typography color="text.secondary">Không có dữ liệu</Typography>
+                    ) : (
+                      <List disablePadding>
+                        {data.courseTypeBreakdown.map((item, index) => {
+                          const percent = totalCoursesCount ? Math.round((item.count / totalCoursesCount) * 100) : 0;
+                          return (
+                            <React.Fragment key={item.type || index}>
+                              {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                              <ListItem sx={{ px: 0 }}>
+                                <Stack sx={{ width: '100%' }} spacing={1.5}>
+                                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                      {item.label}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {numberFormatter.format(item.count)} ({percent}%)
+                                    </Typography>
+                                  </Stack>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={percent}
+                                    sx={{ height: 8, borderRadius: 4 }}
+                                  />
+                                </Stack>
+                              </ListItem>
+                            </React.Fragment>
+                          );
+                        })}
+                      </List>
+                    )}
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Programs by org unit, block & course status */}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Chương trình theo đơn vị
+                    </Typography>
+                    {data.programsByOrgUnit.length === 0 ? (
+                      <Typography color="text.secondary">Không có dữ liệu</Typography>
+                    ) : (
+                      <List disablePadding>
+                        {data.programsByOrgUnit.map((item, index) => (
+                          <React.Fragment key={item.orgUnitId ?? `ou-${index}`}>
+                            {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                            <ListItem sx={{ px: 0 }}>
+                              <ListItemAvatar>
+                                <Avatar>
+                                  <BarChartIcon />
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={item.orgUnitName}
+                                secondary={item.orgUnitCode ? `Mã đơn vị: ${item.orgUnitCode}` : 'Chưa phân bổ'}
+                              />
+                              <Typography variant="body2" color="text.secondary">
+                                {numberFormatter.format(item.programCount)} CTĐT
+                              </Typography>
+                            </ListItem>
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    )}
+                  </Stack>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Phân bổ khối học phần
+                    </Typography>
+                    {data.blockDistribution.length === 0 ? (
+                      <Typography color="text.secondary">Không có dữ liệu</Typography>
+                    ) : (
+                      <List disablePadding>
+                        {data.blockDistribution.map((item, index) => (
+                          <React.Fragment key={item.blockType || index}>
+                            {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                            <ListItem sx={{ px: 0 }}>
+                              <ListItemText
+                                primary={<Typography sx={{ fontWeight: 500 }}>{item.label}</Typography>}
+                              />
+                              <Typography variant="body2" color="text.secondary">
+                                {numberFormatter.format(item.count)} khối
+                              </Typography>
+                            </ListItem>
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    )}
+                  </Stack>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <Paper sx={{ p: 3 }}>
+                  <Stack spacing={2}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                      Trạng thái học phần
+                    </Typography>
+                    {data.courseStatusBreakdown.length === 0 ? (
+                      <Typography color="text.secondary">Không có dữ liệu</Typography>
+                    ) : (
+                      <List disablePadding>
+                        {data.courseStatusBreakdown.map((item, index) => {
+                          const percent = totalCourseStatus ? Math.round((item.count / totalCourseStatus) * 100) : 0;
+                          return (
+                            <React.Fragment key={item.status || index}>
+                              {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                              <ListItem sx={{ px: 0 }}>
+                                <Stack sx={{ width: '100%' }} spacing={1.5}>
+                                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                      {item.label}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                      {numberFormatter.format(item.count)} ({percent}%)
+                                    </Typography>
+                                  </Stack>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={percent}
+                                    sx={{ height: 8, borderRadius: 4 }}
+                                  />
+                                </Stack>
+                              </ListItem>
+                            </React.Fragment>
+                          );
+                        })}
+                      </List>
+                    )}
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Top programs */}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Top chương trình theo số học phần
+                  </Typography>
+                  {data.topProgramsByCourses.length === 0 ? (
+                    <Typography color="text.secondary">Không có dữ liệu</Typography>
+                  ) : (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Chương trình</TableCell>
+                            <TableCell align="right">Học phần</TableCell>
+                            <TableCell align="right">Tín chỉ</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {data.topProgramsByCourses.map((program) => (
+                            <TableRow key={program.programId} hover>
+                              <TableCell>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                    {program.name}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="caption" color="text.secondary">
+                                      {program.code || 'Không mã'}
+                                    </Typography>
+                                    <Chip
+                                      size="small"
+                                      label={getProgramStatusLabel(program.status ?? 'UNKNOWN')}
+                                      color={chipColorFromStatus(program.status ?? null)}
+                                      variant={chipColorFromStatus(program.status ?? null) === 'default' ? 'outlined' : 'filled'}
+                                    />
+                                  </Stack>
+                                </Stack>
+                              </TableCell>
+                              <TableCell align="right">{numberFormatter.format(program.totalCourses)}</TableCell>
+                              <TableCell align="right">{numberFormatter.format(program.totalCredits)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Top chương trình theo tín chỉ
+                  </Typography>
+                  {data.topProgramsByCredits.length === 0 ? (
+                    <Typography color="text.secondary">Không có dữ liệu</Typography>
+                  ) : (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Chương trình</TableCell>
+                            <TableCell align="right">Tín chỉ</TableCell>
+                            <TableCell align="right">Học phần</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {data.topProgramsByCredits.map((program) => (
+                            <TableRow key={program.programId} hover>
+                              <TableCell>
+                                <Stack spacing={0.5}>
+                                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                    {program.name}
+                                  </Typography>
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="caption" color="text.secondary">
+                                      {program.code || 'Không mã'}
+                                    </Typography>
+                                    <Chip
+                                      size="small"
+                                      label={getProgramStatusLabel(program.status ?? 'UNKNOWN')}
+                                      color={chipColorFromStatus(program.status ?? null)}
+                                      variant={chipColorFromStatus(program.status ?? null) === 'default' ? 'outlined' : 'filled'}
+                                    />
+                                  </Stack>
+                                </Stack>
+                              </TableCell>
+                              <TableCell align="right">{numberFormatter.format(program.totalCredits)}</TableCell>
+                              <TableCell align="right">{numberFormatter.format(program.totalCourses)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Recent activity */}
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Cập nhật chương trình gần đây
+                  </Typography>
+                  {data.recentPrograms.length === 0 ? (
+                    <Typography color="text.secondary">Không có dữ liệu</Typography>
+                  ) : (
+                    <List disablePadding>
+                      {data.recentPrograms.map((program, index) => (
+                        <React.Fragment key={program.programId}>
+                          {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                          <ListItem sx={{ px: 0 }}>
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: '#1976d2' }}>
+                                <SchoolIcon />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={program.name}
+                              secondary={
+                                program.orgUnitName
+                                  ? `${program.code || 'Không mã'} • ${program.orgUnitName}`
+                                  : program.code || 'Không mã'
+                              }
+                            />
+                            <Stack alignItems="flex-end" spacing={0.5}>
+                              <Chip
+                                size="small"
+                                label={getProgramStatusLabel(program.status ?? 'UNKNOWN')}
+                                color={chipColorFromStatus(program.status ?? null)}
+                                variant={chipColorFromStatus(program.status ?? null) === 'default' ? 'outlined' : 'filled'}
+                              />
+                              <Typography variant="caption" color="text.secondary">
+                                {formatDateTime(program.updatedAt)}
+                              </Typography>
+                            </Stack>
+                          </ListItem>
+                        </React.Fragment>
+                      ))}
+                    </List>
+                  )}
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Paper sx={{ p: 3 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                    Cập nhật học phần gần đây
+                  </Typography>
+                  {data.recentCourses.length === 0 ? (
+                    <Typography color="text.secondary">Không có dữ liệu</Typography>
+                  ) : (
+                    <List disablePadding>
+                      {data.recentCourses.map((course, index) => (
+                        <React.Fragment key={course.courseId}>
+                          {index > 0 && <Divider component="li" sx={{ my: 1 }} />}
+                          <ListItem sx={{ px: 0 }}>
+                            <ListItemAvatar>
+                              <Avatar sx={{ bgcolor: '#2e7d32' }}>
+                                <MenuBookIcon />
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={course.name}
+                              secondary={
+                                course.orgUnitName
+                                  ? `${course.code} • ${course.orgUnitName}`
+                                  : course.code
+                              }
+                            />
+                            <Typography variant="caption" color="text.secondary">
+                              {formatDateTime(course.updatedAt)}
+                            </Typography>
+                          </ListItem>
+                        </React.Fragment>
+                      ))}
+                    </List>
+                  )}
+                </Paper>
+              </Grid>
+            </Grid>
+          </Stack>
+        )}
       </Container>
     </Box>
   );

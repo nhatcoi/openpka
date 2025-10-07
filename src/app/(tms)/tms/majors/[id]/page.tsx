@@ -8,27 +8,24 @@ import {
   Paper,
   Stack,
   Button,
-  Grid,
   Card,
   CardContent,
-  CardHeader,
   Chip,
   IconButton,
-  Tooltip,
   Tabs,
   Tab,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Badge,
   Alert,
   CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  ChipProps,
+  Avatar,
+  Divider,
+  Fade,
+  Tooltip,
+  Badge,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -37,19 +34,30 @@ import {
   BookmarkBorder as BookmarkIcon,
   Schedule as ScheduleIcon,
   Language as LanguageIcon,
-  LocationOn as LocationIcon,
   TrendingUp as TrendingUpIcon,
   Description as DescriptionIcon,
   Verified as VerifiedIcon,
   People as PeopleIcon,
-  AttachFile as AttachFileIcon,
   History as HistoryIcon,
   Assessment as AssessmentIcon,
+  Info as InfoIcon,
+  AttachMoney as MoneyIcon,
+  CalendarToday as CalendarIcon,
+  Code as CodeIcon,
+  Business as OrgIcon,
+  Timeline as TimelineIcon,
+  CheckCircle as ActiveIcon,
+  EditNote as DraftIcon,
+  Pending as ProposedIcon,
+  PauseCircle as SuspendedIcon,
+  Cancel as ClosedIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 
+type IdLike = number | string;
+
 interface Major {
-  id: number;
+  id: IdLike;
   code: string;
   name_vi: string;
   name_en?: string;
@@ -60,95 +68,70 @@ interface Major {
   degree_level: string;
   field_cluster?: string;
   specialization_model?: string;
-  org_unit_id: number;
-  parent_major_id?: number;
-  duration_years?: number;
-  total_credits_min?: number;
-  total_credits_max?: number;
-  semesters_per_year?: number;
+  org_unit_id: IdLike;
+  parent_major_id?: IdLike | null;
+  duration_years?: number | string;
+  total_credits_min?: number | string;
+  total_credits_max?: number | string;
+  semesters_per_year?: number | string;
   start_terms?: string;
-  default_quota?: number;
+  default_quota?: number | string;
   status: string;
   established_at?: string;
   closed_at?: string;
   description?: string;
   notes?: string;
-  campuses?: Array<{ campus_id: number; is_primary: boolean }>;
-  languages?: Array<{ lang: string; level: string }>;
-  modalities?: Array<{ modality: string; note?: string }>;
-  accreditations?: Array<{
-    scheme: string;
-    level?: string;
-    valid_from?: string;
-    valid_to?: string;
-    cert_no?: string;
-    agency?: string;
-    note?: string;
-  }>;
-  aliases?: Array<{
-    name: string;
-    lang?: string;
-    valid_from?: string;
-    valid_to?: string;
-  }>;
-  documents?: Array<{
-    doc_type: string;
-    title: string;
-    ref_no?: string;
-    issued_by?: string;
-    issued_at?: string;
-    file_url?: string;
-    note?: string;
-  }>;
   OrgUnit?: {
-    id: number;
+    id: IdLike;
     name: string;
     code: string;
     type?: string;
   };
   Major?: {
-    id: number;
+    id: IdLike;
     code: string;
     name_vi: string;
     name_en?: string;
   };
   other_majors?: Array<{
-    id: number;
+    id: IdLike;
     code: string;
     name_vi: string;
     name_en?: string;
   }>;
   Program?: Array<{
-    id: number;
+    id: IdLike;
     code?: string;
     name_vi?: string;
     name_en?: string;
     version: string;
     status: string;
-    total_credits: number;
+    total_credits: number | string;
     effective_from?: string;
     effective_to?: string;
   }>;
   MajorOutcome?: Array<{
-    id: number;
+    id: IdLike;
     code: string;
     content: string;
     version?: string;
     is_active?: boolean;
   }>;
   MajorQuotaYear?: Array<{
-    id: number;
-    year: number;
-    quota: number;
+    id: IdLike;
+    year: number | string;
+    quota: number | string;
     note?: string;
   }>;
   MajorTuition?: Array<{
-    id: number;
-    year: number;
+    id: IdLike;
+    year: number | string;
     tuition_group: string;
-    amount_vnd: number;
+    amount_vnd: number | string;
     note?: string;
   }>;
+  created_by?: IdLike | null;
+  updated_by?: IdLike | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -199,7 +182,8 @@ export default function MajorDetailPage() {
         const data = await response.json();
 
         if (data.success) {
-          setMajor(data.data);
+          const payload = data.data?.data ?? data.data;
+          setMajor(payload || null);
         } else {
           setError(data.error || 'Failed to fetch major');
         }
@@ -215,40 +199,58 @@ export default function MajorDetailPage() {
     }
   }, [majorId]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'success';
-      case 'suspended':
-        return 'warning';
-      case 'closed':
-        return 'error';
-      case 'draft':
-        return 'default';
-      default:
-        return 'default';
-    }
-  };
+  const getStatusConfig = (status: string) => {
+    const normalized = status.toLowerCase();
 
-  const getStatusText = (status: string) => {
-    switch (status) {
+    switch (normalized) {
       case 'active':
-        return 'Hoạt động';
+        return {
+          color: 'success',
+          label: 'Hoạt động',
+          icon: <ActiveIcon />,
+          bgColor: 'rgba(76, 175, 80, 0.1)',
+          textColor: '#2e7d32'
+        };
       case 'suspended':
-        return 'Tạm dừng';
+        return {
+          color: 'warning',
+          label: 'Tạm dừng',
+          icon: <SuspendedIcon />,
+          bgColor: 'rgba(255, 152, 0, 0.1)',
+          textColor: '#f57c00'
+        };
       case 'closed':
-        return 'Đã đóng';
-      case 'draft':
-        return 'Nháp';
+        return {
+          color: 'error',
+          label: 'Đã đóng',
+          icon: <ClosedIcon />,
+          bgColor: 'rgba(244, 67, 54, 0.1)',
+          textColor: '#d32f2f'
+        };
       case 'proposed':
-        return 'Đề xuất';
+        return {
+          color: 'info',
+          label: 'Đề xuất',
+          icon: <ProposedIcon />,
+          bgColor: 'rgba(33, 150, 243, 0.1)',
+          textColor: '#1976d2'
+        };
+      case 'draft':
       default:
-        return status;
+        return {
+          color: 'default',
+          label: 'Nháp',
+          icon: <DraftIcon />,
+          bgColor: 'rgba(158, 158, 158, 0.1)',
+          textColor: '#616161'
+        };
     }
   };
 
-  const getDegreeLevelText = (level: string) => {
-    switch (level) {
+  const getDegreeLevelText = (level?: string) => {
+    if (!level) return '—';
+
+    switch (level.toLowerCase()) {
       case 'bachelor':
         return 'Cử nhân';
       case 'master':
@@ -260,6 +262,54 @@ export default function MajorDetailPage() {
       default:
         return level;
     }
+  };
+
+  const parseNumeric = (value: number | string | null | undefined): number | null => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') {
+      return Number.isNaN(value) ? null : value;
+    }
+
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const formatNumber = (value: number | string | null | undefined, fallback: string = '—') => {
+    const parsed = parseNumeric(value);
+    if (parsed === null) return fallback;
+
+    return parsed.toLocaleString('vi-VN');
+  };
+
+  const formatCreditRange = (
+    min?: number | string,
+    max?: number | string
+  ) => {
+    const minVal = parseNumeric(min ?? null);
+    const maxVal = parseNumeric(max ?? null);
+
+    if (minVal !== null && maxVal !== null) {
+      if (minVal === maxVal) return `${minVal} tín chỉ`;
+      return `${minVal} - ${maxVal} tín chỉ`;
+    }
+
+    if (minVal !== null) return `${minVal} tín chỉ`;
+    if (maxVal !== null) return `${maxVal} tín chỉ`;
+    return '—';
+  };
+
+  const formatDate = (value?: string | null) => {
+    if (!value) return '—';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleDateString('vi-VN');
+  };
+
+  const formatBoolean = (value: boolean | null | undefined) => {
+    if (value === undefined || value === null) return '—';
+    return value ? 'Có' : 'Không';
   };
 
   const handleDelete = async () => {
@@ -283,11 +333,11 @@ export default function MajorDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
         <Container maxWidth="lg">
           <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 400 }}>
-            <CircularProgress size={60} />
-            <Typography variant="h6" sx={{ mt: 2 }}>
+            <CircularProgress size={60} sx={{ color: 'primary.main' }} />
+            <Typography variant="h6" sx={{ mt: 2, color: 'text.secondary' }}>
               Đang tải thông tin ngành đào tạo...
             </Typography>
           </Stack>
@@ -298,9 +348,9 @@ export default function MajorDetailPage() {
 
   if (error || !major) {
     return (
-      <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
         <Container maxWidth="lg">
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
             {error || 'Ngành đào tạo không tồn tại'}
           </Alert>
         </Container>
@@ -308,505 +358,939 @@ export default function MajorDetailPage() {
     );
   }
 
-  return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Paper elevation={0} sx={{ p: 4, background: 'linear-gradient(135deg, #ed6c02 0%, #ff9800 100%)', color: 'white', borderRadius: 2, mb: 4 }}>
-          <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-            <IconButton
-              onClick={() => router.back()}
-              sx={{ color: 'white' }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <Stack spacing={1} sx={{ flexGrow: 1 }}>
-              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold' }}>
-                {major.name_vi}
-              </Typography>
-              <Typography variant="h6" sx={{ opacity: 0.9 }}>
-                {major.name_en} • {major.code}
-              </Typography>
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                sx={{ 
-                  backgroundColor: 'white', 
-                  color: '#ed6c02',
-                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' }
-                }}
-                onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
-              >
-                Chỉnh sửa
-              </Button>
-              <Chip 
-                label={getStatusText(major.status)}
-                color={getStatusColor(major.status) as any}
-                sx={{ backgroundColor: 'white', color: '#ed6c02' }}
-              />
-            </Stack>
-          </Stack>
+  const programCount = major.Program?.length ?? 0;
+  const outcomeCount = major.MajorOutcome?.length ?? 0;
+  const durationYears = parseNumeric(major.duration_years);
+  const defaultQuota = parseNumeric(major.default_quota);
+  const semestersPerYear = parseNumeric(major.semesters_per_year);
+  const creditRangeText = formatCreditRange(major.total_credits_min, major.total_credits_max);
+  const startTerms = major.start_terms || '—';
+  const defaultQuotaLabel = defaultQuota !== null ? `${formatNumber(defaultQuota)} sinh viên` : '—';
 
-          {/* Quick Stats */}
-          <Grid container spacing={3}>
-            <Grid item xs={6} sm={3}>
-              <Stack alignItems="center">
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {major.Program?.length || 0}
+  const statusConfig = getStatusConfig(major.status);
+
+  return (
+    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
+      <Container maxWidth='lg'>
+        {/* Header */}
+        <Fade in={true} timeout={800}>
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              p: 4, 
+              background: `linear-gradient(135deg, ${statusConfig.bgColor} 0%, rgba(255,255,255,0.95) 100%)`,
+              color: 'text.primary', 
+              borderRadius: 3, 
+              mb: 4,
+              border: '1px solid',
+              borderColor: 'divider',
+              position: 'relative',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: `linear-gradient(45deg, ${statusConfig.bgColor} 0%, transparent 50%)`,
+                opacity: 0.1
+              }
+            }}
+          >
+            <Stack direction="row" alignItems="center" spacing={2} mb={3} position="relative" zIndex={1}>
+              <Tooltip title="Quay lại">
+                <IconButton
+                  onClick={() => router.back()}
+                  sx={{ 
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    '&:hover': { bgcolor: 'white' },
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                >
+                  <ArrowBackIcon />
+                </IconButton>
+              </Tooltip>
+              <Stack spacing={1} sx={{ flexGrow: 1 }}>
+                <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+                  {major.name_vi}
                 </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  Chương trình
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+                    {major.code}
+                  </Typography>
+                  <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.secondary' }} />
+                  <Typography variant="h6" sx={{ color: 'text.secondary' }}>
+                    {getDegreeLevelText(major.degree_level)}
+                  </Typography>
+                  {major.name_en && (
+                    <>
+                      <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.secondary' }} />
+                      <Typography variant="h6" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                        {major.name_en}
+                      </Typography>
+                    </>
+                  )}
+                </Stack>
               </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Stack alignItems="center">
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {major.MajorOutcome?.length || 0}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  Chuẩn đầu ra
-                </Typography>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="contained"
+                  startIcon={<EditIcon />}
+                  sx={{ 
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 3,
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': { transform: 'translateY(-1px)', boxShadow: 3 }
+                  }}
+                  onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
+                >
+                  Chỉnh sửa
+                </Button>
+                <Chip 
+                  icon={statusConfig.icon}
+                  label={statusConfig.label}
+                  sx={{
+                    bgcolor: statusConfig.bgColor,
+                    color: statusConfig.textColor,
+                    fontWeight: 'bold',
+                    border: `1px solid ${statusConfig.textColor}30`,
+                    '& .MuiChip-icon': {
+                      color: statusConfig.textColor
+                    }
+                  }}
+                />
               </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Stack alignItems="center">
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {major.duration_years || 0}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  Năm đào tạo
-                </Typography>
-              </Stack>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <Stack alignItems="center">
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
-                  {major.default_quota || 0}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                  Chỉ tiêu
-                </Typography>
-              </Stack>
-            </Grid>
-          </Grid>
-        </Paper>
+            </Stack>
+
+            {/* Quick Stats */}
+            <Stack 
+              direction={{ xs: 'column', sm: 'row' }} 
+              spacing={3} 
+              position="relative" 
+              zIndex={1}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(4, 1fr)'
+                },
+                gap: 3
+              }}
+            >
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 2, 
+                  border: '1px solid', 
+                  borderColor: 'divider',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}
+              >
+                <Stack alignItems="center" spacing={1}>
+                  <Avatar sx={{ bgcolor: 'primary.light', width: 48, height: 48 }}>
+                    <BookmarkIcon color="primary" />
+                  </Avatar>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                    {programCount}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                    Chương trình
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 2, 
+                  border: '1px solid', 
+                  borderColor: 'divider',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}
+              >
+                <Stack alignItems="center" spacing={1}>
+                  <Avatar sx={{ bgcolor: 'success.light', width: 48, height: 48 }}>
+                    <TrendingUpIcon color="success" />
+                  </Avatar>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    {outcomeCount}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                    Chuẩn đầu ra
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 2, 
+                  border: '1px solid', 
+                  borderColor: 'divider',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}
+              >
+                <Stack alignItems="center" spacing={1}>
+                  <Avatar sx={{ bgcolor: 'info.light', width: 48, height: 48 }}>
+                    <ScheduleIcon color="info" />
+                  </Avatar>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                    {durationYears !== null ? durationYears : '—'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                    Năm đào tạo
+                  </Typography>
+                </Stack>
+              </Paper>
+              <Paper 
+                elevation={0} 
+                sx={{ 
+                  p: 3, 
+                  borderRadius: 2, 
+                  border: '1px solid', 
+                  borderColor: 'divider',
+                  transition: 'all 0.2s ease-in-out',
+                  '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                }}
+              >
+                <Stack alignItems="center" spacing={1}>
+                  <Avatar sx={{ bgcolor: 'warning.light', width: 48, height: 48 }}>
+                    <PeopleIcon color="warning" />
+                  </Avatar>
+                  <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                    {defaultQuota !== null ? formatNumber(defaultQuota) : '—'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                    Chỉ tiêu
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Stack>
+          </Paper>
+        </Fade>
 
         {/* Tabs */}
-        <Paper sx={{ mb: 4 }}>
-          <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-            <Tab label="Thông tin chung" />
-            <Tab label="Chương trình đào tạo" />
-            <Tab label="Chuẩn đầu ra" />
-            <Tab label="Chỉ tiêu & Học phí" />
-            <Tab label="Chứng nhận & Tài liệu" />
-          </Tabs>
+        <Fade in={true} timeout={1000}>
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              mb: 4, 
+              borderRadius: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              overflow: 'hidden'
+            }}
+          >
+            <Tabs 
+              value={tabValue} 
+              onChange={(_, newValue) => setTabValue(newValue)}
+              variant="fullWidth"
+              sx={{
+                '& .MuiTab-root': {
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  minHeight: 64,
+                  transition: 'all 0.2s ease-in-out'
+                },
+                '& .Mui-selected': {
+                  color: 'primary.main'
+                },
+                '& .MuiTabs-indicator': {
+                  height: 3,
+                  borderRadius: '3px 3px 0 0'
+                }
+              }}
+            >
+              <Tab 
+                icon={<InfoIcon />} 
+                iconPosition="start" 
+                label="Thông tin chung" 
+              />
+              <Tab 
+                icon={<BookmarkIcon />} 
+                iconPosition="start" 
+                label="Chương trình đào tạo" 
+              />
+              <Tab 
+                icon={<TrendingUpIcon />} 
+                iconPosition="start" 
+                label="Chuẩn đầu ra" 
+              />
+              <Tab 
+                icon={<MoneyIcon />} 
+                iconPosition="start" 
+                label="Chỉ tiêu & Học phí" 
+              />
+            </Tabs>
 
           {/* Tab 1: General Information */}
           <TabPanel value={tabValue} index={0}>
-            <Grid container spacing={3}>
-              {/* Basic Info */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Thông tin cơ bản" />
-                  <CardContent>
-                    <List>
-                      <ListItem>
-                        <ListItemIcon>
-                          <BookmarkIcon />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary="Bằng cấp"
-                          secondary={getDegreeLevelText(major.degree_level)}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <ScheduleIcon />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary="Thời gian đào tạo"
-                          secondary={`${major.duration_years || 0} năm`}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <SchoolIcon />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary="Đơn vị quản lý"
-                          secondary={`${major.OrgUnit?.name} (${major.OrgUnit?.code})`}
-                        />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon>
-                          <PeopleIcon />
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary="Chỉ tiêu mặc định"
-                          secondary={`${major.default_quota || 0} sinh viên`}
-                        />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
+            <Fade in={tabValue === 0} timeout={300}>
+              <Stack spacing={4}>
+                <Stack 
+                  direction={{ xs: 'column', md: 'row' }} 
+                  spacing={3}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      md: 'repeat(2, 1fr)'
+                    },
+                    gap: 3
+                  }}
+                >
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                    }}
+                  >
+                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar sx={{ bgcolor: 'primary.light', width: 40, height: 40 }}>
+                          <InfoIcon color="primary" />
+                        </Avatar>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary">
+                          Thông tin cơ bản
+                        </Typography>
+                      </Stack>
+                    </Box>
+                    <CardContent sx={{ p: 0 }}>
+                      <Stack spacing={0}>
+                        {[
+                          { icon: <BookmarkIcon />, label: 'Bằng cấp', value: getDegreeLevelText(major.degree_level) },
+                          { icon: <OrgIcon />, label: 'Đơn vị quản lý', value: major.OrgUnit ? `${major.OrgUnit.name} (${major.OrgUnit.code})` : '—' },
+                          { icon: <CodeIcon />, label: 'Mã ngành', value: `${major.code}${major.short_name ? ` • ${major.short_name}` : ''}` },
+                          { icon: <CodeIcon />, label: 'Mã quốc gia', value: major.national_code || '—' },
+                          { icon: <LanguageIcon />, label: 'Slug', value: major.slug || '—' },
+                          { icon: <TimelineIcon />, label: 'Ngành cha', value: major.Major ? `${major.Major.name_vi} (${major.Major.code})` : 'Không có' },
+                          { icon: <TrendingUpIcon />, label: 'Nhóm ngành', value: major.field_cluster || '—' },
+                          { icon: <AssessmentIcon />, label: 'Mô hình chuyên ngành', value: major.specialization_model || '—' },
+                          { icon: <VerifiedIcon />, label: 'Chuẩn MOET', value: formatBoolean(major.is_moet_standard) }
+                        ].map((item, index) => (
+                          <Box key={index}>
+                            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Avatar sx={{ bgcolor: 'grey.100', width: 32, height: 32 }}>
+                                {item.icon}
+                              </Avatar>
+                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                  {item.label}
+                                </Typography>
+                                <Typography variant="body1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
+                                  {item.value}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            {index < 8 && <Divider />}
+                          </Box>
+                        ))}
+                      </Stack>
+                    </CardContent>
+                  </Card>
 
-              {/* Languages & Modalities */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Ngôn ngữ & Hình thức" />
-                  <CardContent>
-                    <Stack spacing={2}>
-                      <Box>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Ngôn ngữ giảng dạy
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                    }}
+                  >
+                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar sx={{ bgcolor: 'info.light', width: 40, height: 40 }}>
+                          <ScheduleIcon color="info" />
+                        </Avatar>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary">
+                          Thông số đào tạo
                         </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {major.languages?.map((lang, index) => (
-                            <Chip 
-                              key={index}
-                              label={`${lang.lang.toUpperCase()} (${lang.level})`}
-                              size="small"
-                              icon={<LanguageIcon />}
-                            />
-                          ))}
-                        </Stack>
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" gutterBottom>
-                          Hình thức đào tạo
-                        </Typography>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                          {major.modalities?.map((mod, index) => (
-                            <Chip 
-                              key={index}
-                              label={mod.modality}
-                              size="small"
-                              variant="outlined"
-                            />
-                          ))}
-                        </Stack>
-                      </Box>
+                      </Stack>
+                    </Box>
+                    <CardContent sx={{ p: 0 }}>
+                      <Stack spacing={0}>
+                        {[
+                          { icon: <ScheduleIcon />, label: 'Thời gian đào tạo', value: durationYears !== null ? `${durationYears} năm` : '—' },
+                          { icon: <CalendarIcon />, label: 'Số học kỳ / năm', value: semestersPerYear !== null ? semestersPerYear : '—' },
+                          { icon: <TrendingUpIcon />, label: 'Tổng tín chỉ', value: creditRangeText },
+                          { icon: <CalendarIcon />, label: 'Kỳ tuyển sinh', value: startTerms },
+                          { icon: <PeopleIcon />, label: 'Chỉ tiêu mặc định', value: defaultQuotaLabel }
+                        ].map((item, index) => (
+                          <Box key={index}>
+                            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Avatar sx={{ bgcolor: 'grey.100', width: 32, height: 32 }}>
+                                {item.icon}
+                              </Avatar>
+                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                                <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                  {item.label}
+                                </Typography>
+                                <Typography variant="body1" fontWeight={600}>
+                                  {item.value}
+                                </Typography>
+                              </Box>
+                            </Box>
+                            {index < 4 && <Divider />}
+                          </Box>
+                        ))}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Stack>
+
+                <Card 
+                  elevation={0} 
+                  sx={{ 
+                    borderRadius: 3,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    transition: 'all 0.2s ease-in-out',
+                    '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                  }}
+                >
+                  <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                      <Avatar sx={{ bgcolor: 'warning.light', width: 40, height: 40 }}>
+                        <HistoryIcon color="warning" />
+                      </Avatar>
+                      <Typography variant="h6" fontWeight="bold" color="text.primary">
+                        Mốc thời gian
+                      </Typography>
+                    </Stack>
+                  </Box>
+                  <CardContent sx={{ p: 0 }}>
+                    <Stack spacing={0}>
+                      {[
+                        { label: 'Ngày thành lập', value: formatDate(major.established_at) },
+                        { label: 'Ngày đóng', value: formatDate(major.closed_at) },
+                        { label: 'Ngày tạo', value: formatDate(major.created_at) },
+                        { label: 'Ngày cập nhật', value: formatDate(major.updated_at) }
+                      ].map((item, index) => (
+                        <Box key={index}>
+                          <Box sx={{ p: 3 }}>
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                              {item.label}
+                            </Typography>
+                            <Typography variant="body1" fontWeight={600}>
+                              {item.value}
+                            </Typography>
+                          </Box>
+                          {index < 3 && <Divider />}
+                        </Box>
+                      ))}
                     </Stack>
                   </CardContent>
                 </Card>
-              </Grid>
 
-              {/* Description */}
-              {major.description && (
-                <Grid item xs={12}>
-                  <Card>
-                    <CardHeader title="Mô tả" />
-                    <CardContent>
-                      <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {major.description}
-                      </Typography>
+                {(major.description || major.notes) && (
+                  <Stack spacing={3}>
+                    {major.description && (
+                      <Card 
+                        elevation={0} 
+                        sx={{ 
+                          borderRadius: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                        }}
+                      >
+                        <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <Avatar sx={{ bgcolor: 'secondary.light', width: 40, height: 40 }}>
+                              <DescriptionIcon color="secondary" />
+                            </Avatar>
+                            <Typography variant="h6" fontWeight="bold" color="text.primary">
+                              Mô tả
+                            </Typography>
+                          </Stack>
+                        </Box>
+                        <CardContent sx={{ p: 3 }}>
+                          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                            {major.description}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {major.notes && (
+                      <Card 
+                        elevation={0} 
+                        sx={{ 
+                          borderRadius: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                        }}
+                      >
+                        <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                          <Stack direction="row" alignItems="center" spacing={2}>
+                            <Avatar sx={{ bgcolor: 'grey.100', width: 40, height: 40 }}>
+                              <DescriptionIcon />
+                            </Avatar>
+                            <Typography variant="h6" fontWeight="bold" color="text.primary">
+                              Ghi chú
+                            </Typography>
+                          </Stack>
+                        </Box>
+                        <CardContent sx={{ p: 3 }}>
+                          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                            {major.notes}
+                          </Typography>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Stack>
+                )}
+
+                {major.other_majors && major.other_majors.length > 0 && (
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                    }}
+                  >
+                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar sx={{ bgcolor: 'success.light', width: 40, height: 40 }}>
+                          <SchoolIcon color="success" />
+                        </Avatar>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary">
+                          Ngành liên quan
+                        </Typography>
+                        <Badge badgeContent={major.other_majors.length} color="primary" />
+                      </Stack>
+                    </Box>
+                    <CardContent sx={{ p: 3 }}>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {major.other_majors.map((item) => (
+                          <Chip
+                            key={item.id}
+                            label={`${item.name_vi}${item.code ? ` (${item.code})` : ''}`}
+                            variant="outlined"
+                            sx={{ 
+                              borderRadius: 2,
+                              transition: 'all 0.2s ease-in-out',
+                              '&:hover': { transform: 'translateY(-1px)', boxShadow: 1 }
+                            }}
+                          />
+                        ))}
+                      </Stack>
                     </CardContent>
                   </Card>
-                </Grid>
-              )}
-            </Grid>
+                )}
+              </Stack>
+            </Fade>
           </TabPanel>
 
           {/* Tab 2: Programs */}
           <TabPanel value={tabValue} index={1}>
-            <Stack spacing={3}>
-              <Typography variant="h6">
-                Chương trình đào tạo ({major.Program?.length || 0})
-              </Typography>
-              
-              {major.Program && major.Program.length > 0 ? (
-                <Grid container spacing={2}>
-                  {major.Program.map((program) => (
-                    <Grid item xs={12} sm={6} md={4} key={program.id}>
-                      <Card sx={{ height: '100%' }}>
-                        <CardContent>
-                          <Stack spacing={1}>
-                            <Typography variant="h6" color="primary">
-                              {program.code || 'N/A'}
-                            </Typography>
-                            <Typography variant="body1" fontWeight={600}>
-                              {program.name_vi || 'Chưa có tên'}
-                            </Typography>
-                            {program.name_en && (
-                              <Typography variant="body2" color="text.secondary">
-                                {program.name_en}
+            <Fade in={tabValue === 1} timeout={300}>
+              <Stack spacing={4}>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'primary.light', width: 48, height: 48 }}>
+                    <BookmarkIcon color="primary" />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h5" fontWeight="bold" color="text.primary">
+                      Chương trình đào tạo
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      {major.Program?.length || 0} chương trình
+                    </Typography>
+                  </Box>
+                </Stack>
+                
+                {major.Program && major.Program.length > 0 ? (
+                  <Stack 
+                    spacing={2}
+                    sx={{
+                      display: 'grid',
+                      gridTemplateColumns: {
+                        xs: '1fr',
+                        sm: 'repeat(2, 1fr)',
+                        lg: 'repeat(3, 1fr)'
+                      },
+                      gap: 2
+                    }}
+                  >
+                    {major.Program.map((program) => {
+                      const credits = formatNumber(program.total_credits);
+                      const isActive = program.status?.toUpperCase() === 'ACTIVE';
+
+                      return (
+                        <Card 
+                          key={program.id} 
+                          elevation={0}
+                          sx={{ 
+                            borderRadius: 3,
+                            border: '1px solid',
+                            borderColor: isActive ? 'success.main' : 'divider',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': { 
+                              transform: 'translateY(-4px)', 
+                              boxShadow: 3,
+                              borderColor: isActive ? 'success.dark' : 'primary.main'
+                            }
+                          }}
+                        >
+                          <CardContent sx={{ p: 3 }}>
+                            <Stack spacing={2}>
+                              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Typography variant="h6" color="primary" fontWeight="bold">
+                                  {program.code || 'N/A'}
+                                </Typography>
+                                <Chip 
+                                  label={program.status}
+                                  size="small"
+                                  color={isActive ? 'success' : 'default'}
+                                  sx={{ borderRadius: 2 }}
+                                />
+                              </Stack>
+                              <Typography variant="body1" fontWeight={600} color="text.primary">
+                                {program.name_vi || 'Chưa có tên'}
                               </Typography>
-                            )}
-                            <Stack direction="row" spacing={2}>
-                              <Chip 
-                                label={program.version}
-                                size="small"
-                                variant="outlined"
-                              />
-                              <Chip 
-                                label={program.status}
-                                size="small"
-                                color={program.status === 'ACTIVE' ? 'success' : 'default'}
-                              />
+                              {program.name_en && (
+                                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                  {program.name_en}
+                                </Typography>
+                              )}
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Avatar sx={{ bgcolor: 'grey.100', width: 24, height: 24 }}>
+                                  <InfoIcon sx={{ fontSize: 16 }} />
+                                </Avatar>
+                                <Typography variant="body2" color="text.secondary">
+                                  Phiên bản {program.version}
+                                </Typography>
+                              </Stack>
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Avatar sx={{ bgcolor: 'info.light', width: 24, height: 24 }}>
+                                  <ScheduleIcon sx={{ fontSize: 16, color: 'info.main' }} />
+                                </Avatar>
+                                <Typography variant="body2" color="text.secondary">
+                                  {credits === '—' ? 'Chưa cập nhật tín chỉ' : `${credits} tín chỉ`}
+                                </Typography>
+                              </Stack>
                             </Stack>
-                            <Typography variant="body2">
-                              {program.total_credits} tín chỉ
-                            </Typography>
-                          </Stack>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  ))}
-                </Grid>
-              ) : (
-                <Paper sx={{ p: 4, textAlign: 'center' }}>
-                  <SchoolIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    Chưa có chương trình đào tạo
-                  </Typography>
-                </Paper>
-              )}
-            </Stack>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </Stack>
+                ) : (
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: 6, 
+                      textAlign: 'center',
+                      borderRadius: 3,
+                      border: '2px dashed',
+                      borderColor: 'divider'
+                    }}
+                  >
+                    <SchoolIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      Chưa có chương trình đào tạo
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Thêm chương trình đào tạo để hiển thị thông tin
+                    </Typography>
+                  </Paper>
+                )}
+              </Stack>
+            </Fade>
           </TabPanel>
 
           {/* Tab 3: Learning Outcomes */}
           <TabPanel value={tabValue} index={2}>
-            <Stack spacing={3}>
-              <Typography variant="h6">
-                Chuẩn đầu ra ({major.MajorOutcome?.length || 0})
-              </Typography>
-              
-              {major.MajorOutcome && major.MajorOutcome.length > 0 ? (
-                <Stack spacing={2}>
-                  {major.MajorOutcome.map((outcome, index) => (
-                    <Card key={outcome.id}>
-                      <CardContent>
-                        <Stack direction="row" spacing={2} alignItems="flex-start">
-                          <Typography variant="h6" color="primary" sx={{ minWidth: 60 }}>
-                            {outcome.code}
-                          </Typography>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="body1">
-                              {outcome.content}
-                            </Typography>
-                            {outcome.version && (
-                              <Chip 
-                                label={`Phiên bản ${outcome.version}`}
-                                size="small"
-                                variant="outlined"
-                                sx={{ mt: 1 }}
-                              />
-                            )}
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  ))}
+            <Fade in={tabValue === 2} timeout={300}>
+              <Stack spacing={4}>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'success.light', width: 48, height: 48 }}>
+                    <TrendingUpIcon color="success" />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h5" fontWeight="bold" color="text.primary">
+                      Chuẩn đầu ra
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      {major.MajorOutcome?.length || 0} chuẩn
+                    </Typography>
+                  </Box>
                 </Stack>
-              ) : (
-                <Paper sx={{ p: 4, textAlign: 'center' }}>
-                  <TrendingUpIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    Chưa có chuẩn đầu ra
-                  </Typography>
-                </Paper>
-              )}
-            </Stack>
+                
+                {major.MajorOutcome && major.MajorOutcome.length > 0 ? (
+                  <Stack spacing={3}>
+                    {major.MajorOutcome.map((outcome, index) => (
+                      <Card 
+                        key={outcome.id}
+                        elevation={0}
+                        sx={{
+                          borderRadius: 3,
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          transition: 'all 0.2s ease-in-out',
+                          '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                        }}
+                      >
+                        <CardContent sx={{ p: 3 }}>
+                          <Stack direction="row" spacing={3} alignItems="flex-start">
+                            <Avatar sx={{ bgcolor: 'success.light', width: 48, height: 48, mt: 0.5 }}>
+                              <Typography variant="body1" fontWeight="bold" color="success.main">
+                                {outcome.code}
+                              </Typography>
+                            </Avatar>
+                            <Box sx={{ flexGrow: 1 }}>
+                              <Typography variant="body1" sx={{ lineHeight: 1.6, mb: 2 }}>
+                                {outcome.content}
+                              </Typography>
+                              {outcome.version && (
+                                <Chip 
+                                  label={`Phiên bản ${outcome.version}`}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ borderRadius: 2 }}
+                                />
+                              )}
+                            </Box>
+                          </Stack>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Paper 
+                    elevation={0}
+                    sx={{ 
+                      p: 6, 
+                      textAlign: 'center',
+                      borderRadius: 3,
+                      border: '2px dashed',
+                      borderColor: 'divider'
+                    }}
+                  >
+                    <TrendingUpIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="h6" color="text.secondary" gutterBottom>
+                      Chưa có chuẩn đầu ra
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Thêm chuẩn đầu ra để định nghĩa mục tiêu học tập
+                    </Typography>
+                  </Paper>
+                )}
+              </Stack>
+            </Fade>
           </TabPanel>
 
           {/* Tab 4: Quotas & Tuition */}
           <TabPanel value={tabValue} index={3}>
-            <Grid container spacing={3}>
-              {/* Quotas */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Chỉ tiêu theo năm" />
-                  <CardContent>
-                    {major.MajorQuotaYear && major.MajorQuotaYear.length > 0 ? (
-                      <List>
-                        {major.MajorQuotaYear.map((quota) => (
-                          <ListItem key={quota.id}>
-                            <ListItemText 
-                              primary={`Năm ${quota.year}`}
-                              secondary={`${quota.quota} sinh viên`}
-                            />
-                            {quota.note && (
-                              <Typography variant="caption" color="text.secondary">
-                                {quota.note}
-                              </Typography>
-                            )}
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography color="text.secondary">
-                        Chưa có thông tin chỉ tiêu
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-
-              {/* Tuition */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader title="Học phí theo năm" />
-                  <CardContent>
-                    {major.MajorTuition && major.MajorTuition.length > 0 ? (
-                      <List>
-                        {major.MajorTuition.map((tuition) => (
-                          <ListItem key={tuition.id}>
-                            <ListItemText 
-                              primary={`Năm ${tuition.year} - ${tuition.tuition_group}`}
-                              secondary={`${tuition.amount_vnd.toLocaleString('vi-VN')} VNĐ`}
-                            />
-                            {tuition.note && (
-                              <Typography variant="caption" color="text.secondary">
-                                {tuition.note}
-                              </Typography>
-                            )}
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography color="text.secondary">
-                        Chưa có thông tin học phí
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-          </TabPanel>
-
-          {/* Tab 5: Accreditations & Documents */}
-          <TabPanel value={tabValue} index={4}>
-            <Grid container spacing={3}>
-              {/* Accreditations */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader 
-                    title="Chứng nhận"
-                    avatar={<VerifiedIcon />}
-                  />
-                  <CardContent>
-                    {major.accreditations && major.accreditations.length > 0 ? (
-                      <Stack spacing={2}>
-                        {major.accreditations.map((acc, index) => (
-                          <Paper key={index} sx={{ p: 2 }}>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle1" fontWeight={600}>
-                                {acc.scheme}
-                              </Typography>
-                              {acc.level && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Cấp độ: {acc.level}
-                                </Typography>
-                              )}
-                              {acc.agency && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Tổ chức: {acc.agency}
-                                </Typography>
-                              )}
-                              {acc.cert_no && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Số chứng nhận: {acc.cert_no}
-                                </Typography>
-                              )}
-                              {acc.valid_from && acc.valid_to && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Hiệu lực: {acc.valid_from} - {acc.valid_to}
-                                </Typography>
-                              )}
-                            </Stack>
-                          </Paper>
-                        ))}
+            <Fade in={tabValue === 3} timeout={300}>
+              <Stack spacing={4}>
+                <Stack direction="row" alignItems="center" spacing={2}>
+                  <Avatar sx={{ bgcolor: 'warning.light', width: 48, height: 48 }}>
+                    <MoneyIcon color="warning" />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h5" fontWeight="bold" color="text.primary">
+                      Chỉ tiêu & Học phí
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      Thông tin tuyển sinh và tài chính
+                    </Typography>
+                  </Box>
+                </Stack>
+                
+                <Stack 
+                  direction={{ xs: 'column', md: 'row' }} 
+                  spacing={3}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: {
+                      xs: '1fr',
+                      md: 'repeat(2, 1fr)'
+                    },
+                    gap: 3
+                  }}
+                >
+                  {/* Quotas */}
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                    }}
+                  >
+                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar sx={{ bgcolor: 'info.light', width: 40, height: 40 }}>
+                          <PeopleIcon color="info" />
+                        </Avatar>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary">
+                          Chỉ tiêu theo năm
+                        </Typography>
                       </Stack>
-                    ) : (
-                      <Typography color="text.secondary">
-                        Chưa có chứng nhận
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
+                    </Box>
+                    <CardContent sx={{ p: 0 }}>
+                      {major.MajorQuotaYear && major.MajorQuotaYear.length > 0 ? (
+                        <Stack spacing={0}>
+                          {major.MajorQuotaYear.map((quota, index) => {
+                            const quotaText = formatNumber(quota.quota);
 
-              {/* Documents */}
-              <Grid item xs={12} md={6}>
-                <Card>
-                  <CardHeader 
-                    title="Tài liệu"
-                    avatar={<AttachFileIcon />}
-                  />
-                  <CardContent>
-                    {major.documents && major.documents.length > 0 ? (
-                      <Stack spacing={2}>
-                        {major.documents.map((doc, index) => (
-                          <Paper key={index} sx={{ p: 2 }}>
-                            <Stack spacing={1}>
-                              <Typography variant="subtitle1" fontWeight={600}>
-                                {doc.title}
-                              </Typography>
-                              <Typography variant="body2" color="text.secondary">
-                                Loại: {doc.doc_type}
-                              </Typography>
-                              {doc.ref_no && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Số tham chiếu: {doc.ref_no}
-                                </Typography>
-                              )}
-                              {doc.issued_by && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Cấp bởi: {doc.issued_by}
-                                </Typography>
-                              )}
-                              {doc.issued_at && (
-                                <Typography variant="body2" color="text.secondary">
-                                  Ngày cấp: {new Date(doc.issued_at).toLocaleDateString('vi-VN')}
-                                </Typography>
-                              )}
-                              {doc.file_url && (
-                                <Button
-                                  size="small"
-                                  startIcon={<AttachFileIcon />}
-                                  href={doc.file_url}
-                                  target="_blank"
-                                >
-                                  Xem tài liệu
-                                </Button>
-                              )}
-                            </Stack>
-                          </Paper>
-                        ))}
+                            return (
+                              <Box key={quota.id}>
+                                <Box sx={{ p: 3 }}>
+                                  <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                    Năm {quota.year}
+                                  </Typography>
+                                  <Typography variant="h6" color="info.main" fontWeight="bold">
+                                    {quotaText === '—' ? '—' : `${quotaText} sinh viên`}
+                                  </Typography>
+                                  {quota.note && (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                      {quota.note}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                {index < (major.MajorQuotaYear?.length || 0) - 1 && <Divider />}
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      ) : (
+                        <Box sx={{ p: 4, textAlign: 'center' }}>
+                          <Typography color="text.secondary">
+                            Chưa có thông tin chỉ tiêu
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Tuition */}
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
+                    }}
+                  >
+                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Avatar sx={{ bgcolor: 'warning.light', width: 40, height: 40 }}>
+                          <MoneyIcon color="warning" />
+                        </Avatar>
+                        <Typography variant="h6" fontWeight="bold" color="text.primary">
+                          Học phí theo năm
+                        </Typography>
                       </Stack>
-                    ) : (
-                      <Typography color="text.secondary">
-                        Chưa có tài liệu
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
+                    </Box>
+                    <CardContent sx={{ p: 0 }}>
+                      {major.MajorTuition && major.MajorTuition.length > 0 ? (
+                        <Stack spacing={0}>
+                          {major.MajorTuition.map((tuition, index) => {
+                            const tuitionAmount = formatNumber(tuition.amount_vnd);
+
+                            return (
+                              <Box key={tuition.id}>
+                                <Box sx={{ p: 3 }}>
+                                  <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                    Năm {tuition.year} - {tuition.tuition_group}
+                                  </Typography>
+                                  <Typography variant="h6" color="warning.main" fontWeight="bold">
+                                    {tuitionAmount === '—' ? '—' : `${tuitionAmount} VNĐ`}
+                                  </Typography>
+                                  {tuition.note && (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1, fontStyle: 'italic' }}>
+                                      {tuition.note}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                {index < (major.MajorTuition?.length || 0) - 1 && <Divider />}
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      ) : (
+                        <Box sx={{ p: 4, textAlign: 'center' }}>
+                          <Typography color="text.secondary">
+                            Chưa có thông tin học phí
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Stack>
+              </Stack>
+            </Fade>
           </TabPanel>
-        </Paper>
+          </Paper>
+        </Fade>
 
         {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)}>
-          <DialogTitle>Xác nhận xóa</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Bạn có chắc chắn muốn xóa ngành đào tạo "{major.name_vi}" không?
+        <Dialog 
+          open={deleteDialog} 
+          onClose={() => setDeleteDialog(false)}
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              minWidth: 400
+            }
+          }}
+        >
+          <DialogTitle sx={{ pb: 2 }}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Avatar sx={{ bgcolor: 'error.light', width: 40, height: 40 }}>
+                <ClosedIcon color="error" />
+              </Avatar>
+              <Typography variant="h6" fontWeight="bold">
+                Xác nhận xóa
+              </Typography>
+            </Stack>
+          </DialogTitle>
+          <DialogContent sx={{ pb: 2 }}>
+            <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
+              Bạn có chắc chắn muốn xóa ngành đào tạo <strong>"{major?.name_vi}"</strong> không?
+              <br />
               Hành động này không thể hoàn tác.
             </Typography>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setDeleteDialog(false)}>
+          <DialogActions sx={{ p: 3, pt: 2 }}>
+            <Button 
+              onClick={() => setDeleteDialog(false)}
+              sx={{ borderRadius: 2, textTransform: 'none' }}
+            >
               Hủy
             </Button>
             <Button 
               onClick={handleDelete}
               color="error"
               variant="contained"
+              sx={{ borderRadius: 2, textTransform: 'none' }}
             >
               Xóa
             </Button>
@@ -816,4 +1300,3 @@ export default function MajorDetailPage() {
     </Box>
   );
 }
-

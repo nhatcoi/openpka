@@ -64,6 +64,18 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     WorkflowStage.ACADEMIC_BOARD,
 ];
 
+export const COURSE_PERMISSIONS = {
+    VIEW: 'tms.course.view',
+    CREATE: 'tms.course.create',
+    UPDATE: 'tms.course.update',
+    DELETE: 'tms.course.delete',
+    REVIEW: 'tms.course.review',
+    APPROVE: 'tms.course.approve',
+    REJECT: 'tms.course.reject',
+    PUBLISH: 'tms.course.publish',
+    MANAGE: 'tms.course.manage'
+} as const;
+
 export function normalizeCoursePriority(priority?: string | null): CoursePriority {
     switch ((priority || '').toUpperCase()) {
         case CoursePriority.HIGH:

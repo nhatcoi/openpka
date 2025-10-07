@@ -41,7 +41,8 @@ import {
   Alert,
   Tabs,
   Tab,
-  Avatar
+  Avatar,
+  Collapse
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
@@ -54,6 +55,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
   Assignment as AssignmentIcon,
+  Publish as PublishIcon,
+  Delete as DeleteIcon,
   History as HistoryIcon,
   Comment as CommentIcon,
   AttachFile as AttachFileIcon,
@@ -64,7 +67,9 @@ import {
   CalendarToday as CalendarIcon,
   Flag as PriorityIcon,
   Add as AddIcon,
-  Delete as DeleteIcon
+  HelpOutline as HelpOutlineIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { PermissionGuard } from '@/components/auth/permission-guard';
@@ -167,6 +172,34 @@ interface CourseDetail {
     comments: string;
     created_at: string;
   }>;
+  // Unified workflow data
+  unified_workflow?: {
+    id: string;
+    status: string;
+    current_step: number;
+    initiated_at: string;
+    completed_at?: string;
+    workflow: {
+      workflow_name: string;
+      steps: Array<{
+        step_order: number;
+        step_name: string;
+        approver_role: string;
+        timeout_days: number;
+      }>;
+    };
+    approval_records: Array<{
+      id: string;
+      action: string;
+      comments?: string;
+      approved_at?: string;
+      approver: {
+        id: string;
+        full_name: string;
+        email: string;
+      };
+    }>;
+  };
   instructor_qualifications?: any[];
   course_syllabus?: any[];
   prerequisites?: Array<{
@@ -226,6 +259,7 @@ export default function CourseDetailPage() {
   
   const [workflowComment, setWorkflowComment] = useState('');
   const [orgUnits, setOrgUnits] = useState<any[]>([]);
+  const [draftChanges, setDraftChanges] = useState<any[]>([]);
   const [editingAssessment, setEditingAssessment] = useState(false);
   const [assessmentMethods, setAssessmentMethods] = useState<any[]>([]);
   const [learningObjectives, setLearningObjectives] = useState<any[]>([]);
@@ -233,6 +267,7 @@ export default function CourseDetailPage() {
   const [openObjectivesModal, setOpenObjectivesModal] = useState(false);
   const [openBasicInfoModal, setOpenBasicInfoModal] = useState(false);
   const [openSyllabusModal, setOpenSyllabusModal] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   // Sync editData with courseDetail when opening basic info modal
   useEffect(() => {
@@ -379,6 +414,8 @@ export default function CourseDetailPage() {
     }
   }, [routeId]);
 
+  // Removed draft-changes auto loading logic
+
   // Submit request for approval with any changes
   const handleSave = async () => {
     try {
@@ -430,20 +467,26 @@ export default function CourseDetailPage() {
       const response = await fetch(`/api/tms/courses/${routeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: CourseStatus.DRAFT, workflow_stage: WorkflowStage.FACULTY })
+        body: JSON.stringify({ status: CourseStatus.REVIEWING, workflow_stage: WorkflowStage.ACADEMIC_OFFICE })
       });
       const result = await response.json();
       if (result.success) {
         setCourseDetail(prev => prev ? {
           ...prev,
-          status: CourseStatus.DRAFT,
+          status: CourseStatus.REVIEWING,
+          // Update unified workflow status
+          unified_workflow: prev.unified_workflow ? {
+            ...prev.unified_workflow,
+            status: 'IN_PROGRESS'
+          } : prev.unified_workflow,
+          // Legacy workflow (for backward compatibility)
           workflows: prev.workflows ? [{
             ...prev.workflows[0],
-            status: CourseStatus.DRAFT,
-            workflow_stage: WorkflowStage.FACULTY
+            status: CourseStatus.REVIEWING,
+            workflow_stage: WorkflowStage.ACADEMIC_OFFICE
           }, ...prev.workflows.slice(1)] : prev.workflows
         } : prev);
-        setToast({ open: true, message: 'Đã gửi yêu cầu. Học phần chuyển về trạng thái Nháp.', severity: 'success' });
+        setToast({ open: true, message: 'Đã gửi xem xét. Học phần chuyển sang trạng thái Đang xem xét.', severity: 'success' });
       } else {
         setError(result.error || 'Không thể gửi yêu cầu');
       }
@@ -470,6 +513,13 @@ export default function CourseDetailPage() {
         setCourseDetail(prev => prev ? {
           ...prev,
           status: CourseStatus.PUBLISHED,
+          // Update unified workflow status
+          unified_workflow: prev.unified_workflow ? {
+            ...prev.unified_workflow,
+            status: 'COMPLETED',
+            completed_at: new Date().toISOString()
+          } : prev.unified_workflow,
+          // Legacy workflow (for backward compatibility)
           workflows: prev.workflows ? [{
             ...prev.workflows[0],
             status: CourseStatus.PUBLISHED,
@@ -625,32 +675,33 @@ export default function CourseDetailPage() {
       setSaving(true);
       const response = await fetch(`/api/tms/courses/${routeId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name_vi: editData.name_vi,
           name_en: editData.name_en,
           code: editData.code,
           credits: editData.credits,
+          theory_credit: editData.theory_credit,
+          practical_credit: editData.practical_credit,
           description: editData.description,
-          status: editData.status
-        }),
+          status: editData.status,
+          org_unit_id: editData.org_unit_id,
+          type: editData.type
+        })
       });
-
       const result = await response.json();
-      
       if (result.success) {
-        // Cập nhật courseDetail với dữ liệu mới
         setCourseDetail(result.data);
         setOpenBasicInfoModal(false);
-        alert('Cập nhật thành công!');
+        setToast({ open: true, message: 'Cập nhật thông tin cơ bản thành công!', severity: 'success' });
       } else {
-        alert('Lỗi khi cập nhật: ' + result.error);
+        setError(result.error || 'Có lỗi khi cập nhật thông tin');
+        setToast({ open: true, message: result.error || 'Có lỗi khi cập nhật', severity: 'error' });
       }
     } catch (error) {
-      console.error('Error saving basic info:', error);
-      alert('Lỗi khi lưu dữ liệu');
+      console.error('Error updating basic info:', error);
+      setError('Có lỗi khi cập nhật thông tin');
+      setToast({ open: true, message: 'Có lỗi khi cập nhật thông tin', severity: 'error' });
     } finally {
       setSaving(false);
     }
@@ -765,15 +816,43 @@ export default function CourseDetailPage() {
       setSaving(true);
       setError(null);
       
-      // Map actions to status, workflow stage, and reviewer role
-      const actionMapping: Record<string, { status: string; workflow_stage: WorkflowStage; reviewer_role: WorkflowStage | string }> = {
-        approve: { status: CourseStatus.APPROVED, workflow_stage: WorkflowStage.ACADEMIC_OFFICE, reviewer_role: WorkflowStage.ACADEMIC_OFFICE },
-        reject: { status: CourseStatus.REJECTED, workflow_stage: WorkflowStage.FACULTY, reviewer_role: WorkflowStage.ACADEMIC_OFFICE },
-        request_changes: { status: CourseStatus.DRAFT, workflow_stage: WorkflowStage.FACULTY, reviewer_role: WorkflowStage.ACADEMIC_OFFICE },
-        forward: { status: CourseStatus.SUBMITTED, workflow_stage: WorkflowStage.ACADEMIC_BOARD, reviewer_role: WorkflowStage.ACADEMIC_OFFICE },
-        final_approve: { status: CourseStatus.PUBLISHED, workflow_stage: WorkflowStage.ACADEMIC_BOARD, reviewer_role: WorkflowStage.ACADEMIC_BOARD },
-        final_reject: { status: CourseStatus.REJECTED, workflow_stage: WorkflowStage.ACADEMIC_BOARD, reviewer_role: WorkflowStage.ACADEMIC_BOARD },
-        delete: { status: 'DELETED', workflow_stage: WorkflowStage.ACADEMIC_OFFICE, reviewer_role: WorkflowStage.ACADEMIC_OFFICE }
+      // Check if workflow exists and is completed - if so, reset workflow first
+      if (courseDetail.unified_workflow?.status === 'COMPLETED' || courseDetail.unified_workflow?.status === 'REJECTED') {
+        // Reset workflow to allow new actions
+        const resetResponse = await fetch(`/api/academic/workflows/${courseDetail.unified_workflow.id}/reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (!resetResponse.ok) {
+          throw new Error('Không thể reset workflow. Vui lòng thử lại.');
+        }
+      } else if (!courseDetail.unified_workflow) {
+        // Create new workflow if doesn't exist
+        const createWorkflowResponse = await fetch('/api/academic/workflows', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            entityType: 'COURSE',
+            entityId: parseInt(routeId)
+          })
+        });
+        
+        if (!createWorkflowResponse.ok) {
+          throw new Error('Không thể tạo workflow mới. Vui lòng thử lại.');
+        }
+      }
+      
+      // Map actions to unified workflow actions
+      const actionMapping: Record<string, { workflow_action: string; status: string }> = {
+        review: { workflow_action: 'APPROVE', status: CourseStatus.REVIEWING },
+        approve: { workflow_action: 'APPROVE', status: CourseStatus.APPROVED },
+        reject: { workflow_action: 'REJECT', status: CourseStatus.REJECTED },
+        request_changes: { workflow_action: 'RETURN', status: CourseStatus.DRAFT },
+        forward: { workflow_action: 'APPROVE', status: CourseStatus.SUBMITTED },
+        final_approve: { workflow_action: 'PUBLISH', status: CourseStatus.PUBLISHED },
+        final_reject: { workflow_action: 'REJECT', status: CourseStatus.REJECTED },
+        delete: { workflow_action: 'DELETE', status: 'DELETED' }
       };
       
       const mapping = actionMapping[action];
@@ -782,9 +861,9 @@ export default function CourseDetailPage() {
       }
       
       const payload = {
-        workflow_action: action,
-        comment: workflowComment,
-        status: mapping.status,
+        action: mapping.workflow_action,
+        comments: workflowComment,
+        // Không cập nhật status trực tiếp - chỉ xử lý workflow
       } as const;
       
       let response;
@@ -795,9 +874,14 @@ export default function CourseDetailPage() {
           headers: { 'Content-Type': 'application/json' }
         });
       } else {
-        // For other actions, use PUT method
-        response = await fetch(`/api/tms/courses/${routeId}`, {
-          method: 'PUT',
+        // For workflow actions, use workflow API
+        const workflowId = courseDetail.unified_workflow?.id;
+        if (!workflowId) {
+          throw new Error('Không tìm thấy workflow instance');
+        }
+        
+        response = await fetch(`/api/academic/workflows/${workflowId}/actions`, {
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
@@ -806,29 +890,15 @@ export default function CourseDetailPage() {
       const result = await response.json();
       
       if (result.success) {
-        // Update local state
-        setCourseDetail(prev => prev ? {
-          ...prev,
-          workflows: prev.workflows?.map((wf, index) => index === 0 ? {
-            ...wf,
-            status: mapping.status,
-            workflow_stage: mapping.workflow_stage,
-            notes: workflowComment || wf.notes,
-            updated_at: new Date().toISOString()
-          } : wf) || [],
-          course_approval_history: [
-            ...(prev.course_approval_history || []),
-            {
-              id: Date.now().toString(),
-              action: action.toUpperCase(),
-              from_status: prev.status || CourseStatus.DRAFT,
-              to_status: mapping.status,
-              reviewer_role: mapping.reviewer_role,
-              comments: workflowComment,
-              created_at: new Date().toISOString()
-            }
-          ]
-        } : prev);
+        // Refresh course data to get updated unified workflow
+        const refreshResponse = await fetch(`/api/tms/courses/${routeId}`);
+        const refreshResult = await refreshResponse.json();
+        
+        if (refreshResult.success) {
+          setCourseDetail(refreshResult.data);
+        }
+        
+        // No draft-changes reload
         
         const successMessages: Record<string, string> = {
           'approve': 'Phê duyệt thành công!',
@@ -991,19 +1061,23 @@ export default function CourseDetailPage() {
               sx={{ mr: 1 }}
             />
             <Chip
-              label={getWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY)}
+              label={courseDetail.unified_workflow && courseDetail.unified_workflow.workflow ? 
+                (courseDetail.unified_workflow.workflow.steps.find(step => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
+                getWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY)
+              }
               variant="outlined"
               sx={{ mr: 1 }}
             />
-            <Button
-              variant="contained"
-              endIcon={<SendIcon />}
-              disabled={saving}
-              onClick={handleRequestDraft}
-            >
-              {courseDetail.status === CourseStatus.REJECTED ? 'Gửi yêu cầu lại' :
-               (courseDetail.status === CourseStatus.APPROVED || courseDetail.status === CourseStatus.PUBLISHED) ? 'Gửi yêu cầu chỉnh sửa' : 'Gửi yêu cầu chỉnh sửa'}
-            </Button>
+            {(courseDetail.status === CourseStatus.DRAFT || courseDetail.status === CourseStatus.REJECTED) && (
+              <Button
+                variant="contained"
+                endIcon={<SendIcon />}
+                disabled={saving}
+                onClick={handleRequestDraft}
+              >
+                Gửi xem xét lại
+              </Button>
+            )}
           </Box>
         </Box>
       </Box>
@@ -1258,6 +1332,7 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
           </Box>
+          
         </TabPanel>
 
         {/* Syllabus Tab */}
@@ -1455,6 +1530,125 @@ export default function CourseDetailPage() {
 
         {/* Workflow Tab */}
         <TabPanel value={activeTab} index={4}>
+          {/* Workflow Guide */}
+          <Box sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                startIcon={<HelpOutlineIcon />}
+                onClick={() => setShowGuide((v) => !v)}
+              >
+                {showGuide ? 'Ẩn hướng dẫn quy trình' : 'Hiển thị hướng dẫn quy trình'}
+              </Button>
+            </Box>
+
+            <Collapse in={showGuide} timeout="auto" unmountOnExit>
+              <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: 'background.paper' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  {showGuide ? <ExpandLessIcon sx={{ mr: 1 }} /> : <ExpandMoreIcon sx={{ mr: 1 }} />}
+                  <Typography variant="h6">Hướng dẫn quy trình phê duyệt học phần</Typography>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Quy trình phê duyệt học phần gồm 3 bước chính: Đơn vị cấp Khoa khởi tạo → Phòng đào tạo xem xét và phê duyệt → Hội đồng khoa học công bố.
+                </Typography>
+
+                {/* Quy trình tổng quan */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                    Quy trình tổng quan
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Học phần sẽ trải qua các bước: <strong>Khởi tạo → Xem xét & Phê duyệt → Công bố</strong>
+                  </Typography>
+                </Box>
+
+                {/* Các bước chi tiết */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                    1. Bước 1: Đơn vị cấp Khoa khởi tạo
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Người thực hiện:</strong> Đơn vị cấp Khoa
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Trạng thái đầu:</strong> Bản nháp (DRAFT)
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Nhiệm vụ:</strong>
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                    <li>Tạo và hoàn thiện thông tin học phần</li>
+                    <li>Kiểm tra tính đầy đủ và chính xác của dữ liệu</li>
+                    <li>Gửi học phần sang Phòng đào tạo để xem xét</li>
+                  </Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Kết quả:</strong> Học phần được chuyển sang trạng thái "Đang xem xét" tại Phòng đào tạo
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                    2. Bước 2: Phòng đào tạo xem xét và phê duyệt
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Người thực hiện:</strong> Phòng đào tạo (cấp Phòng)
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Trạng thái đầu:</strong> Đang xem xét tại Phòng đào tạo
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Các hành động có thể thực hiện:</strong>
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                    <li><strong>Xem xét:</strong> Kiểm tra nội dung, yêu cầu và quy định</li>
+                    <li><strong>Phê duyệt:</strong> Chấp nhận và chuyển học phần lên Hội đồng khoa học</li>
+                    <li><strong>Từ chối:</strong> Từ chối học phần nếu không đạt yêu cầu</li>
+                    <li><strong>Trả về:</strong> Yêu cầu Đơn vị cấp Khoa chỉnh sửa và bổ sung</li>
+                  </Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Kết quả:</strong> Nếu phê duyệt → học phần được chuyển sang Hội đồng khoa học để công bố
+                  </Typography>
+                </Box>
+
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
+                    3. Bước 3: Hội đồng khoa học công bố
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Người thực hiện:</strong> Hội đồng khoa học
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Trạng thái đầu:</strong> Đang xem xét tại Hội đồng khoa học
+                  </Typography>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Các hành động có thể thực hiện:</strong>
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 3, mb: 1 }}>
+                    <li><strong>Công bố:</strong> Phê duyệt cuối và xuất bản học phần chính thức</li>
+                    <li><strong>Từ chối:</strong> Từ chối học phần ở giai đoạn cuối</li>
+                  </Box>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
+                    <strong>Kết quả:</strong> Nếu công bố → học phần chính thức được xuất bản và sử dụng
+                  </Typography>
+                </Box>
+
+                {/* Lưu ý quan trọng */}
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" gutterBottom sx={{ color: 'warning.main' }}>
+                    Lưu ý quan trọng
+                  </Typography>
+                  <Box component="ul" sx={{ pl: 3 }}>
+                    <li>Mỗi bước có thời hạn xử lý nhất định</li>
+                    <li>Học phần có thể bị trả về để chỉnh sửa ở bất kỳ giai đoạn nào</li>
+                    <li>Trạng thái học phần sẽ được cập nhật theo thời gian thực</li>
+                    <li>Lịch sử phê duyệt được lưu trữ đầy đủ để theo dõi</li>
+                  </Box>
+                </Box>
+              </Paper>
+            </Collapse>
+          </Box>
+
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, 1fr)" }, gap: 3 }}>
             <Card>
               <CardHeader title="Trạng thái hiện tại" />
@@ -1496,10 +1690,13 @@ export default function CourseDetailPage() {
                         Giai đoạn
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        {courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.FACULTY ? 'Khoa' :
-                         courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.ACADEMIC_OFFICE ? 'Phòng Đào tạo' :
-                         courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.ACADEMIC_BOARD ? 'Hội đồng khoa học' :
-                         courseDetail.workflows?.[0]?.workflow_stage || 'Chưa xác định'}
+                        {courseDetail.unified_workflow && courseDetail.unified_workflow.workflow ? 
+                          (courseDetail.unified_workflow.workflow.steps.find(step => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
+                          courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.FACULTY ? 'Khoa' :
+                          courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.ACADEMIC_OFFICE ? 'Phòng Đào tạo' :
+                          courseDetail.workflows?.[0]?.workflow_stage === WorkflowStage.ACADEMIC_BOARD ? 'Hội đồng khoa học' :
+                          courseDetail.workflows?.[0]?.workflow_stage || 'Chưa xác định'
+                        }
                       </Typography>
                     </Box>
                   </ListItem>
@@ -1559,9 +1756,66 @@ export default function CourseDetailPage() {
             <Card>
               <CardHeader title="Lịch sử phê duyệt" />
               <CardContent>
-                {courseDetail.course_approval_history && courseDetail.course_approval_history.length > 0 ? (
+                {(courseDetail.unified_workflow?.approval_records && courseDetail.unified_workflow.approval_records.length > 0) || 
+                 (courseDetail.course_approval_history && courseDetail.course_approval_history.length > 0) ? (
                   <List>
-                      {courseDetail.course_approval_history?.map((item, index) => (
+                      {/* Show unified workflow approval records first */}
+                      {courseDetail.unified_workflow?.approval_records?.map((item, index) => (
+                    <React.Fragment key={`unified-${index}`}>
+                      <ListItem alignItems="flex-start">
+                        <ListItemIcon>
+                          <Avatar sx={{ 
+                            bgcolor: item.action === 'APPROVE' ? 'success.main' : 
+                                    item.action === 'REJECT' ? 'error.main' :
+                                    item.action === 'RETURN' ? 'warning.main' :
+                                    item.action === 'PUBLISH' ? 'info.main' :
+                                    'grey.500'
+                          }}>
+                            {item.action === 'APPROVE' ? <CheckCircleIcon /> : 
+                             item.action === 'REJECT' ? <CancelIcon /> :
+                             item.action === 'RETURN' ? <ReplyIcon /> :
+                             item.action === 'PUBLISH' ? <PublishIcon /> :
+                             <AssignmentIcon />}
+                          </Avatar>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={
+                            <Box>
+                              <Typography variant="subtitle2" color="text.secondary" component="span">
+                                {item.approver.full_name}
+                              </Typography>
+                              <Chip 
+                                label={item.action} 
+                                size="small" 
+                                color={item.action === 'APPROVE' ? 'success' : 
+                                       item.action === 'REJECT' ? 'error' :
+                                       item.action === 'RETURN' ? 'warning' :
+                                       item.action === 'PUBLISH' ? 'info' :
+                                       'default'}
+                                sx={{ ml: 1 }}
+                              />
+                            </Box>
+                          }
+                          secondary={
+                            <Box>
+                              {item.comments && (
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                  {item.comments}
+                                </Typography>
+                              )}
+                              <Typography variant="caption" color="text.secondary">
+                                {item.approved_at ? new Date(item.approved_at).toLocaleString('vi-VN') : 'Chưa xác định'}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                      {index < ((courseDetail.unified_workflow?.approval_records?.length || 0) - 1) && <Divider variant="inset" component="li" />}
+                    </React.Fragment>
+                  ))}
+                      {/* Fallback to legacy approval history */}
+                      {(!courseDetail.unified_workflow?.approval_records || courseDetail.unified_workflow.approval_records.length === 0) && 
+                       courseDetail.course_approval_history?.map((item, index) => (
                     <React.Fragment key={index}>
                       <ListItem alignItems="flex-start">
                         <ListItemIcon>
@@ -1610,9 +1864,21 @@ export default function CourseDetailPage() {
                           })()}
                         </ListItemIcon>
                           <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 600, letterSpacing: 0.5 }}>
-                                {item.action}
-                              </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                              <Chip 
+                                label={item.action} 
+                                size="small" 
+                                color={(() => {
+                                  const action = (item.action || '').toUpperCase();
+                                  if (action === 'APPROVE' || action === 'FINAL_APPROVE' || action === 'PUBLISH') return 'success';
+                                  if (action === 'REJECT' || action === 'FINAL_REJECT') return 'error';
+                                  if (action === 'REQUEST_CHANGES' || action === 'RETURN') return 'warning';
+                                  if (action === 'FORWARD') return 'info';
+                                  if (action === 'DELETE') return 'default';
+                                  return 'default';
+                                })()}
+                              />
+                            </Box>
                             <Typography variant="body2" sx={{ mt: 0.5 }}>
                               <strong>{item.reviewer_role}</strong> - {new Date(item.created_at).toLocaleString('vi-VN')}
                               </Typography>
@@ -1652,7 +1918,7 @@ export default function CourseDetailPage() {
                       color="success"
                       startIcon={<CheckCircleIcon />}
                       onClick={() => handleOpenDialog('approve')}
-                      disabled={courseDetail.status !== CourseStatus.DRAFT}
+                      disabled={saving || !(courseDetail.status === CourseStatus.REVIEWING || courseDetail.status === CourseStatus.SUBMITTED)}
                     >
                       Phê duyệt
                     </Button>
@@ -1662,7 +1928,7 @@ export default function CourseDetailPage() {
                       color="error"
                       startIcon={<CancelIcon />}
                       onClick={() => handleOpenDialog('reject')}
-                      disabled={courseDetail.status !== CourseStatus.DRAFT}
+                      disabled={saving || !(courseDetail.status === CourseStatus.REVIEWING || courseDetail.status === CourseStatus.SUBMITTED)}
                     >
                       Từ chối
                     </Button>
@@ -1672,7 +1938,7 @@ export default function CourseDetailPage() {
                       color="warning"
                       startIcon={<EditIcon />}
                       onClick={() => handleOpenDialog('request_changes')}
-                      disabled={courseDetail.status === CourseStatus.DRAFT}
+                      disabled={saving}
                     >
                       Yêu cầu chỉnh sửa
                     </Button>
@@ -1683,7 +1949,7 @@ export default function CourseDetailPage() {
                         color="info"
                         startIcon={<SendIcon />}
                         onClick={handlePublishAcademicBoard}
-                        disabled={courseDetail.status !== 'APPROVED'}
+                        disabled={saving || courseDetail.status !== CourseStatus.APPROVED}
                       >
                         Hội đồng khoa học công bố
                       </Button>
@@ -1694,7 +1960,6 @@ export default function CourseDetailPage() {
                       color="error"
                       startIcon={<DeleteIcon />}
                       onClick={() => handleOpenDialog('delete')}
-                      disabled={courseDetail.status === CourseStatus.PUBLISHED}
                     >
                       Xóa học phần
                     </Button>
@@ -1711,7 +1976,7 @@ export default function CourseDetailPage() {
                       color="success"
                       startIcon={<CheckCircleIcon />}
                       onClick={() => handleOpenDialog('final_approve')}
-                      disabled={courseDetail.status === CourseStatus.PUBLISHED}
+                      disabled={saving || courseDetail.status === CourseStatus.PUBLISHED}
                     >
                       Phê duyệt cuối cùng
                     </Button>
@@ -1721,7 +1986,7 @@ export default function CourseDetailPage() {
                       color="error"
                       startIcon={<CancelIcon />}
                       onClick={() => handleOpenDialog('final_reject')}
-                      disabled={courseDetail.status === CourseStatus.REJECTED}
+                      disabled={saving || courseDetail.status === CourseStatus.REJECTED}
                     >
                       Từ chối cuối cùng
                     </Button>
@@ -1731,6 +1996,8 @@ export default function CourseDetailPage() {
               </CardContent>
             </Card>
           </Box>
+          
+          {/* Draft Changes Management removed */}
         </TabPanel>
       </Paper>
 
@@ -1798,6 +2065,45 @@ export default function CourseDetailPage() {
           )}
           {dialogType === 'approve' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              {/* Hiển thị chi tiết thay đổi */}
+              {draftChanges.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Chi tiết thay đổi cần phê duyệt:
+                  </Typography>
+                  {draftChanges
+                    .filter(change => change.metadata?.status === 'PENDING_APPROVAL')
+                    .map((change, index) => (
+                      <Card key={change.id} sx={{ mb: 2, p: 2 }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Thay đổi #{change.id} - {change.metadata?.change_type}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Lý do: {change.metadata?.change_reason || 'Không có lý do'}
+                        </Typography>
+                        
+                        {change.metadata?.old_data && change.metadata?.new_data && (
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" color="error" gutterBottom>
+                              <strong>Dữ liệu cũ:</strong>
+                            </Typography>
+                            <pre style={{ fontSize: '0.75rem', margin: 0, background: '#ffebee', padding: '8px', borderRadius: '4px' }}>
+                              {JSON.stringify(change.metadata.old_data, null, 2)}
+                            </pre>
+                            
+                            <Typography variant="body2" color="success" gutterBottom sx={{ mt: 1 }}>
+                              <strong>Dữ liệu mới:</strong>
+                            </Typography>
+                            <pre style={{ fontSize: '0.75rem', margin: 0, background: '#e8f5e8', padding: '8px', borderRadius: '4px' }}>
+                              {JSON.stringify(change.metadata.new_data, null, 2)}
+                            </pre>
+                          </Box>
+                        )}
+                      </Card>
+                    ))}
+                </Box>
+              )}
+              
               <TextField
                 fullWidth
                 label="Bình luận phê duyệt"
@@ -1812,6 +2118,45 @@ export default function CourseDetailPage() {
           
           {dialogType === 'reject' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              {/* Hiển thị chi tiết thay đổi */}
+              {draftChanges.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Chi tiết thay đổi bị từ chối:
+                  </Typography>
+                  {draftChanges
+                    .filter(change => change.metadata?.status === 'PENDING_APPROVAL')
+                    .map((change, index) => (
+                      <Card key={change.id} sx={{ mb: 2, p: 2 }}>
+                        <Typography variant="subtitle2" gutterBottom>
+                          Thay đổi #{change.id} - {change.metadata?.change_type}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          Lý do: {change.metadata?.change_reason || 'Không có lý do'}
+                        </Typography>
+                        
+                        {change.metadata?.old_data && change.metadata?.new_data && (
+                          <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" color="error" gutterBottom>
+                              <strong>Dữ liệu cũ:</strong>
+                            </Typography>
+                            <pre style={{ fontSize: '0.75rem', margin: 0, background: '#ffebee', padding: '8px', borderRadius: '4px' }}>
+                              {JSON.stringify(change.metadata.old_data, null, 2)}
+                            </pre>
+                            
+                            <Typography variant="body2" color="success" gutterBottom sx={{ mt: 1 }}>
+                              <strong>Dữ liệu mới:</strong>
+                            </Typography>
+                            <pre style={{ fontSize: '0.75rem', margin: 0, background: '#e8f5e8', padding: '8px', borderRadius: '4px' }}>
+                              {JSON.stringify(change.metadata.new_data, null, 2)}
+                            </pre>
+                          </Box>
+                        )}
+                      </Card>
+                    ))}
+                </Box>
+              )}
+              
               <TextField
                 fullWidth
                 label="Lý do từ chối"

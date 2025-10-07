@@ -10,6 +10,7 @@ import {
   WorkflowStage,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 
 // GET /api/tms/courses/[id] - Lấy chi tiết course
 const getCourseById = async (id: string, request: Request) => {
@@ -42,17 +43,7 @@ const getCourseById = async (id: string, request: Request) => {
       OrgUnit: {
         select: { name: true, code: true }
       },
-      workflows: {
-        select: {
-          id: true,
-          status: true,
-          workflow_stage: true,
-          priority: true,
-          notes: true,
-          created_at: true,
-          updated_at: true
-        }
-      },
+      // Legacy workflow data removed - using unified workflow system
       contents: {
         select: {
           id: true,
@@ -73,19 +64,7 @@ const getCourseById = async (id: string, request: Request) => {
           updated_at: true
         }
       },
-      course_approval_history: {
-        orderBy: { created_at: 'desc' },
-        select: {
-          id: true,
-          action: true,
-          from_status: true,
-          to_status: true,
-          reviewer_id: true,
-          reviewer_role: true,
-          comments: true,
-          created_at: true
-        }
-      },
+      // Legacy approval history removed - using unified workflow system
       instructor_qualifications: {
         select: {
           id: true,
@@ -132,11 +111,24 @@ const getCourseById = async (id: string, request: Request) => {
 
 
 
+  // Fetch unified workflow data separately
+  const workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
+
   // Transform Decimal fields to numbers for JSON serialization
   const transformedCourse = {
     ...course,
     theory_credit: course.theory_credit ? Number(course.theory_credit) : null,
     practical_credit: course.practical_credit ? Number(course.practical_credit) : null,
+    // Add unified workflow data
+    unified_workflow: workflowInstance ? {
+      id: workflowInstance.id,
+      status: workflowInstance.status,
+      current_step: workflowInstance.current_step,
+      initiated_at: workflowInstance.initiated_at,
+      completed_at: workflowInstance.completed_at,
+      workflow: workflowInstance.workflow,
+      approval_records: workflowInstance.approval_records
+    } : null
   };
 
   return transformedCourse;
@@ -220,17 +212,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     });
 
-    // 2. Update CourseWorkflow record
-    const updatedWorkflow = await tx.courseWorkflow.updateMany({
-      where: { course_id: BigInt(courseId) },
-      data: {
-        status: resolvedStatus ?? CourseStatus.DRAFT,
-        workflow_stage: resolvedWorkflowStage ?? WorkflowStage.FACULTY,
-        priority: resolvedPriority,
-        notes: (courseData as any).workflow_notes || null,
-        updated_at: new Date(),
-      }
-    });
+    // 2. Legacy workflow update removed - using unified workflow system
 
     // 3. Update CourseContent record (only set fields that are provided)
     const contentUpdateData: any = {};
@@ -324,113 +306,68 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     }
 
-    // 7. Handle workflow actions (approve/reject)
+    // 7. Handle workflow actions via unified academic workflow system
     if ((courseData as any).workflow_action) {
       const workflowAction = (courseData as any).workflow_action;
       const comment = (courseData as any).comment || '';
-      // Only accept status and comment from request; compute stage by action
-      const status = toCourseStatus((courseData as any).status) ?? CourseStatus.DRAFT;
-      const workflowStage = (() => {
-        const map: Record<string, WorkflowStage> = {
-          approve: WorkflowStage.ACADEMIC_OFFICE,
-          reject: WorkflowStage.FACULTY,
-          request_changes: WorkflowStage.FACULTY,
-          forward: WorkflowStage.ACADEMIC_BOARD,
-          final_approve: WorkflowStage.ACADEMIC_BOARD,
-          final_reject: WorkflowStage.ACADEMIC_BOARD,
-          delete: WorkflowStage.ACADEMIC_OFFICE,
-        };
-        return map[workflowAction] || WorkflowStage.FACULTY;
-      })();
-
-      // Debug logs for role and stage resolution
-      console.log('[CourseWorkflow]', {
-        courseId,
-        action: workflowAction,
-        requestedStatus: status,
-        resolvedStage: workflowStage,
-        currentUserRoleName,
-      });
-
-      // Check permissions for workflow actions
-      const session = await getServerSession(authOptions);
-      if (!session?.user?.permissions) {
-        throw new Error('Unauthorized - No session permissions');
-      }
       
-      const userPermissions = session.user.permissions as string[];
-      const requiredPermission = workflowAction === 'approve' ? 'tms.course.approve' : 'tms.course.reject';
+      // Get or create workflow instance for this course
+      let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
       
-      if (!userPermissions.includes(requiredPermission)) {
-        throw new Error(`Unauthorized - Missing permission: ${requiredPermission}`);
+      if (!workflowInstance) {
+        // Create new workflow instance if doesn't exist
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'COURSE',
+          entityId: BigInt(courseId),
+          initiatedBy: BigInt(session?.user?.id || 1),
+          metadata: {
+            course_id: courseId,
+            legacy_migration: true
+          }
+        });
       }
 
-      // Update course workflow
-      await tx.courseWorkflow.updateMany({
-        where: { course_id: BigInt(courseId) },
-        data: {
-          status,
-          workflow_stage: workflowStage,
-          notes: comment,
-          updated_at: new Date()
+      // Check if workflow is already completed
+      if (workflowInstance.status === 'COMPLETED' || workflowInstance.status === 'REJECTED') {
+        // Skip workflow action if already completed
+        console.log(`Workflow instance ${workflowInstance.id} is already ${workflowInstance.status}, skipping action`);
+      } else {
+        // Process workflow action using unified system
+        const updatedInstance = await academicWorkflowEngine.processAction(workflowInstance.id, {
+          action: workflowAction,
+          comments: comment,
+          approverId: BigInt(session?.user?.id || 1)
+        });
+
+        // Update course status based on workflow status
+        let courseStatus = resolvedStatus;
+        switch (updatedInstance.status) {
+          case 'PENDING':
+            courseStatus = CourseStatus.DRAFT;
+            break;
+          case 'IN_PROGRESS':
+            courseStatus = CourseStatus.REVIEWING;
+            break;
+          case 'APPROVED':
+            courseStatus = CourseStatus.APPROVED;
+            break;
+          case 'REJECTED':
+            courseStatus = CourseStatus.REJECTED;
+            break;
+          case 'COMPLETED':
+            courseStatus = CourseStatus.PUBLISHED;
+            break;
         }
-      });
 
-      // Sync status to Course table
-      await tx.course.update({
-        where: { id: BigInt(courseId) },
-        data: {
-          status,
-          updated_at: new Date()
-        }
-      });
-
-      // Build human-readable reviewer note: "role - description - action"
-      const actionLabelMap: Record<string, string> = {
-        'approve': 'đã phê duyệt',
-        'reject': 'đã từ chối',
-        'request_changes': 'đã yêu cầu chỉnh sửa',
-        'forward': 'đã chuyển tiếp',
-        'final_approve': 'đã công bố',
-        'final_reject': 'đã từ chối cuối cùng',
-        'delete': 'đã xóa'
-      };
-      const reviewerNoteParts = [
-        currentUserRoleName ?? undefined,
-        currentUserRoleDescription ?? undefined,
-        actionLabelMap[workflowAction] ?? undefined
-      ].filter(Boolean) as string[];
-      const reviewerNote = reviewerNoteParts.join(' - ');
-
-      // Map workflow_action to DB-allowed history action enum
-      const historyActionMap: Record<string, 'SUBMIT' | 'APPROVE' | 'REJECT' | 'RETURN' | 'PUBLISH' | 'ARCHIVE'> = {
-        approve: 'APPROVE',
-        reject: 'REJECT',
-        request_changes: 'RETURN',
-        forward: 'SUBMIT',
-        final_approve: 'PUBLISH',
-        final_reject: 'REJECT',
-        delete: 'ARCHIVE',
-      };
-      const historyAction = historyActionMap[workflowAction] || 'SUBMIT';
-
-      // Create approval history entry
-      await tx.courseApprovalHistory.create({
-        data: {
-          course_id: BigInt(courseId),
-          action: historyAction,
-          from_status: CourseStatus.DRAFT, // TODO: Get current status
-          to_status: status,
-          reviewer_id: BigInt(session.user.id),
-          // Store current user's role name directly (constraint removed on DB)
-          reviewer_role: currentUserRoleName ?? 'unknown',
-          comments: reviewerNote ? (comment ? `${reviewerNote} | ${comment}` : reviewerNote) : comment,
-          created_at: new Date()
-        }
-      });
+        // Update course status
+        await tx.course.update({
+          where: { id: BigInt(courseId) },
+          data: { status: courseStatus }
+        });
+      }
     }
 
-    return { updatedCourse, updatedWorkflow, updatedContent, updatedAudit };
+    return { updatedCourse, updatedContent, updatedAudit };
   }).catch((error) => {
     if (error.code === 'P2002') {
       // Unique constraint violation
@@ -472,7 +409,7 @@ const deleteCourse = async (id: string, request: Request) => {
     throw new Error('Course not found');
   }
 
-  // Delete course (cascade will handle related records in course_workflows, course_contents, course_audits, etc.)
+  // Delete course (cascade will handle related records in course_contents, course_audits, etc.)
   await db.course.delete({
     where: { id: BigInt(courseId) }
   });
