@@ -159,7 +159,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   ]);
 
   return {
-    data: majors,
+    items: majors,
     pagination: {
       page,
       limit,

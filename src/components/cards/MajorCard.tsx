@@ -23,6 +23,13 @@ import {
   Cancel as ClosedIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { 
+  MajorStatus, 
+  getMajorStatusColor, 
+  getMajorStatusLabel,
+  formatMajorDuration,
+  formatMajorCredits
+} from '@/constants/majors';
 
 interface Major {
   id: number;
@@ -32,6 +39,8 @@ interface Major {
   short_name?: string;
   degree_level: string;
   duration_years?: number;
+  total_credits_min?: number;
+  total_credits_max?: number;
   status: string;
   org_unit_id: number;
   OrgUnit?: {
@@ -88,44 +97,32 @@ interface MajorCardProps {
 
 // Helper functions for status
 const getStatusConfig = (status: string) => {
+  const color = getMajorStatusColor(status);
+  const label = getMajorStatusLabel(status);
+  
+  let icon = <DraftIcon />;
   switch (status) {
-    case 'active': 
-      return { 
-        color: 'success' as const, 
-        label: 'Hoạt động', 
-        icon: <ActiveIcon />
-      };
-    case 'draft': 
-      return { 
-        color: 'default' as const, 
-        label: 'Nháp', 
-        icon: <DraftIcon />
-      };
-    case 'proposed': 
-      return { 
-        color: 'info' as const, 
-        label: 'Đề xuất', 
-        icon: <ProposedIcon />
-      };
-    case 'suspended': 
-      return { 
-        color: 'warning' as const, 
-        label: 'Tạm dừng', 
-        icon: <SuspendedIcon />
-      };
-    case 'closed': 
-      return { 
-        color: 'error' as const, 
-        label: 'Đóng', 
-        icon: <ClosedIcon />
-      };
+    case MajorStatus.ACTIVE: 
+      icon = <ActiveIcon />;
+      break;
+    case MajorStatus.DRAFT: 
+      icon = <DraftIcon />;
+      break;
+    case MajorStatus.PROPOSED: 
+      icon = <ProposedIcon />;
+      break;
+    case MajorStatus.SUSPENDED: 
+      icon = <SuspendedIcon />;
+      break;
+    case MajorStatus.CLOSED: 
+    case MajorStatus.ARCHIVED:
+      icon = <ClosedIcon />;
+      break;
     default: 
-      return { 
-        color: 'default' as const, 
-        label: status, 
-        icon: <DraftIcon />
-      };
+      icon = <DraftIcon />;
   }
+  
+  return { color, label, icon };
 };
 
 export default function MajorCard({ major, onDelete }: MajorCardProps) {
@@ -166,7 +163,7 @@ export default function MajorCard({ major, onDelete }: MajorCardProps) {
                   <>
                     <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.secondary' }} />
                     <Typography variant="body2" color="text.secondary">
-                      {major.duration_years} năm
+                      {formatMajorDuration(major.duration_years)}
                     </Typography>
                   </>
                 )}
@@ -185,17 +182,29 @@ export default function MajorCard({ major, onDelete }: MajorCardProps) {
             />
           </Stack>
 
-          {/* Organization */}
-          {major.OrgUnit && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Đơn vị quản lý
-              </Typography>
-              <Typography variant="body1" fontWeight="medium">
-                {major.OrgUnit.name}
-              </Typography>
-            </Box>
-          )}
+          {/* Organization & Credits */}
+          <Stack direction="row" spacing={4} flexWrap="wrap">
+            {major.OrgUnit && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Đơn vị quản lý
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {major.OrgUnit.name}
+                </Typography>
+              </Box>
+            )}
+            {(major.total_credits_min || major.total_credits_max) && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Tín chỉ
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
+                  {formatMajorCredits(major.total_credits_min, major.total_credits_max)}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
 
           {/* Stats */}
           <Stack direction="row" spacing={3} flexWrap="wrap">

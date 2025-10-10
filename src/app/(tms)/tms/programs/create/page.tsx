@@ -18,6 +18,8 @@ import {
   Stack,
   TextField,
   Typography,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -66,12 +68,45 @@ export default function CreateProgramPage(): JSX.Element {
   const router = useRouter();
   const [form, setForm] = useState<ProgramFormState>(createDefaultProgramForm());
   const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
+  const [majors, setMajors] = useState<any[]>([]);
   const [courseOptions, setCourseOptions] = useState<CourseOption[]>([]);
   const [blockCourseSelections, setBlockCourseSelections] = useState<Record<string, CourseOption | null>>({});
   const [standaloneCourseSelection, setStandaloneCourseSelection] = useState<CourseOption | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Program code suggestions
+  const programCodeSuggestions = [
+    'CNTT-19', 'KTPM-19', 'KTMT-19', 'QTKD-19', 'KHDL-19', 'CNTP-19', 'CNÔT-19',
+    'TCNH-19', 'MKT-19', 'KTE-19', 'LOG-19', 'DLNH-19', 'QTKS-19',
+    'CNTT-20', 'KTPM-20', 'KTMT-20', 'QTKD-20', 'KHDL-20', 'CNTP-20', 'CNÔT-20',
+    'TCNH-20', 'MKT-20', 'KTE-20', 'LOG-20', 'DLNH-20', 'QTKS-20'
+  ];
+
+  // PLO templates
+  const ploTemplates = [
+    "Có khả năng áp dụng kiến thức toán học, khoa học tự nhiên và kỹ thuật vào các vấn đề kỹ thuật phức tạp",
+    "Có khả năng thiết kế và tiến hành thí nghiệm, phân tích và giải thích dữ liệu",
+    "Có khả năng thiết kế hệ thống, thành phần hoặc quy trình đáp ứng các yêu cầu kỹ thuật cụ thể",
+    "Có khả năng làm việc hiệu quả trong nhóm đa ngành để giải quyết vấn đề kỹ thuật",
+    "Có khả năng xác định, xây dựng và giải quyết các vấn đề kỹ thuật phức tạp",
+    "Có khả năng giao tiếp hiệu quả với các đối tượng khác nhau về các vấn đề kỹ thuật",
+    "Có khả năng nhận biết và đánh giá tác động của các giải pháp kỹ thuật trong bối cảnh xã hội và môi trường",
+    "Có khả năng học tập suốt đời và phát triển nghề nghiệp",
+    "Có khả năng sử dụng các kỹ thuật, kỹ năng và công cụ kỹ thuật hiện đại cần thiết cho thực hành kỹ thuật",
+    "Có khả năng áp dụng kiến thức về quản lý dự án, tài chính và kinh tế trong các dự án kỹ thuật",
+    "Có khả năng phân tích và đánh giá rủi ro trong các dự án kỹ thuật",
+    "Có khả năng thiết kế và triển khai các giải pháp bảo mật thông tin",
+    "Có khả năng phát triển và triển khai các ứng dụng phần mềm",
+    "Có khả năng quản lý và phân tích dữ liệu lớn",
+    "Có khả năng thiết kế và triển khai các hệ thống mạng và bảo mật",
+    "Có khả năng phát triển các ứng dụng di động và web",
+    "Có khả năng làm việc với các công nghệ trí tuệ nhân tạo và machine learning",
+    "Có khả năng thiết kế và triển khai các hệ thống IoT",
+    "Có khả năng quản lý và tối ưu hóa cơ sở dữ liệu",
+    "Có khả năng phát triển và triển khai các giải pháp cloud computing"
+  ];
 
   // Helpers to create empty group and rule (aligned with edit page)
   const createEmptyBlockGroup = (): ProgramBlockGroupItem => ({
@@ -94,7 +129,7 @@ export default function CreateProgramPage(): JSX.Element {
 
   const fetchOrgUnits = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/faculties?limit=200');
+      const response = await fetch('/api/tms/faculties');
       const result = (await response.json()) as {
         data?: { items?: OrgUnitApiItem[] };
       };
@@ -107,9 +142,29 @@ export default function CreateProgramPage(): JSX.Element {
     }
   }, []);
 
+  const fetchMajors = useCallback(async (orgUnitId?: string) => {
+    try {
+      const qs = new URLSearchParams();
+      if (orgUnitId) qs.set('org_unit_id', orgUnitId);
+      const response = await fetch(`/api/tms/majors?${qs.toString()}`);
+      const result = await response.json();
+      
+      if (response.ok && result?.success && Array.isArray(result.data?.items)) {
+        setMajors(result.data.items.map((item: any) => ({
+          id: item.id?.toString?.() ?? '',
+          name_vi: item.name_vi,
+          code: item.code,
+          org_unit_id: item.org_unit_id?.toString?.() ?? (item.OrgUnit?.id?.toString?.() ?? ''),
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to fetch majors', err);
+    }
+  }, []);
+
   const fetchCourseOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/courses?list=true&limit=200');
+      const response = await fetch('/api/tms/courses?list=true');
       const result = (await response.json()) as {
         success: boolean;
         data?: { items?: Array<{ id: string | number; code: string; name_vi?: string | null; credits?: number | string | null }> };
@@ -139,6 +194,101 @@ export default function CreateProgramPage(): JSX.Element {
     fetchOrgUnits();
     fetchCourseOptions();
   }, [fetchOrgUnits, fetchCourseOptions]);
+
+  useEffect(() => {
+    if (form.orgUnitId) {
+      fetchMajors(form.orgUnitId);
+    } else {
+      setMajors([]);
+      setForm((prev) => ({ ...prev, majorId: '' }));
+    }
+  }, [form.orgUnitId, fetchMajors]);
+
+  // Đồng bộ ngành theo đơn vị: nếu ngành hiện tại không thuộc đơn vị được chọn thì xóa chọn ngành
+  useEffect(() => {
+    if (!form.orgUnitId) return;
+    const ok = majors.some((m: any) => m.id === form.majorId && m.org_unit_id === form.orgUnitId);
+    if (!ok && form.majorId) {
+      setForm((prev) => ({ ...prev, majorId: '' }));
+    }
+  }, [form.orgUnitId, form.majorId, majors]);
+
+  // Prefill 5 default blocks with heuristic course assignments
+  useEffect(() => {
+    if (form.blocks.length > 0) return;
+    if (courseOptions.length === 0) return;
+
+    // Categorize courses heuristically by code/name
+    const toLowerNoAccents = (s: string) => s.toLowerCase();
+    const hasAny = (text: string, keywords: string[]) => keywords.some(k => toLowerNoAccents(text).includes(k));
+
+    const categories: Record<string, CourseOption[]> = {
+      GENERAL: [],
+      FOUNDATION: [],
+      SUPPORT: [],
+      MAJOR: [],
+      CAPSTONE: [],
+    };
+
+    const generalKw = ['đại cương', 'triết', 'pháp luật', 'tư tưởng', 'giáo dục thể chất', 'anh', 'english', 'gen'];
+    const foundationKw = ['cơ sở', 'toán', 'xác suất', 'thống kê', 'linear', 'giải tích', 'foundation'];
+    const supportKw = ['bổ trợ', 'kỹ năng', 'kỹ năng mềm', 'nhập môn', 'cơ bản', 'intro', 'fundamentals'];
+    const majorKw = ['chuyên ngành', 'nâng cao', 'chuyên sâu', 'major', 'core'];
+    const capstoneKw = ['đồ án', 'khóa luận', 'thực tập', 'intern', 'thesis', 'capstone'];
+
+    courseOptions.forEach((c) => {
+      const text = `${c.code} ${c.name}`;
+      if (hasAny(text, capstoneKw)) {
+        categories.CAPSTONE.push(c);
+      } else if (hasAny(text, generalKw)) {
+        categories.GENERAL.push(c);
+      } else if (hasAny(text, foundationKw)) {
+        categories.FOUNDATION.push(c);
+      } else if (hasAny(text, majorKw)) {
+        categories.MAJOR.push(c);
+      } else if (hasAny(text, supportKw)) {
+        categories.SUPPORT.push(c);
+      } else {
+        // fallback sprinkle into SUPPORT/MAJOR
+        (categories.SUPPORT.length <= categories.MAJOR.length ? categories.SUPPORT : categories.MAJOR).push(c);
+      }
+    });
+
+    const pick = (arr: CourseOption[], n: number) => arr.slice(0, n);
+
+    const defs: Array<{ code: string; title: string; blockType: ProgramBlockType; pickFrom: CourseOption[]; requiredCount: number }> = [
+      { code: 'GEN', title: 'Khối kiến thức giáo dục đại cương', blockType: 'GENERAL' as ProgramBlockType, pickFrom: pick(categories.GENERAL, 6), requiredCount: 3 },
+      { code: 'FND', title: 'Khối kiến thức cơ sở ngành', blockType: 'FOUNDATION' as ProgramBlockType, pickFrom: pick(categories.FOUNDATION, 6), requiredCount: 3 },
+      { code: 'SUP', title: 'Khối kiến thức bổ trợ', blockType: 'ELECTIVE' as ProgramBlockType, pickFrom: pick(categories.SUPPORT, 6), requiredCount: 2 },
+      { code: 'MAJ', title: 'Khối kiến thức chuyên ngành', blockType: 'MAJOR' as ProgramBlockType, pickFrom: pick(categories.MAJOR, 6), requiredCount: 4 },
+      { code: 'CAP', title: 'Thực tập, Đồ án/Khóa luận tốt nghiệp', blockType: 'THESIS' as ProgramBlockType, pickFrom: pick(categories.CAPSTONE, 3), requiredCount: 1 },
+    ];
+
+    const blocks: ProgramBlockFormItem[] = defs.map((d, idx) => {
+      const courses: ProgramCourseFormItem[] = d.pickFrom.map((c, i) => ({
+        id: createEmptyCourse().id,
+        courseId: c.id,
+        courseCode: c.code,
+        courseName: c.name,
+        credits: c.credits,
+        required: i < d.requiredCount,
+        displayOrder: i + 1,
+        groupId: null,
+      }));
+
+      return {
+        ...createEmptyBlock(),
+        code: d.code,
+        title: d.title,
+        blockType: d.blockType,
+        displayOrder: idx + 1,
+        courses,
+        groups: [],
+      };
+    });
+
+    setForm((prev) => ({ ...prev, blocks }));
+  }, [courseOptions, form.blocks.length]);
 
   const updateForm = <K extends keyof ProgramFormState>(key: K, value: ProgramFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -347,6 +497,14 @@ export default function CreateProgramPage(): JSX.Element {
     setForm((prev) => ({ ...prev, outcomes: [...prev.outcomes, createEmptyOutcome()] }));
   };
 
+  const handleAddOutcomeFromTemplate = (template: string) => {
+    const newOutcome = {
+      ...createEmptyOutcome(),
+      label: template,
+    };
+    setForm((prev) => ({ ...prev, outcomes: [...prev.outcomes, newOutcome] }));
+  };
+
   const handleOutcomeChange = (id: string, key: keyof ProgramOutcomeFormItem, value: string) => {
     setForm((prev) => ({
       ...prev,
@@ -500,7 +658,7 @@ export default function CreateProgramPage(): JSX.Element {
     setError(null);
 
     try {
-      const payload = buildProgramPayloadFromForm(form);
+      const payload = buildProgramPayloadFromForm(form, false);
 
       const response = await fetch('/api/tms/programs', {
         method: 'POST',
@@ -511,7 +669,17 @@ export default function CreateProgramPage(): JSX.Element {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tạo chương trình');
+        const msg = (result && (result.details || result.error)) || 'Không thể tạo chương trình';
+        throw new Error(msg);
+      }
+
+      // Apply default framework if requested
+      if (form.applyDefaultFramework && result?.data?.id) {
+        await fetch('/api/tms/programs/apply-default-framework', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ program_id: Number(result.data.id) }),
+        });
       }
 
       setSuccessMessage('Đã tạo chương trình đào tạo thành công.');
@@ -525,7 +693,7 @@ export default function CreateProgramPage(): JSX.Element {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4 }}>
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
           Quay lại
@@ -554,21 +722,29 @@ export default function CreateProgramPage(): JSX.Element {
               Thông tin cơ bản
             </Typography>
             <Stack spacing={2}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <TextField
-                  label="Mã chương trình *"
-                  value={form.code}
-                  onChange={(event) => updateForm('code', event.target.value.toUpperCase())}
-                  required
-                  fullWidth
-                />
-                <TextField
-                  label="Phiên bản"
-                  value={form.version}
-                  onChange={(event) => updateForm('version', event.target.value)}
-                  fullWidth
-                />
-              </Stack>
+               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                 <Autocomplete
+                   freeSolo
+                   options={programCodeSuggestions}
+                   value={form.code}
+                   onInputChange={(_, newValue) => updateForm('code', newValue.toUpperCase())}
+                   renderInput={(params) => (
+                     <TextField
+                       {...params}
+                       label="Mã chương trình *"
+                       required
+                       fullWidth
+                     />
+                   )}
+                   fullWidth
+                 />
+                 <TextField
+                   label="Phiên bản"
+                   value={form.version}
+                   onChange={(event) => updateForm('version', event.target.value)}
+                   fullWidth
+                 />
+               </Stack>
               <TextField
                 label="Tên chương trình (Tiếng Việt) *"
                 value={form.nameVi}
@@ -622,60 +798,121 @@ export default function CreateProgramPage(): JSX.Element {
                   ))}
                 </Select>
               </Stack>
-              <TextField
-                label="Mã ngành (tuỳ chọn)"
-                value={form.majorId}
-                onChange={(event) => updateForm('majorId', event.target.value)}
-                helperText="Nhập ID ngành đào tạo nếu có"
-                fullWidth
+               <Select
+                 value={form.majorId}
+                 onChange={(event) => updateForm('majorId', event.target.value)}
+                 displayEmpty
+                 fullWidth
+                 renderValue={(value) => {
+                   if (!value) {
+                     return <span style={{ color: '#9e9e9e' }}>Chọn ngành đào tạo (lọc theo đơn vị)</span>;
+                   }
+                   const major = majors.find((item: any) => item.id === value);
+                   return major ? `${major.code} - ${major.name_vi}` : value;
+                 }}
+                 disabled={!form.orgUnitId}
+               >
+                 <MenuItem value="">
+                   <em>Chọn ngành đào tạo (tùy chọn)</em>
+                 </MenuItem>
+                 {majors
+                   .filter((m: any) => !form.orgUnitId || m.org_unit_id === form.orgUnitId)
+                   .map((major: any) => (
+                     <MenuItem key={major.id} value={major.id}>
+                       {major.code} - {major.name_vi}
+                     </MenuItem>
+                   ))}
+               </Select>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!form.applyDefaultFramework}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateForm('applyDefaultFramework', e.target.checked)}
+                  />
+                }
+                label="Áp dụng khung chuẩn"
               />
             </Stack>
           </Paper>
 
+           <Paper sx={{ p: 3, mt: 3 }}>
+             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+               <Typography variant="h6">Chuẩn đầu ra chương trình</Typography>
+               <Button startIcon={<AddIcon />} onClick={handleAddOutcome}>
+                 Thêm chuẩn đầu ra
+               </Button>
+             </Stack>
+             
+             {/* PLO Templates */}
+             <Box sx={{ mb: 3 }}>
+               <Typography variant="subtitle2" gutterBottom>
+                 Mẫu chuẩn đầu ra có sẵn:
+               </Typography>
+               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                 {ploTemplates.slice(0, 10).map((template, index) => (
+                   <Chip
+                     key={index}
+                     label={`PLO ${index + 1}`}
+                     onClick={() => handleAddOutcomeFromTemplate(template)}
+                     variant="outlined"
+                     size="small"
+                     sx={{ mb: 1 }}
+                   />
+                 ))}
+               </Stack>
+               <Button
+                 size="small"
+                 onClick={() => {
+                   // Add all remaining templates
+                   ploTemplates.slice(10).forEach(template => {
+                     handleAddOutcomeFromTemplate(template);
+                   });
+                 }}
+                 sx={{ mt: 1 }}
+               >
+                 Thêm tất cả mẫu
+               </Button>
+             </Box>
+             
+             {form.outcomes.length === 0 && (
+               <Alert severity="info">Chưa có chuẩn đầu ra nào. Thêm mới để mô tả PLO.</Alert>
+             )}
+             <Stack spacing={2}>
+               {form.outcomes.map((outcome) => (
+                 <Paper key={outcome.id} variant="outlined" sx={{ p: 2 }}>
+                   <Stack spacing={1}>
+                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                       <Select
+                         value={outcome.category}
+                         onChange={(event) => handleOutcomeChange(outcome.id, 'category', event.target.value)}
+                         sx={{ minWidth: 160 }}
+                       >
+                         <MenuItem value="general">Chuẩn chung</MenuItem>
+                         <MenuItem value="specific">Chuẩn cụ thể</MenuItem>
+                       </Select>
+                       <Box sx={{ flexGrow: 1 }}>
+                         <TextField
+                           value={outcome.label}
+                           onChange={(event) => handleOutcomeChange(outcome.id, 'label', event.target.value)}
+                           placeholder="Mô tả chuẩn đầu ra"
+                           fullWidth
+                           multiline
+                           rows={1}
+                         />
+                       </Box>
+                       <IconButton color="error" onClick={() => handleOutcomeRemove(outcome.id)}>
+                         <DeleteIcon />
+                       </IconButton>
+                     </Stack>
+                   </Stack>
+                 </Paper>
+               ))}
+             </Stack>
+           </Paper>
+{/* 
           <Paper sx={{ p: 3, mt: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-              <Typography variant="h6">Chuẩn đầu ra chương trình</Typography>
-              <Button startIcon={<AddIcon />} onClick={handleAddOutcome}>
-                Thêm chuẩn đầu ra
-              </Button>
-            </Stack>
-            {form.outcomes.length === 0 && (
-              <Alert severity="info">Chưa có chuẩn đầu ra nào. Thêm mới để mô tả PLO.</Alert>
-            )}
-            <Stack spacing={2}>
-              {form.outcomes.map((outcome) => (
-                <Paper key={outcome.id} variant="outlined" sx={{ p: 2 }}>
-                  <Stack spacing={1}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                      <Select
-                        value={outcome.category}
-                        onChange={(event) => handleOutcomeChange(outcome.id, 'category', event.target.value)}
-                        sx={{ minWidth: 160 }}
-                      >
-                        <MenuItem value="general">Chuẩn chung</MenuItem>
-                        <MenuItem value="specific">Chuẩn cụ thể</MenuItem>
-                      </Select>
-                      <Box sx={{ flexGrow: 1 }}>
-                        <TextField
-                          value={outcome.label}
-                          onChange={(event) => handleOutcomeChange(outcome.id, 'label', event.target.value)}
-                          placeholder="Mô tả chuẩn đầu ra"
-                          fullWidth
-                        />
-                      </Box>
-                      <IconButton color="error" onClick={() => handleOutcomeRemove(outcome.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Stack>
-                  </Stack>
-                </Paper>
-              ))}
-            </Stack>
-          </Paper>
-
-          <Paper sx={{ p: 3, mt: 3 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-              <Typography variant="h6">Khối học phần</Typography>
+              <Typography variant="h6">Xây dựng Khung chương trình đào tạo</Typography>
               <Button startIcon={<AddIcon />} onClick={handleAddBlock}>
                 Thêm khối học phần
               </Button>
@@ -728,7 +965,7 @@ export default function CreateProgramPage(): JSX.Element {
                         <Alert severity="info">Khối này chưa có học phần nào.</Alert>
                       ) : (
                         <Stack spacing={1.5}>
-                          {/* Ungrouped courses section */}
+
                           {block.courses.filter((c) => !c.groupId).length === 0 ? (
                             <Alert severity="info">Tất cả học phần đã được gán vào các nhóm.</Alert>
                           ) : (
@@ -797,133 +1034,12 @@ export default function CreateProgramPage(): JSX.Element {
                 ))}
               </Stack>
             )}
-          </Paper>
+          </Paper> 
+*/}
 
-          {/* Block Groups Management aligned with edit page */}
-          {form.blocks.length > 0 && (
-            <Paper sx={{ p: 3, mt: 3 }}>
-              <Stack spacing={2}>
-                <Typography variant="h6">Nhóm khối học phần (Program Block Groups)</Typography>
-                <Stack spacing={2}>
-                  {form.blocks.map((block) => (
-                    <Paper key={block.id} variant="outlined" sx={{ p: 2 }}>
-                      <Stack spacing={2}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center">
-                          <Typography variant="subtitle1" fontWeight="medium">
-                            {block.code || 'Chưa có mã khối'} — Nhóm học phần
-                          </Typography>
-                          <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => handleAddGroupToBlock(block.id)}>
-                            Thêm nhóm
-                          </Button>
-                        </Stack>
+          {/* Simplified model: hide group/rule management */}
 
-                        {(block.groups || []).length === 0 ? (
-                          <Alert severity="info">Chưa có nhóm nào trong khối này.</Alert>
-                        ) : (
-                          <Stack spacing={2}>
-                            {(block.groups || []).map((group) => (
-                              <Paper key={group.id} variant="outlined" sx={{ p: 2 }}>
-                                <Stack spacing={2}>
-                                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                                    <TextField label="Mã nhóm" value={group.code} onChange={(e) => handleGroupFieldChange(block.id, group.id, 'code', e.target.value)} sx={{ minWidth: 140 }} />
-                                    <TextField label="Tên nhóm" value={group.title} onChange={(e) => handleGroupFieldChange(block.id, group.id, 'title', e.target.value)} fullWidth />
-                                    <Select value={group.groupType} onChange={(e) => handleGroupFieldChange(block.id, group.id, 'groupType', e.target.value as ProgramBlockGroupType)} sx={{ minWidth: 140 }}>
-                                      {PROGRAM_BLOCK_GROUP_TYPES.map((t) => (
-                                        <MenuItem key={t} value={t}>{getProgramBlockGroupTypeLabel(t)}</MenuItem>
-                                      ))}
-                                    </Select>
-                                    <TextField label="Thứ tự" type="number" value={group.displayOrder} onChange={(e) => handleGroupFieldChange(block.id, group.id, 'displayOrder', Number(e.target.value) || 1)} sx={{ width: 100 }} inputProps={{ min: 1 }} />
-                                    <IconButton color="error" onClick={() => handleRemoveGroupFromBlock(block.id, group.id)}>
-                                      <DeleteIcon />
-                                    </IconButton>
-                                  </Stack>
-
-                                  <Stack spacing={1}>
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                      <Typography variant="subtitle2">Quy tắc nhóm</Typography>
-                                      <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => handleAddRuleToGroup(block.id, group.id)}>
-                                        Thêm quy tắc
-                                      </Button>
-                                    </Stack>
-
-                                    {(group.rules || []).length === 0 ? (
-                                      <Alert severity="info" sx={{ py: 1 }}>Chưa có quy tắc nào.</Alert>
-                                    ) : (
-                                      <Stack spacing={1}>
-                                        {(group.rules || []).map((rule) => (
-                                          <Paper key={rule.id} variant="outlined" sx={{ p: 1.5 }}>
-                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                                              <TextField label="Tín chỉ tối thiểu" type="number" value={rule.minCredits || ''} onChange={(e) => handleRuleFieldChange(block.id, group.id, rule.id, 'minCredits', e.target.value ? Number(e.target.value) : null)} sx={{ width: 140 }} inputProps={{ min: 0 }} />
-                                              <TextField label="Tín chỉ tối đa" type="number" value={rule.maxCredits || ''} onChange={(e) => handleRuleFieldChange(block.id, group.id, rule.id, 'maxCredits', e.target.value ? Number(e.target.value) : null)} sx={{ width: 140 }} inputProps={{ min: 0 }} />
-                                              <TextField label="Số học phần tối thiểu" type="number" value={rule.minCourses || ''} onChange={(e) => handleRuleFieldChange(block.id, group.id, rule.id, 'minCourses', e.target.value ? Number(e.target.value) : null)} sx={{ width: 160 }} inputProps={{ min: 0 }} />
-                                              <TextField label="Số học phần tối đa" type="number" value={rule.maxCourses || ''} onChange={(e) => handleRuleFieldChange(block.id, group.id, rule.id, 'maxCourses', e.target.value ? Number(e.target.value) : null)} sx={{ width: 160 }} inputProps={{ min: 0 }} />
-                                              <IconButton color="error" onClick={() => handleRemoveRuleFromGroup(block.id, group.id, rule.id)}>
-                                                <DeleteIcon />
-                                              </IconButton>
-                                            </Stack>
-                                          </Paper>
-                                        ))}
-                                      </Stack>
-                                    )}
-                                  </Stack>
-
-                                  {/* Courses in group */}
-                                  <Stack spacing={1}>
-                                    <Typography variant="subtitle2">Học phần trong nhóm</Typography>
-                                    <Stack spacing={1}>
-                                      {block.courses.filter((c) => c.groupId === group.id).map((course) => (
-                                        <Paper key={course.id} variant="outlined" sx={{ p: 1.5 }}>
-                                          <Stack spacing={2}>
-                                            <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-                                              <Box sx={{ flexGrow: 1 }}>
-                                                <Typography variant="body2" fontWeight={600}>{course.courseCode} — {course.courseName}</Typography>
-                                                <Typography variant="caption" color="text.secondary">{course.credits} tín chỉ</Typography>
-                                              </Box>
-                                              <Button size="small" variant="outlined" onClick={() => handleBlockCourseChange(block.id, course.id, 'groupId', null)}>
-                                                Gỡ khỏi nhóm
-                                              </Button>
-                                            </Stack>
-                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-                                              <Select value={course.required ? 'required' : 'optional'} onChange={(e: SelectChangeEvent<string>) => handleBlockCourseChange(block.id, course.id, 'required', e.target.value === 'required')} sx={{ minWidth: 140 }}>
-                                                <MenuItem value="required">Bắt buộc</MenuItem>
-                                                <MenuItem value="optional">Tự chọn</MenuItem>
-                                              </Select>
-                                              <TextField label="Thứ tự" type="number" value={course.displayOrder} onChange={(e) => handleBlockCourseChange(block.id, course.id, 'displayOrder', Number(e.target.value) || 1)} sx={{ width: 120 }} inputProps={{ min: 1 }} />
-                                              <IconButton color="error" onClick={() => handleRemoveCourseFromBlock(block.id, course.id)}>
-                                                <DeleteIcon />
-                                              </IconButton>
-                                            </Stack>
-                                          </Stack>
-                                        </Paper>
-                                      ))}
-                                    </Stack>
-
-                                    {/* Assign ungrouped courses */}
-                                    {block.courses.filter((c) => !c.groupId).length > 0 && (
-                                      <Stack spacing={1}>
-                                        <Typography variant="caption" color="text.secondary">Gán học phần chưa thuộc nhóm:</Typography>
-                                        {block.courses.filter((c) => !c.groupId).map((course) => (
-                                          <Button key={course.id} size="small" variant="outlined" onClick={() => handleBlockCourseChange(block.id, course.id, 'groupId', group.id)} sx={{ justifyContent: 'flex-start' }}>
-                                            {course.courseCode} — {course.courseName}
-                                          </Button>
-                                        ))}
-                                      </Stack>
-                                    )}
-                                  </Stack>
-                                </Stack>
-                              </Paper>
-                            ))}
-                          </Stack>
-                        )}
-                      </Stack>
-                    </Paper>
-                  ))}
-                </Stack>
-              </Stack>
-            </Paper>
-          )}
-
-          <Paper sx={{ p: 3, mt: 3 }}>
+          {/* <Paper sx={{ p: 3, mt: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
               <Typography variant="h6">Học phần độc lập</Typography>
               <Button startIcon={<AddIcon />} onClick={handleAddStandaloneCourse}>
@@ -992,7 +1108,7 @@ export default function CreateProgramPage(): JSX.Element {
                 </Stack>
               )}
             </Stack>
-          </Paper>
+          </Paper> */}
         </Box>
 
         <Box sx={{ flex: 1 }}>

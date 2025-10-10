@@ -40,8 +40,8 @@ export const GET = withIdParam(async (id: string) => {
     status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
     stats: {
       student_count: program._count?.StudentAcademicProgress ?? 0,
-      block_count: program._count?.ProgramBlock ?? 0,
-      course_count: program._count?.ProgramCourseMap ?? 0,
+      block_count: program.ProgramCourseMap?.length ?? 0,
+      course_count: program.ProgramCourseMap?.length ?? 0,
     },
     priority: ProgramPriority.MEDIUM,
     unified_workflow: workflowInstance,
@@ -145,203 +145,34 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
       data,
     });
 
-    const shouldReplaceStructure = Array.isArray(payload.blocks) || Array.isArray(payload.standalone_courses);
+    const shouldReplaceStructure = Array.isArray((payload as any).block_templates);
     let blockCountOverride: number | null = null;
     let courseCountOverride: number | null = null;
 
     if (shouldReplaceStructure) {
-      const existingBlocks = await tx.programBlock.findMany({
-        where: { program_id: programBigInt },
-        select: {
-          code: true,
-          ProgramBlockGroup: {
-            select: {
-              code: true,
-              title: true,
-              group_type: true,
-              display_order: true,
-              ProgramBlockGroupRule: {
-                select: {
-                  min_credits: true,
-                  max_credits: true,
-                  min_courses: true,
-                  max_courses: true,
-                },
-              },
-            },
-            orderBy: { display_order: 'asc' },
-          },
-          ProgramCourseMap: {
-            select: {
-              course_id: true,
-              ProgramBlockGroup: {
-                select: { code: true },
-              },
-            },
-          },
-        },
-      });
-
-      const previousGroupsByBlock = new Map<string, typeof existingBlocks[number]['ProgramBlockGroup']>();
-      const previousCourseGroupByBlock = new Map<string, Map<number, string | null>>();
-
-      for (const block of existingBlocks) {
-        const normalizedCode = block.code?.trim() || '';
-        previousGroupsByBlock.set(normalizedCode, block.ProgramBlockGroup ?? []);
-
-        const courseGroupMap = new Map<number, string | null>();
-        for (const course of block.ProgramCourseMap ?? []) {
-          const numericCourseId = Number(course.course_id);
-          if (Number.isNaN(numericCourseId)) continue;
-          courseGroupMap.set(numericCourseId, course.ProgramBlockGroup?.code ?? null);
-        }
-        previousCourseGroupByBlock.set(normalizedCode, courseGroupMap);
-      }
-
+      // Delete existing course mappings
       await tx.programCourseMap.deleteMany({ where: { program_id: programBigInt } });
-      await tx.programBlock.deleteMany({ where: { program_id: programBigInt } });
 
-      const blocksInput = Array.isArray(payload.blocks) ? payload.blocks : [];
-      const standaloneInput = Array.isArray(payload.standalone_courses) ? payload.standalone_courses : [];
-
+      // Create new course mappings
+      const templatesInput = Array.isArray((payload as any).block_templates) ? (payload as any).block_templates : [];
       let blockCounter = 0;
       let courseCounter = 0;
 
-      for (let index = 0; index < blocksInput.length; index += 1) {
-        const blockInput = blocksInput[index];
-        const normalizedBlockCode = blockInput.code?.toString().trim() || `BLOCK-${index + 1}`;
-        const createdBlock = await tx.programBlock.create({
-          data: {
-            program_id: programBigInt,
-            code: normalizedBlockCode,
-            title: blockInput.title?.toString().trim() || `Khối học phần ${index + 1}`,
-            block_type: normalizeProgramBlockTypeForDb(blockInput.block_type),
-            display_order:
-              blockInput.display_order != null
-                ? Math.max(1, blockInput.display_order)
-                : index + 1,
-          },
-        });
-        blockCounter += 1;
-
-        const createdGroupIdByCode = new Map<string, bigint>();
-        const providedGroups = Array.isArray(blockInput.groups) ? blockInput.groups : null;
-        if (providedGroups && providedGroups.length > 0) {
-          for (let gi = 0; gi < providedGroups.length; gi += 1) {
-            const groupInput = providedGroups[gi];
-            const newGroup = await tx.programBlockGroup.create({
-              data: {
-                block_id: createdBlock.id,
-                code: groupInput.code,
-                title: groupInput.title,
-                group_type: normalizeProgramBlockGroupType(groupInput.group_type),
-                display_order:
-                  groupInput.display_order != null
-                    ? Math.max(1, groupInput.display_order)
-                    : gi + 1,
-              },
-            });
-            createdGroupIdByCode.set(groupInput.code, newGroup.id);
-            const rules = Array.isArray(groupInput.rules) ? groupInput.rules : [];
-            for (const rule of rules) {
-              await tx.programBlockGroupRule.create({
-                data: {
-                  group_id: newGroup.id,
-                  min_credits: rule.min_credits ?? null,
-                  max_credits: rule.max_credits ?? null,
-                  min_courses: rule.min_courses ?? null,
-                  max_courses: rule.max_courses ?? null,
-                },
-              });
-            }
-          }
-        } else {
-          const previousGroups = previousGroupsByBlock.get(normalizedBlockCode) ?? [];
-          for (const previousGroup of previousGroups) {
-            const newGroup = await tx.programBlockGroup.create({
-              data: {
-                block_id: createdBlock.id,
-                code: previousGroup.code,
-                title: previousGroup.title,
-                group_type: previousGroup.group_type,
-                display_order: previousGroup.display_order,
-              },
-            });
-            createdGroupIdByCode.set(previousGroup.code, newGroup.id);
-            for (const rule of previousGroup.ProgramBlockGroupRule ?? []) {
-              await tx.programBlockGroupRule.create({
-                data: {
-                  group_id: newGroup.id,
-                  min_credits: rule.min_credits,
-                  max_credits: rule.max_credits,
-                  min_courses: rule.min_courses,
-                  max_courses: rule.max_courses,
-                },
-              });
-            }
-          }
-        }
-
-        const previousCourseGroup = previousCourseGroupByBlock.get(normalizedBlockCode);
-
-        if (Array.isArray(blockInput.courses)) {
-          for (let courseIndex = 0; courseIndex < blockInput.courses.length; courseIndex += 1) {
-            const courseInput = blockInput.courses[courseIndex];
-            const numericCourseId = Number(courseInput.course_id);
-            if (Number.isNaN(numericCourseId)) continue;
-
-            let groupId: bigint | null = null;
-            // Prefer explicit group_code from payload
-            const providedGroupCode = (courseInput as { group_code?: string | null }).group_code || null;
-            if (providedGroupCode) {
-              const mappedId = createdGroupIdByCode.get(providedGroupCode);
-              if (mappedId) groupId = mappedId;
-            } else if (previousCourseGroup) {
-              const groupCode = previousCourseGroup.get(numericCourseId);
-              if (groupCode) {
-                const restoredGroupId = createdGroupIdByCode.get(groupCode);
-                if (restoredGroupId) {
-                  groupId = restoredGroupId;
-                }
-              }
-            }
-
-            await tx.programCourseMap.create({
-              data: {
-                program_id: programBigInt,
-                course_id: BigInt(numericCourseId),
-                block_id: createdBlock.id,
-                group_id: groupId,
-                is_required: courseInput.is_required ?? true,
-                display_order:
-                  courseInput.display_order != null
-                    ? Math.max(1, courseInput.display_order)
-                    : courseIndex + 1,
-              },
-            });
-            courseCounter += 1;
-          }
-        }
-      }
-
-      for (let index = 0; index < standaloneInput.length; index += 1) {
-        const courseInput = standaloneInput[index];
-        const numericCourseId = Number(courseInput.course_id);
-        if (Number.isNaN(numericCourseId)) continue;
+      for (let index = 0; index < templatesInput.length; index += 1) {
+        const templateInput = templatesInput[index];
+        const numericTemplateId = Number(templateInput.template_id);
+        if (Number.isNaN(numericTemplateId)) continue;
 
         await tx.programCourseMap.create({
           data: {
             program_id: programBigInt,
-            course_id: BigInt(numericCourseId),
-            block_id: null,
-            is_required: courseInput.is_required ?? true,
-            display_order:
-              courseInput.display_order != null
-                ? Math.max(1, courseInput.display_order)
-                : index + 1,
+            block_id: BigInt(numericTemplateId),
+            display_order: templateInput.display_order ? Math.max(1, templateInput.display_order) : index + 1,
+            is_required: templateInput.is_required ?? true,
           },
         });
-        courseCounter += 1;
+        blockCounter += 1;
+        courseCounter += 1; // Each mapping represents one course
       }
 
       blockCountOverride = blockCounter;
@@ -423,6 +254,26 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
         const engineAction = engineActionMap[workflowAction];
 
         if (engineAction) {
+          // Check if workflow instance is already completed
+          if (workflowInstance && (workflowInstance.status === 'COMPLETED' || workflowInstance.status === 'REJECTED')) {
+            // If workflow is completed (REJECTED), we need to create a new workflow instance for re-approval
+            if (workflowAction === 'approve' || workflowAction === 'review') {
+              // Create a new workflow instance for re-approval
+              workflowInstance = await academicWorkflowEngine.createWorkflow({
+                entityType: 'PROGRAM',
+                entityId: programBigInt,
+                initiatedBy: actorId,
+                metadata: {
+                  program_id: programId,
+                  code: payload.code ?? undefined,
+                },
+              }) as any;
+            } else {
+              // For other actions on completed workflow, return error
+              throw new Error(`Cannot perform ${workflowAction} on completed workflow instance ${workflowInstance?.id}`);
+            }
+          }
+
           const updatedInstance = await academicWorkflowEngine.processAction(workflowInstance!.id, {
             action: engineAction,
             comments: payload.workflow_notes ?? undefined,
@@ -478,8 +329,8 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
     return {
       program,
-      blockCount: blockCountOverride ?? program._count?.ProgramBlock ?? 0,
-      courseCount: courseCountOverride ?? program._count?.ProgramCourseMap ?? 0,
+      blockCount: blockCountOverride ?? program.ProgramCourseMap?.length ?? 0,
+      courseCount: courseCountOverride ?? program.ProgramCourseMap?.length ?? 0,
       workflowInstance: workflowSnapshot,
     };
   });

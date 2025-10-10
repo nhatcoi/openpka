@@ -18,6 +18,8 @@ import {
   Stack,
   TextField,
   Typography,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -603,15 +605,22 @@ export default function EditProgramPage(): JSX.Element {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Breadcrumbs sx={{ mb: 3 }}>
+        <Link href="/tms/programs" color="inherit">
+          Chương trình đào tạo
+        </Link>
+        <Link href={`/tms/programs/${programId}`} color="inherit">
+          Chi tiết chương trình
+        </Link>
+        <Typography color="text.primary">
+          Chỉnh sửa
+        </Typography>
+      </Breadcrumbs>
+      
       <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
-            Quay lại
-          </Button>
-          <Typography variant="h4" component="h1">
-            Chỉnh sửa chương trình đào tạo
-          </Typography>
-        </Stack>
+        <Typography variant="h4" component="h1">
+          Chỉnh sửa chương trình đào tạo
+        </Typography>
         <Stack direction="row" spacing={2}>
           <Button
             variant="outlined"

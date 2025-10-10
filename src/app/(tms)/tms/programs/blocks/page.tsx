@@ -3,27 +3,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
-  CircularProgress,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  FormControlLabel,
+  Grid,
   IconButton,
   InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
-  Pagination,
   Paper,
   Select,
-  SelectChangeEvent,
   Snackbar,
   Stack,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -31,8 +32,13 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
+  Breadcrumbs,
+  Link,
+  Avatar,
+  Tooltip,
+  Badge,
+  Divider,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -40,572 +46,453 @@ import {
   Edit as EditIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  Visibility as VisibilityIcon,
+  School as SchoolIcon,
+  FilterList as FilterIcon,
+  ViewList as ViewListIcon,
+  Apps as AppsIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
-import {
-  ProgramBlockType,
-  PROGRAM_BLOCK_TYPES,
-  getProgramBlockTypeLabel,
-} from '@/constants/programs';
-
-const DEFAULT_BLOCK_PAGE_SIZE = 10;
+import { getProgramBlockTypeLabel } from '@/constants/programs';
 
 interface ProgramOption {
   id: string;
   code: string;
   name: string;
-  label: string;
 }
 
-interface ProgramBlockListItem {
+interface TemplateOption {
   id: string;
-  programId: string;
-  program: ProgramOption | null;
   code: string;
   title: string;
-  blockType: ProgramBlockType;
-  displayOrder: number;
-  courseCount: number;
-  groupCount: number;
+  blockType: string;
+  isActive: boolean;
 }
 
-interface ProgramBlockCourseItem {
-  id: string;
-  mapId: string;
-  courseId: string;
-  code: string;
-  name: string;
-  credits: number;
-  required: boolean;
-  displayOrder: number;
+interface ProgramBlockRecord {
+  id: string | number;
+  programId: string | number;
+  programCode: string;
+  programName: string;
+  templateId: string | number;
+  templateCode: string;
+  templateTitle: string;
+  blockType: string;
+  blockTypeLabel: string;
+  displayOrder: number | null;
+  isRequired: boolean;
+  isActive: boolean;
+  customTitle?: string;
+  customDescription?: string;
 }
-
-interface ProgramBlockDetail extends ProgramBlockListItem {
-  courses: ProgramBlockCourseItem[];
-}
-
-interface ProgramListApiItem {
-  id?: string | number;
-  code?: string;
-  name_vi?: string;
-  name_en?: string;
-  label?: string;
-}
-
-interface ProgramListApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramListApiItem[];
-  };
-  error?: string;
-}
-
-interface ProgramBlockListApiItem {
-  id?: string | number;
-  programId?: string | number;
-  program?: {
-    id?: string | number;
-    code?: string;
-    name?: string;
-  } | null;
-  code?: string;
-  title?: string;
-  blockType?: ProgramBlockType | string;
-  displayOrder?: number;
-  courseCount?: number;
-  groupCount?: number;
-}
-
-interface ProgramBlockListApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramBlockListApiItem[];
-    pagination?: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  };
-  error?: string;
-}
-
-interface ProgramBlockCourseApiItem {
-  id?: string | number;
-  mapId?: string | number;
-  courseId?: string | number;
-  code?: string;
-  name?: string;
-  credits?: number;
-  required?: boolean;
-  displayOrder?: number;
-}
-
-interface ProgramBlockDetailApiItem extends ProgramBlockListApiItem {
-  courses?: ProgramBlockCourseApiItem[];
-}
-
-interface ProgramBlockDetailApiResponse {
-  success: boolean;
-  data?: ProgramBlockDetailApiItem;
-  error?: string;
-}
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
-
-type BlockFormMode = 'create' | 'edit';
 
 interface ProgramBlockFormState {
+  id: string | number | null;
   programId: string;
-  code: string;
-  title: string;
-  blockType: ProgramBlockType;
-  displayOrder: number | '';
+  templateId: string;
+  displayOrder: string;
+  isRequired: boolean;
+  isActive: boolean;
+  customTitle: string;
+  customDescription: string;
 }
 
-const BLOCK_TYPE_CHIP_COLOR: Record<ProgramBlockType, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
-  [ProgramBlockType.GENERAL]: 'info',
-  [ProgramBlockType.FOUNDATION]: 'primary',
-  [ProgramBlockType.CORE]: 'secondary',
-  [ProgramBlockType.MAJOR]: 'success',
-  [ProgramBlockType.ELECTIVE]: 'default',
-  [ProgramBlockType.THESIS]: 'warning',
-  [ProgramBlockType.INTERNSHIP]: 'info',
-  [ProgramBlockType.OTHER]: 'default',
-};
+const createEmptyFormState = (): ProgramBlockFormState => ({
+  id: null,
+  programId: '',
+  templateId: '',
+  displayOrder: '',
+  isRequired: true,
+  isActive: true,
+  customTitle: '',
+  customDescription: '',
+});
 
-function getBlockTypeChipColor(type: ProgramBlockType) {
-  return BLOCK_TYPE_CHIP_COLOR[type] ?? 'default';
-}
+const formatDisplayOrder = (value: number | null) => (value == null ? '—' : value);
 
-function createEmptyForm(): ProgramBlockFormState {
-  return {
-    programId: '',
-    code: '',
-    title: '',
-    blockType: ProgramBlockType.CORE,
-    displayOrder: '',
-  };
-}
+type ViewMode = 'table' | 'grid';
 
 export default function ProgramBlocksPage(): JSX.Element {
-  const [blocks, setBlocks] = useState<ProgramBlockListItem[]>([]);
+  const [blocks, setBlocks] = useState<ProgramBlockRecord[]>([]);
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
-  const [pagination, setPagination] = useState<PaginationState>({ page: 1, totalPages: 1, totalItems: 0 });
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
-  const [selectedBlockType, setSelectedBlockType] = useState<ProgramBlockType | 'all'>('all');
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [programLoading, setProgramLoading] = useState(false);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedProgram, setSelectedProgram] = useState<string>('all');
   const [searchValue, setSearchValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const [formOpen, setFormOpen] = useState(false);
-  const [formMode, setFormMode] = useState<BlockFormMode>('create');
-  const [formState, setFormState] = useState<ProgramBlockFormState>(createEmptyForm);
-  const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
-  const [editingBlock, setEditingBlock] = useState<ProgramBlockListItem | null>(null);
-
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailBlock, setDetailBlock] = useState<ProgramBlockDetail | null>(null);
-
-  const blockTypeOptions = useMemo(
-    () => PROGRAM_BLOCK_TYPES.map((type) => ({ value: type, label: getProgramBlockTypeLabel(type) })),
-    [],
+  const [formState, setFormState] = useState<ProgramBlockFormState>(createEmptyFormState);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | number | null>(null);
+  const [confirmDeleting, setConfirmDeleting] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>(
+    { open: false, message: '', severity: 'success' },
   );
 
-  const loadPrograms = useCallback(async () => {
+  const filteredBlocks = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return blocks.filter((block) => {
+      const matchesProgram = selectedProgram === 'all' || block.programId.toString() === selectedProgram;
+      const matchesSearch =
+        term === '' ||
+        block.programCode.toLowerCase().includes(term) ||
+        block.programName.toLowerCase().includes(term) ||
+        block.templateCode.toLowerCase().includes(term) ||
+        block.templateTitle.toLowerCase().includes(term);
+      return matchesProgram && matchesSearch;
+    });
+  }, [blocks, searchTerm, selectedProgram]);
+
+  const fetchPrograms = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/programs/list?limit=200');
-      const result: ProgramListApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải danh sách chương trình');
+      setProgramLoading(true);
+      const params = new URLSearchParams({ page: '1', limit: '200' });
+      const res = await fetch(`/api/tms/programs?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok || !data?.success || !data?.data?.items) {
+        throw new Error(data?.error || 'Không thể tải danh sách chương trình');
       }
-
-      const rawItems = Array.isArray(result.data?.items) ? result.data?.items : [];
-
-      const items: ProgramOption[] = rawItems.map((item) => ({
-        id: item.id?.toString() ?? '',
-        code: item.code ?? '—',
-        name: item.name_vi ?? item.name_en ?? 'Không xác định',
-        label: item.label ?? `${item.code ?? ''} - ${item.name_vi ?? ''}`.trim(),
+      const programOptions: ProgramOption[] = data.data.items.map((item: any) => ({
+        id: item.id,
+        code: item.code,
+        name: item.name_vi,
       }));
-
-      setPrograms(items);
+      setPrograms(programOptions);
     } catch (err) {
-      console.error('Failed to fetch programs list', err);
+      console.error('Failed to fetch programs', err);
+      setPrograms([]);
+      setSnackbar({ open: true, message: 'Không thể tải danh sách chương trình', severity: 'error' });
+    } finally {
+      setProgramLoading(false);
     }
   }, []);
 
-  const loadBlocks = useCallback(async () => {
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setTemplateLoading(true);
+      const params = new URLSearchParams({ limit: '200', active: 'true', templates: 'true' });
+      const res = await fetch(`/api/tms/programs/blocks?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json?.success || !Array.isArray(json.data)) {
+        throw new Error(json?.error || 'Không thể tải danh sách mẫu khối học phần');
+      }
+      const templateOptions: TemplateOption[] = json.data.map((item: any) => ({
+        id: item.id.toString(),
+        code: item.code,
+        title: item.title,
+        blockType: item.block_type || item.blockType,
+        isActive: Boolean(item.is_active ?? item.isActive ?? true),
+      }));
+      setTemplates(templateOptions);
+    } catch (err) {
+      console.error('Failed to fetch block templates', err);
+      setTemplates([]);
+      setSnackbar({ open: true, message: 'Không thể tải danh sách mẫu khối học phần', severity: 'error' });
+    } finally {
+      setTemplateLoading(false);
+    }
+  }, []);
+
+  const fetchBlocks = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      const params = new URLSearchParams({ limit: '200' });
+      if (selectedProgram !== 'all') params.set('programId', selectedProgram);
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
 
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: String(DEFAULT_BLOCK_PAGE_SIZE),
-      });
-
-      if (selectedProgramId !== 'all') {
-        params.set('programId', selectedProgramId);
+      const res = await fetch(`/api/tms/programs/blocks?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json?.success || !Array.isArray(json.data)) {
+        throw new Error(json?.error || 'Không thể tải danh sách khối học phần');
       }
-
-      if (selectedBlockType !== 'all') {
-        params.set('blockType', selectedBlockType);
-      }
-
-      if (searchTerm) {
-        params.set('search', searchTerm);
-      }
-
-      const response = await fetch(`/api/tms/program-blocks?${params.toString()}`);
-      const result: ProgramBlockListApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải danh sách khối học phần');
-      }
-
-      const rawItems = Array.isArray(result.data?.items) ? result.data?.items : [];
-
-      const items: ProgramBlockListItem[] = rawItems.map((item) => {
-        const programOption = item.program
-          ? {
-              id: item.program.id?.toString() ?? '',
-              code: item.program.code ?? '—',
-              name: item.program.name ?? 'Không xác định',
-              label: `${item.program.code ?? '—'} - ${item.program.name ?? ''}`.trim(),
-            }
-          : null;
-
-        return {
-          id: item.id?.toString() ?? '',
-          programId: item.programId?.toString() ?? '',
-          program: programOption,
-          code: item.code ?? '',
-          title: item.title ?? '',
-          blockType: (item.blockType ?? ProgramBlockType.CORE) as ProgramBlockType,
-          displayOrder: item.displayOrder ?? 1,
-          courseCount: item.courseCount ?? 0,
-          groupCount: item.groupCount ?? 0,
-        };
-      });
-
-      setBlocks(items);
-      setPagination((prev) => ({
-        ...prev,
-        totalPages: result.data?.pagination?.totalPages ?? 1,
-        totalItems: result.data?.pagination?.total ?? items.length,
-      }));
+      setBlocks(json.data as ProgramBlockRecord[]);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
-      setError(message);
+      console.error('Failed to fetch program block assignments', err);
+      setError(err instanceof Error ? err.message : 'Không thể tải danh sách khối học phần');
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, searchTerm, selectedBlockType, selectedProgramId]);
+  }, [searchTerm, selectedProgram]);
 
   useEffect(() => {
-    loadPrograms();
-  }, [loadPrograms]);
+    fetchPrograms();
+    fetchTemplates();
+  }, [fetchPrograms, fetchTemplates]);
 
   useEffect(() => {
-    loadBlocks();
-  }, [loadBlocks]);
+    fetchBlocks();
+  }, [fetchBlocks]);
 
-  const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    setSearchTerm(searchValue.trim());
-  };
-
-  const handleResetFilters = () => {
-    setSelectedProgramId('all');
-    setSelectedBlockType('all');
-    setSearchValue('');
-    setSearchTerm('');
-    setPagination({ page: 1, totalItems: 0, totalPages: 1 });
-  };
-
-  const handleProgramFilterChange = (_event: React.SyntheticEvent, option: ProgramOption | null) => {
-    setSelectedProgramId(option?.id ?? 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  };
-
-  const handleBlockTypeFilterChange = (event: SelectChangeEvent<ProgramBlockType | 'all'>) => {
-    setSelectedBlockType(event.target.value as ProgramBlockType | 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  };
-
-  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
-
-  const handleOpenCreateForm = () => {
-    setFormMode('create');
-    setFormState({ ...createEmptyForm(), displayOrder: pagination.totalItems + 1 });
-    setEditingBlock(null);
-    setFormError(null);
+  const handleOpenCreate = () => {
+    const defaultTemplateId = templates.length > 0 ? templates[0].id : '';
+    setFormState((prev) => ({
+      ...createEmptyFormState(),
+      programId: selectedProgram === 'all' ? '' : selectedProgram,
+      templateId: defaultTemplateId,
+    }));
     setFormOpen(true);
   };
 
-  const handleOpenEditForm = (block: ProgramBlockListItem) => {
-    setFormMode('edit');
-    setEditingBlock(block);
+  const handleOpenEdit = (block: ProgramBlockRecord) => {
     setFormState({
-      programId: block.programId,
-      code: block.code,
-      title: block.title,
-      blockType: block.blockType,
-      displayOrder: block.displayOrder,
+      id: block.id,
+      programId: block.programId.toString(),
+      templateId: block.templateId.toString(),
+      displayOrder: block.displayOrder != null ? String(block.displayOrder) : '',
+      isRequired: block.isRequired,
+      isActive: block.isActive,
+      customTitle: block.customTitle ?? '',
+      customDescription: block.customDescription ?? '',
     });
-    setFormError(null);
     setFormOpen(true);
   };
 
   const handleCloseForm = () => {
     if (formSubmitting) return;
     setFormOpen(false);
-    setEditingBlock(null);
-    setFormState(createEmptyForm());
-    setFormError(null);
   };
 
-  const selectedProgramOption = useMemo(
-    () => programs.find((item) => item.id === formState.programId) ?? null,
-    [formState.programId, programs],
-  );
+  const handleFormChange = <K extends keyof ProgramBlockFormState>(key: K, value: ProgramBlockFormState[K]) => {
+    setFormState((prev) => ({ ...prev, [key]: value }));
+  };
 
-  const isFormValid = useMemo(() => {
-    return Boolean(
-      formState.programId &&
-        formState.code.trim() &&
-        formState.title.trim() &&
-        (formState.displayOrder === '' || Number(formState.displayOrder) > 0),
-    );
-  }, [formState.code, formState.displayOrder, formState.programId, formState.title]);
-
-  const handleFormSubmit = async () => {
-    if (!isFormValid) {
-      setFormError('Vui lòng điền đầy đủ thông tin bắt buộc.');
+  const handleSubmitForm = async () => {
+    if (!formState.programId || !formState.templateId) {
+      setSnackbar({ open: true, message: 'Vui lòng chọn chương trình và template', severity: 'error' });
       return;
     }
 
-    setFormSubmitting(true);
-    setFormError(null);
-
     const payload = {
-      program_id: formState.programId,
-      code: formState.code.trim(),
-      title: formState.title.trim(),
-      block_type: formState.blockType,
-      display_order:
-        formState.displayOrder === '' ? undefined : Number(formState.displayOrder),
+      program_id: Number(formState.programId),
+      template_id: Number(formState.templateId),
+      display_order: formState.displayOrder ? Number(formState.displayOrder) : undefined,
+      is_required: formState.isRequired,
+      is_active: formState.isActive,
+      custom_title: formState.customTitle.trim() || undefined,
+      custom_description: formState.customDescription.trim() || undefined,
     };
 
     try {
-      const endpoint =
-        formMode === 'edit' && editingBlock
-          ? `/api/tms/program-blocks/${editingBlock.id}`
-          : '/api/tms/program-blocks';
-      const method = formMode === 'edit' ? 'PUT' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể lưu khối học phần');
+      setFormSubmitting(true);
+      if (formState.id) {
+        const res = await fetch(`/api/tms/programs/blocks/${formState.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || 'Không thể cập nhật khối học phần');
+        }
+      } else {
+        const res = await fetch('/api/tms/programs/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || 'Không thể tạo khối học phần');
+        }
       }
 
       setSnackbar({
         open: true,
-        message: formMode === 'edit' ? 'Cập nhật khối học phần thành công' : 'Tạo khối học phần thành công',
+        message: formState.id ? 'Cập nhật khối học phần thành công' : 'Gán khối học phần thành công',
         severity: 'success',
       });
       setFormOpen(false);
-      setEditingBlock(null);
-      setFormState(createEmptyForm());
-      loadBlocks();
+      fetchBlocks();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể lưu khối học phần';
-      setFormError(message);
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : 'Có lỗi xảy ra khi lưu khối học phần',
+        severity: 'error',
+      });
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  const handleDeleteBlock = async (block: ProgramBlockListItem) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa khối học phần "${block.title}"?`);
-    if (!confirmed) return;
-
+  const handleDelete = async () => {
+    if (!confirmDeleteId) return;
     try {
-      const response = await fetch(`/api/tms/program-blocks/${block.id}`, { method: 'DELETE' });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể xóa khối học phần');
-      }
-
-      setSnackbar({ open: true, message: 'Đã xóa khối học phần', severity: 'success' });
-      loadBlocks();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể xóa khối học phần';
-      setSnackbar({ open: true, message, severity: 'error' });
-    }
-  };
-
-  const handleViewDetails = async (block: ProgramBlockListItem) => {
-    setDetailOpen(true);
-    setDetailLoading(true);
-    setDetailError(null);
-    setDetailBlock(null);
-
-    try {
-      const response = await fetch(`/api/tms/program-blocks/${block.id}`);
-      const result: ProgramBlockDetailApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải thông tin khối học phần');
-      }
-
-      const detailData = result.data;
-      if (!detailData) {
-        throw new Error('Không tìm thấy dữ liệu khối học phần');
-      }
-
-      const program = detailData.program
-        ? {
-            id: detailData.program.id?.toString() ?? block.programId,
-            code: detailData.program.code ?? block.program?.code ?? '—',
-            name: detailData.program.name ?? block.program?.name ?? 'Không xác định',
-            label:
-              `${detailData.program.code ?? '—'} - ${detailData.program.name ?? ''}`.trim() ||
-              block.program?.label ||
-              '—',
-          }
-        : block.program;
-
-      const courses: ProgramBlockCourseItem[] = Array.isArray(detailData.courses)
-        ? detailData.courses.map((course) => ({
-            id: course.id?.toString() ?? course.courseId?.toString() ?? '',
-            mapId: course.mapId?.toString() ?? '',
-            courseId: course.courseId?.toString() ?? '',
-            code: course.code ?? '—',
-            name: course.name ?? 'Chưa đặt tên',
-            credits: course.credits ?? 0,
-            required: course.required ?? true,
-            displayOrder: course.displayOrder ?? 1,
-          }))
-        : [];
-
-      setDetailBlock({
-        id: detailData.id?.toString() ?? block.id,
-        programId: detailData.programId?.toString() ?? block.programId,
-        program,
-        code: detailData.code ?? block.code,
-        title: detailData.title ?? block.title,
-        blockType: (detailData.blockType ?? block.blockType) as ProgramBlockType,
-        displayOrder: detailData.displayOrder ?? block.displayOrder,
-        courseCount: detailData.courseCount ?? courses.length,
-        groupCount: detailData.groupCount ?? block.groupCount,
-        courses,
+      setConfirmDeleting(true);
+      const res = await fetch(`/api/tms/programs/blocks/${confirmDeleteId}`, {
+        method: 'DELETE',
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || 'Không thể xoá khối học phần');
+      }
+      setSnackbar({ open: true, message: 'Xoá khối học phần thành công', severity: 'success' });
+      setConfirmDeleteId(null);
+      fetchBlocks();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể tải thông tin khối học phần';
-      setDetailError(message);
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : 'Có lỗi xảy ra khi xoá khối học phần',
+        severity: 'error',
+      });
     } finally {
-      setDetailLoading(false);
+      setConfirmDeleting(false);
     }
   };
+
+  const currentProgramName = useMemo(() => {
+    if (selectedProgram === 'all') return 'Tất cả chương trình';
+    const found = programs.find((item) => item.id === selectedProgram);
+    return found ? `${found.code} • ${found.name}` : 'Chương trình không xác định';
+  }, [programs, selectedProgram]);
+
+  const selectedTemplate = useMemo(() => {
+    if (!formState.templateId) return undefined;
+    return templates.find((template) => template.id === formState.templateId);
+  }, [formState.templateId, templates]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Quản lý khối học phần
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Theo dõi, tạo mới và cập nhật các khối học phần thuộc chương trình đào tạo.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Làm mới">
-            <span>
-              <IconButton onClick={loadBlocks} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreateForm}>
-            Thêm khối học phần
-          </Button>
-        </Stack>
-      </Stack>
+    <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh' }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ py: 2, px: 2 }}>
+        <Link href="/tms/programs" color="inherit" sx={{ display: 'flex', alignItems: 'center' }}>
+          <ArrowBackIcon sx={{ mr: 1 }} />
+          Chương trình đào tạo
+        </Link>
+        <Typography color="text.primary">Quản lý khối học phần</Typography>
+      </Breadcrumbs>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack spacing={2}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-          >
-            <Autocomplete
-              options={programs}
-              value={selectedProgramId === 'all' ? null : programs.find((item) => item.id === selectedProgramId) ?? null}
-              onChange={handleProgramFilterChange}
-              getOptionLabel={(option) => option.label}
-              renderInput={(params) => <TextField {...params} label="Chương trình" placeholder="Tất cả chương trình" />}
-              sx={{ minWidth: { sm: 240 } }}
-            />
+      <Box sx={{ px: 2, pb: 4 }}>
+        {/* Header */}
+        <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} spacing={3}>
+            <Stack spacing={2} sx={{ flex: 1 }}>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Avatar sx={{ bgcolor: 'primary.main' }}>
+                  <SchoolIcon />
+                </Avatar>
+                <Box>
+                  <Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    Quản lý khối học phần
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Gán và quản lý các khối học phần trong chương trình đào tạo
+                  </Typography>
+                </Box>
+              </Stack>
+              
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Badge badgeContent={blocks.length} color="primary">
+                  <Chip 
+                    icon={<SchoolIcon />} 
+                    label="Tổng khối học phần" 
+                    variant="outlined" 
+                    size="small"
+                  />
+                </Badge>
+                <Chip 
+                  label={`${programs.length} chương trình`} 
+                  variant="outlined" 
+                  size="small"
+                  color="secondary"
+                />
+              </Stack>
+            </Stack>
 
-            <FormControl sx={{ minWidth: { sm: 200 } }}>
-              <InputLabel id="program-block-type-filter-label">Loại khối</InputLabel>
-              <Select
-                labelId="program-block-type-filter-label"
-                label="Loại khối"
-                value={selectedBlockType}
-                onChange={handleBlockTypeFilterChange}
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Chế độ xem bảng">
+                <IconButton 
+                  onClick={() => setViewMode('table')}
+                  color={viewMode === 'table' ? 'primary' : 'default'}
+                >
+                  <ViewListIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Chế độ xem lưới">
+                <IconButton 
+                  onClick={() => setViewMode('grid')}
+                  color={viewMode === 'grid' ? 'primary' : 'default'}
+                >
+                  <AppsIcon />
+                </IconButton>
+              </Tooltip>
+              <Divider orientation="vertical" flexItem />
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={fetchBlocks}
+                disabled={loading}
               >
-                <MenuItem value="all">Tất cả</MenuItem>
-                {blockTypeOptions.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    {type.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+                Làm mới
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleOpenCreate}
+                disabled={programLoading || templateLoading}
+              >
+                Gán khối học phần
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
-            <Box sx={{ flexGrow: 1 }}>
+        {/* Filters */}
+        <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <FilterIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Bộ lọc và tìm kiếm
+            </Typography>
+          </Stack>
+          
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
+            <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
+              <FormControl fullWidth>
+                <InputLabel id="program-filter-label">Chương trình</InputLabel>
+                <Select
+                  labelId="program-filter-label"
+                  label="Chương trình"
+                  value={selectedProgram}
+                  onChange={(event) => setSelectedProgram(event.target.value)}
+                >
+                  <MenuItem value="all">Tất cả chương trình</MenuItem>
+                  {programs.map((program) => (
+                    <MenuItem key={program.id} value={program.id}>
+                      {program.code ? `${program.code} • ${program.name}` : program.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: '2 1 400px', minWidth: 0 }}>
               <TextField
                 fullWidth
+                label="Tìm kiếm theo mã/tên khối hoặc chương trình"
                 value={searchValue}
                 onChange={(event) => setSearchValue(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleSearch();
+                  if (event.key === 'Enter') {
+                    setSearchTerm(searchValue.trim());
+                  }
                 }}
-                label="Tìm kiếm"
-                placeholder="Tìm theo mã hoặc tên khối học phần"
                 InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon color="action" />
+                    </InputAdornment>
+                  ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={handleSearch}>
+                      <IconButton 
+                        edge="end" 
+                        onClick={() => setSearchTerm(searchValue.trim())}
+                        disabled={!searchValue.trim()}
+                      >
                         <SearchIcon />
                       </IconButton>
                     </InputAdornment>
@@ -613,265 +500,414 @@ export default function ProgramBlocksPage(): JSX.Element {
                 }}
               />
             </Box>
-
-            <Button variant="outlined" onClick={handleResetFilters}>
-              Đặt lại
-            </Button>
-          </Stack>
-
-          {error && (
-            <Alert severity="error">{error}</Alert>
-          )}
-        </Stack>
-      </Paper>
-
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Chương trình</TableCell>
-                <TableCell>Mã khối</TableCell>
-                <TableCell>Tên khối</TableCell>
-                <TableCell align="center">Loại</TableCell>
-                <TableCell align="center">Thứ tự</TableCell>
-                <TableCell align="center">Số học phần</TableCell>
-                <TableCell align="center">Nhóm</TableCell>
-                <TableCell align="right">Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Box sx={{ py: 6 }}>
-                      <CircularProgress size={32} />
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : blocks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Box sx={{ py: 6 }}>
-                      <Typography>Không có khối học phần nào.</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Thử thay đổi bộ lọc hoặc thêm mới khối học phần.
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                blocks.map((block) => (
-                  <TableRow key={block.id} hover>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography fontWeight={600}>{block.program?.code ?? '—'}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {block.program?.name ?? 'Chưa cập nhật'}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{block.code}</TableCell>
-                    <TableCell>{block.title}</TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        size="small"
-                        label={getProgramBlockTypeLabel(block.blockType)}
-                        color={getBlockTypeChipColor(block.blockType)}
-                        variant={block.blockType === ProgramBlockType.ELECTIVE || block.blockType === ProgramBlockType.OTHER ? 'outlined' : 'filled'}
-                      />
-                    </TableCell>
-                    <TableCell align="center">{block.displayOrder}</TableCell>
-                    <TableCell align="center">{block.courseCount}</TableCell>
-                    <TableCell align="center">{block.groupCount}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Chi tiết">
-                        <IconButton onClick={() => handleViewDetails(block)}>
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Chỉnh sửa">
-                        <IconButton onClick={() => handleOpenEditForm(block)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Xóa">
-                        <IconButton onClick={() => handleDeleteBlock(block)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ px: 3, py: 2 }}>
-          <Pagination
-            page={pagination.page}
-            count={pagination.totalPages}
-            color="primary"
-            onChange={handlePageChange}
-            shape="rounded"
-          />
-        </Stack>
-      </Paper>
-
-      <Dialog open={formOpen} onClose={handleCloseForm} fullWidth maxWidth="sm">
-        <DialogTitle>{formMode === 'edit' ? 'Cập nhật khối học phần' : 'Thêm khối học phần'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Autocomplete
-              options={programs}
-              value={selectedProgramOption}
-              onChange={(_event, option) => {
-                setFormState((prev) => ({ ...prev, programId: option?.id ?? '' }));
-              }}
-              getOptionLabel={(option) => option.label}
-              renderInput={(params) => <TextField {...params} label="Chương trình" required />}
-            />
-
-            <TextField
-              label="Mã khối"
-              value={formState.code}
-              onChange={(event) => setFormState((prev) => ({ ...prev, code: event.target.value }))}
-              required
-            />
-
-            <TextField
-              label="Tên khối"
-              value={formState.title}
-              onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-
-            <FormControl>
-              <InputLabel id="program-block-type-label">Loại khối</InputLabel>
-              <Select
-                labelId="program-block-type-label"
-                label="Loại khối"
-                value={formState.blockType}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, blockType: event.target.value as ProgramBlockType }))
-                }
+            <Box sx={{ flex: '0 0 auto' }}>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={() => {
+                  setSearchValue('');
+                  setSearchTerm('');
+                  setSelectedProgram('all');
+                }}
+                disabled={selectedProgram === 'all' && !searchTerm}
+                sx={{ minWidth: 120 }}
               >
-                {blockTypeOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
+                Xoá bộ lọc
+              </Button>
+            </Box>
+          </Stack>
+          
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 2 }}>
+            <Chip 
+              label={`Đang hiển thị: ${currentProgramName}`} 
+              variant="outlined" 
+              size="small"
+              color="primary"
+            />
+            {searchTerm && (
+              <Chip 
+                label={`Tìm kiếm: "${searchTerm}"`} 
+                variant="outlined" 
+                size="small"
+                color="secondary"
+                onDelete={() => {
+                  setSearchValue('');
+                  setSearchTerm('');
+                }}
+              />
+            )}
+            <Chip 
+              label={`${filteredBlocks.length} kết quả`} 
+              variant="filled" 
+              size="small"
+              color="success"
+            />
+          </Stack>
+        </Paper>
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Content Area */}
+        {viewMode === 'table' ? (
+          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+            {loading && <LinearProgress sx={{ borderRadius: 'inherit' }} />}
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Chương trình</TableCell>
+                    <TableCell>Template</TableCell>
+                    <TableCell align="center">Loại khối</TableCell>
+                    <TableCell align="center">Thứ tự</TableCell>
+                    <TableCell align="center">Trạng thái</TableCell>
+                    <TableCell align="center">Thao tác</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredBlocks.length === 0 && !loading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                        <Stack spacing={2} alignItems="center">
+                          <SchoolIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+                          <Typography color="text.secondary">
+                            Không có khối học phần nào phù hợp
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBlocks.map((block) => (
+                      <TableRow key={block.id} hover>
+                        <TableCell>
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+                              <SchoolIcon fontSize="small" />
+                            </Avatar>
+                            <Box>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                {block.programCode || '—'}
+                              </Typography>
+                              <Typography variant="body2" color="text.secondary">
+                                {block.programName || 'Chưa cập nhật'}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {block.templateCode || '—'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {block.customTitle || block.templateTitle || 'Chưa cập nhật'}
+                          </Typography>
+                          {block.customDescription && (
+                            <Typography variant="caption" color="text.secondary">
+                              {block.customDescription}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip label={block.blockTypeLabel} color="info" size="small" variant="outlined" />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip 
+                            label={formatDisplayOrder(block.displayOrder)} 
+                            color="primary" 
+                            size="small" 
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center">
+                            <Chip
+                              label={block.isRequired ? 'Bắt buộc' : 'Tuỳ chọn'}
+                              color={block.isRequired ? 'primary' : 'default'}
+                              size="small"
+                              variant="outlined"
+                            />
+                            <Chip
+                              label={block.isActive ? 'Kích hoạt' : 'Tạm dừng'}
+                              color={block.isActive ? 'success' : 'warning'}
+                              size="small"
+                              variant="outlined"
+                            />
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={1} justifyContent="center">
+                            <Tooltip title="Chỉnh sửa">
+                              <IconButton color="primary" onClick={() => handleOpenEdit(block)} size="small">
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Xóa">
+                              <IconButton
+                                color="error"
+                                onClick={() => setConfirmDeleteId(block.id)}
+                                size="small"
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        ) : (
+          <Box>
+            {filteredBlocks.length === 0 && !loading ? (
+              <Paper elevation={0} sx={{ p: 6, textAlign: 'center', borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+                <Stack spacing={2} alignItems="center">
+                  <SchoolIcon sx={{ fontSize: 64, color: 'text.disabled' }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Không có khối học phần nào phù hợp
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Thử thay đổi bộ lọc hoặc tìm kiếm để xem thêm kết quả
+                  </Typography>
+                </Stack>
+              </Paper>
+            ) : (
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                gap: 3 
+              }}>
+                {filteredBlocks.map((block) => (
+                  <Box key={block.id}>
+                  <Card 
+                    elevation={0} 
+                    sx={{ 
+                      height: '100%', 
+                      borderRadius: 3, 
+                      border: '1px solid', 
+                      borderColor: 'divider',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 2,
+                      }
+                    }}
+                  >
+                    <CardContent>
+                      <Stack spacing={2}>
+                        {/* Program Info */}
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Avatar sx={{ bgcolor: 'primary.main' }}>
+                            <SchoolIcon />
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }} noWrap>
+                              {block.programCode || '—'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {block.programName || 'Chưa cập nhật'}
+                            </Typography>
+                          </Box>
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Template Info */}
+                        <Box>
+                          <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
+                            {block.customTitle || block.templateTitle || 'Chưa cập nhật'}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            {block.templateCode || '—'}
+                          </Typography>
+                          {block.customDescription && (
+                            <Typography variant="caption" color="text.secondary">
+                              {block.customDescription}
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* Status Chips */}
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                          <Chip 
+                            label={block.blockTypeLabel} 
+                            color="info" 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                          <Chip 
+                            label={formatDisplayOrder(block.displayOrder)} 
+                            color="primary" 
+                            size="small" 
+                            variant="outlined"
+                          />
+                          <Chip
+                            label={block.isRequired ? 'Bắt buộc' : 'Tuỳ chọn'}
+                            color={block.isRequired ? 'primary' : 'default'}
+                            size="small"
+                            variant="outlined"
+                          />
+                          <Chip
+                            label={block.isActive ? 'Kích hoạt' : 'Tạm dừng'}
+                            color={block.isActive ? 'success' : 'warning'}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Stack>
+
+                        {/* Actions */}
+                        <Stack direction="row" spacing={1}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditIcon />}
+                            onClick={() => handleOpenEdit(block)}
+                            sx={{ flex: 1 }}
+                          >
+                            Chỉnh sửa
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<DeleteIcon />}
+                            onClick={() => setConfirmDeleteId(block.id)}
+                            sx={{ flex: 1 }}
+                          >
+                            Xóa
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
+        )}
+      </Box>
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={formOpen} onClose={handleCloseForm} maxWidth="sm" fullWidth>
+        <DialogTitle>{formState.id ? 'Cập nhật khối học phần' : 'Gán khối học phần cho chương trình'}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} mt={1}>
+            <FormControl fullWidth>
+              <InputLabel id="program-select-label">Chương trình</InputLabel>
+              <Select
+                labelId="program-select-label"
+                label="Chương trình"
+                value={formState.programId}
+                onChange={(event) => handleFormChange('programId', event.target.value)}
+              >
+                {programs.map((program) => (
+                  <MenuItem key={program.id} value={program.id}>
+                    {program.code ? `${program.code} • ${program.name}` : program.name}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
-
+            <FormControl fullWidth>
+              <InputLabel id="template-select-label">Template khối học phần</InputLabel>
+              <Select
+                labelId="template-select-label"
+                label="Template khối học phần"
+                value={formState.templateId}
+                onChange={(event) => handleFormChange('templateId', event.target.value)}
+                disabled={templateLoading}
+              >
+                {templateLoading && <MenuItem value="" disabled>Đang tải...</MenuItem>}
+                {templates.map((template) => (
+                  <MenuItem key={template.id} value={template.id}>
+                    {template.code ? `${template.code} • ${template.title}` : template.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {selectedTemplate && (
+              <Alert severity={selectedTemplate.isActive ? 'info' : 'warning'}>
+                Loại khối: <strong>{getProgramBlockTypeLabel(selectedTemplate.blockType.toLowerCase())}</strong> • Trạng thái template:
+                {selectedTemplate.isActive ? ' Đang sử dụng' : ' Tạm dừng'}
+              </Alert>
+            )}
             <TextField
               label="Thứ tự hiển thị"
               type="number"
-              value={formState.displayOrder}
-              onChange={(event) => {
-                const value = event.target.value;
-                setFormState((prev) => ({ ...prev, displayOrder: value === '' ? '' : Number(value) }));
-              }}
               inputProps={{ min: 1 }}
+              value={formState.displayOrder}
+              onChange={(event) => handleFormChange('displayOrder', event.target.value)}
+              fullWidth
             />
-
-            {formError && (
-              <Alert severity="error">{formError}</Alert>
-            )}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formState.isRequired}
+                  onChange={(event) => handleFormChange('isRequired', event.target.checked)}
+                />
+              }
+              label={formState.isRequired ? 'Khối học phần bắt buộc' : 'Khối học phần tuỳ chọn'}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formState.isActive}
+                  onChange={(event) => handleFormChange('isActive', event.target.checked)}
+                />
+              }
+              label={formState.isActive ? 'Kích hoạt trong chương trình' : 'Tạm dừng trong chương trình'}
+            />
+            <TextField
+              label="Tên hiển thị tùy chỉnh"
+              value={formState.customTitle}
+              onChange={(event) => handleFormChange('customTitle', event.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Mô tả tùy chỉnh"
+              value={formState.customDescription}
+              onChange={(event) => handleFormChange('customDescription', event.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseForm} disabled={formSubmitting}>
             Hủy
           </Button>
-          <Button onClick={handleFormSubmit} variant="contained" disabled={formSubmitting || !isFormValid}>
-            {formSubmitting ? 'Đang lưu...' : 'Lưu'}
+          <Button onClick={handleSubmitForm} variant="contained" disabled={formSubmitting || programLoading || templateLoading}>
+            {formSubmitting ? 'Đang lưu...' : formState.id ? 'Lưu thay đổi' : 'Gán khối học phần'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Chi tiết khối học phần</DialogTitle>
+      {/* Delete confirm dialog */}
+      <Dialog
+        open={Boolean(confirmDeleteId)}
+        onClose={confirmDeleting ? undefined : () => setConfirmDeleteId(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Xoá khối học phần khỏi chương trình</DialogTitle>
         <DialogContent dividers>
-          {detailLoading ? (
-            <Box sx={{ py: 4, textAlign: 'center' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : detailError ? (
-            <Alert severity="error">{detailError}</Alert>
-          ) : detailBlock ? (
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  {detailBlock.title}
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Chương trình
-                    </Typography>
-                    <Typography fontWeight={600}>
-                      {detailBlock.program?.code ?? '—'} • {detailBlock.program?.name ?? 'Chưa cập nhật'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Loại khối
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={getBlockTypeChipColor(detailBlock.blockType)}
-                      label={getProgramBlockTypeLabel(detailBlock.blockType)}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Thứ tự hiển thị
-                    </Typography>
-                    <Typography fontWeight={600}>{detailBlock.displayOrder}</Typography>
-                  </Box>
-                </Stack>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Danh sách học phần ({detailBlock.courses.length})
-                </Typography>
-                {detailBlock.courses.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Chưa có học phần nào trong khối này.
-                  </Typography>
-                ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Mã học phần</TableCell>
-                        <TableCell>Tên học phần</TableCell>
-                        <TableCell align="center">Số tín chỉ</TableCell>
-                        <TableCell align="center">Bắt buộc</TableCell>
-                        <TableCell align="center">Thứ tự</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {detailBlock.courses.map((course) => (
-                        <TableRow key={course.mapId}>
-                          <TableCell>{course.code}</TableCell>
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell align="center">{course.credits}</TableCell>
-                          <TableCell align="center">{course.required ? 'Có' : 'Không'}</TableCell>
-                          <TableCell align="center">{course.displayOrder}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </Box>
-            </Stack>
-          ) : null}
+          <Typography variant="body2" color="text.secondary">
+            Bạn có chắc chắn muốn xoá khối học phần này? Thao tác không thể hoàn tác.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDetailOpen(false)}>Đóng</Button>
+          <Button onClick={() => setConfirmDeleteId(null)} disabled={confirmDeleting}>
+            Hủy
+          </Button>
+          <Button onClick={handleDelete} color="error" variant="contained" disabled={confirmDeleting}>
+            {confirmDeleting ? 'Đang xoá...' : 'Xoá'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -889,6 +925,6 @@ export default function ProgramBlocksPage(): JSX.Element {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 }

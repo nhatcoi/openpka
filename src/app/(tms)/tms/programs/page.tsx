@@ -43,8 +43,6 @@ import {
   PROGRAM_STATUSES,
   ProgramStatus,
   getProgramDegreeLabel,
-  getProgramPriorityColor,
-  getProgramPriorityLabel,
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
@@ -207,7 +205,7 @@ export default function ProgramsPage(): JSX.Element {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
-      <Container maxWidth="lg">
+      <Container maxWidth={false} sx={{ px: 2 }}>
         <Paper
           elevation={0}
           sx={{
@@ -311,26 +309,25 @@ export default function ProgramsPage(): JSX.Element {
         </Paper>
 
         <Paper sx={{ p: 0, overflow: 'hidden' }}>
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ width: '100%' }}>
+            <Table sx={{ width: '100%' }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>Mã</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Tên chương trình</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Đơn vị</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Bậc đào tạo</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Ngành</TableCell>
+
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">
                     Tổng tín chỉ
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Trạng thái
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Ưu tiên
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Thống kê
-                  </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                      Trạng thái
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                      Thống kê
+                    </TableCell>
+                  
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">
                     Thao tác
                   </TableCell>
@@ -339,7 +336,7 @@ export default function ProgramsPage(): JSX.Element {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                       <CircularProgress size={28} />
                     </TableCell>
                   </TableRow>
@@ -347,7 +344,7 @@ export default function ProgramsPage(): JSX.Element {
 
                 {error && !loading && (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={8}>
                       <Alert severity="error" action={
                         <Button color="inherit" size="small" onClick={fetchPrograms}>
                           Thử lại
@@ -361,7 +358,7 @@ export default function ProgramsPage(): JSX.Element {
 
                 {isEmpty && (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={8}>
                       <Alert severity="info">Không tìm thấy chương trình phù hợp.</Alert>
                     </TableCell>
                   </TableRow>
@@ -400,10 +397,10 @@ export default function ProgramsPage(): JSX.Element {
                       {program.major ? (
                         <>
                           <Typography variant="body2" fontWeight="medium">
-                            {program.major.name}
+                            {program.major.name_vi}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {getProgramDegreeLabel(program.major.degreeLevel ?? '')}
+                            {program.major.code}
                           </Typography>
                         </>
                       ) : (
@@ -421,16 +418,8 @@ export default function ProgramsPage(): JSX.Element {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Chip
-                        label={getProgramPriorityLabel(program.priority)}
-                        color={getProgramPriorityColor(program.priority)}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
                       <Typography variant="body2" color="text.secondary">
-                        {program.stats.studentCount} SV • {program.stats.courseCount} HP
+                        {program.stats.studentCount} SV • {program.stats.blockCount} khối • {program.stats.courseCount} HP
                       </Typography>
                     </TableCell>
                     <TableCell align="center">

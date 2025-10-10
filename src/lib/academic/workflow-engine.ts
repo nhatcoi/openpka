@@ -95,9 +95,13 @@ export class AcademicWorkflowEngine {
       throw new Error(`Workflow instance ${instanceId} is already completed`);
     }
 
-    // Get current step
+    // Guard workflow and current_step
+    if (!instance.workflow) {
+      throw new Error(`Workflow definition missing for instance ${instanceId}`);
+    }
+    const currentStepOrder = instance.current_step ?? 1;
     const currentStep = instance.workflow.steps.find(
-      step => step.step_order === instance.current_step
+      step => step.step_order === currentStepOrder
     );
 
     if (!currentStep) {
@@ -121,12 +125,12 @@ export class AcademicWorkflowEngine {
 
     // Determine next step or completion
     let nextStatus = instance.status;
-    let nextStep = instance.current_step;
+    let nextStep = currentStepOrder;
     let completedAt: Date | null = null;
 
     if (action.action.toUpperCase() === 'APPROVE') {
-      if (instance.current_step < instance.workflow.steps.length) {
-        nextStep = instance.current_step + 1;
+      if (currentStepOrder < instance.workflow.steps.length) {
+        nextStep = currentStepOrder + 1;
         nextStatus = 'IN_PROGRESS';
       } else {
         nextStatus = 'COMPLETED';
@@ -180,15 +184,7 @@ export class AcademicWorkflowEngine {
           }
         },
         approval_records: {
-          include: {
-            approver: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true
-              }
-            }
-          },
+          // academic.ApprovalRecord has no approver relation; keep raw records
           orderBy: { approved_at: 'desc' }
         }
       },
@@ -213,15 +209,7 @@ export class AcademicWorkflowEngine {
             }
           },
           approval_records: {
-            include: {
-              approver: {
-                select: {
-                  id: true,
-                  full_name: true,
-                  email: true
-                }
-              }
-            },
+            // academic.ApprovalRecord has no approver relation
             orderBy: { approved_at: 'desc' }
           }
         }
@@ -247,8 +235,9 @@ export class AcademicWorkflowEngine {
       completed: workflows.filter(w => w.status === 'COMPLETED').length,
       overdue: workflows.filter(w => {
         if (w.status === 'COMPLETED' || w.status === 'REJECTED') return false;
-        const latestApproval = w.approval_records[0];
-        return latestApproval && new Date() > latestApproval.due_date;
+        const latestApproval = (w as any).approval_records?.[0];
+        const due = latestApproval?.due_date ? new Date(latestApproval.due_date) : null;
+        return !!due && new Date() > due;
       }).length,
       byEntity: {
         COURSE: workflows.filter(w => w.entity_type === 'COURSE').length,

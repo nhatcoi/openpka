@@ -11,6 +11,7 @@ import {
   CardHeader,
   Chip,
   CircularProgress,
+  Collapse,
   Container,
   Divider,
   IconButton,
@@ -23,25 +24,17 @@ import {
 import {
   FileDownload as FileDownloadIcon,
   Refresh as RefreshIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import {
-  getProgramPriorityColor,
-  getProgramPriorityLabel,
   getProgramStatusColor,
   getProgramStatusLabel,
   getProgramBlockTypeLabel,
   getProgramBlockGroupTypeLabel,
   ProgramBlockGroupType,
 } from '@/constants/programs';
-import {
-  ProgramDetail,
-  ProgramApiResponseItem,
-  ProgramListApiResponse,
-  ProgramBlockGroupItem,
-  mapProgramDetail,
-  mapProgramResponse,
-} from '../program-utils';
 
 interface ProgramOption {
   id: string;
@@ -52,7 +45,89 @@ interface ProgramOption {
 
 interface ProgramDetailApiWrapper {
   success: boolean;
-  data?: ProgramApiResponseItem;
+  data?: {
+    id: string;
+    code: string;
+    name_vi: string;
+    name_en?: string | null;
+    description?: string | null;
+    version?: string | null;
+    total_credits?: number | null;
+    status?: string | null;
+    plo?: Record<string, string>;
+    effective_from?: string | null;
+    effective_to?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    org_unit_id?: string | null;
+    major_id?: string | null;
+    OrgUnit?: {
+      id: string;
+      code: string;
+      name: string;
+    } | null;
+    blockAssignments?: Array<{
+      id: string;
+      display_order: number;
+      is_required: boolean;
+      is_active: boolean;
+      custom_title?: string | null;
+      custom_description?: string | null;
+      assigned_at?: string | null;
+      template: {
+        id: string;
+        code: string;
+        title: string;
+        title_en?: string | null;
+        block_type: string;
+        description?: string | null;
+        min_credits?: number | null;
+        max_credits?: number | null;
+        category?: string | null;
+        groups?: Array<{
+          id: string;
+          code: string;
+          title: string;
+          group_type: string;
+          display_order: number;
+          description?: string | null;
+          rules?: Array<{
+            id: string;
+            min_credits: number;
+            max_credits?: number | null;
+            min_courses: number;
+            max_courses?: number | null;
+            rule_type: string;
+          }>;
+        }>;
+        courses?: Array<{
+          id: string;
+          course_id: string;
+          group_id: string;
+          is_required: boolean;
+          display_order: number;
+          credits?: number | null;
+          course: {
+            id: string;
+            code: string;
+            name_vi: string;
+            credits: number;
+          };
+        }>;
+      };
+    }>;
+    _count?: {
+      StudentAcademicProgress?: number;
+      blockAssignments?: number;
+    };
+    stats?: {
+      student_count?: number;
+      block_count?: number;
+      course_count?: number;
+    };
+    priority?: string | null;
+    unified_workflow?: any;
+  };
   error?: string;
 }
 
@@ -63,31 +138,27 @@ const formatDate = (value?: string | null): string => {
   return date.toLocaleDateString('vi-VN');
 };
 
-function ProgramSummary({ program }: { program: ProgramDetail }): JSX.Element {
+function ProgramSummary({ program }: { program: ProgramDetailApiWrapper['data'] }): JSX.Element {
+  if (!program) return <></>;
+
   return (
     <Card variant="outlined">
       <CardHeader
         title={
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Typography variant="h5" component="span">
-              {program.nameVi}
+              {program.name_vi}
             </Typography>
             <Stack direction="row" spacing={1}>
               <Chip
-                label={getProgramStatusLabel(program.status)}
-                color={getProgramStatusColor(program.status)}
+                label={getProgramStatusLabel(program.status as any)}
+                color={getProgramStatusColor(program.status as any)}
                 size="small"
-              />
-              <Chip
-                label={getProgramPriorityLabel(program.priority)}
-                color={getProgramPriorityColor(program.priority)}
-                size="small"
-                variant="outlined"
               />
             </Stack>
           </Stack>
         }
-        subheader={program.nameEn || undefined}
+        subheader={program.name_en || undefined}
         action={
           <Stack direction="row" spacing={1} alignItems="center">
             <Tooltip title="Tải xuống khung chương trình (sắp ra mắt)">
@@ -114,12 +185,12 @@ function ProgramSummary({ program }: { program: ProgramDetail }): JSX.Element {
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Đơn vị quản lý</Typography>
                 <Typography fontWeight="medium">
-                  {program.orgUnit ? `${program.orgUnit.name} (${program.orgUnit.code})` : 'Chưa cập nhật'}
+                  {program.OrgUnit ? `${program.OrgUnit.name} (${program.OrgUnit.code})` : 'Chưa cập nhật'}
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Tổng tín chỉ</Typography>
-                <Typography fontWeight="medium">{program.totalCredits ?? '—'}</Typography>
+                <Typography fontWeight="medium">{program.total_credits ?? '—'}</Typography>
               </Stack>
             </Stack>
           </Box>
@@ -127,19 +198,19 @@ function ProgramSummary({ program }: { program: ProgramDetail }): JSX.Element {
             <Stack spacing={1.5}>
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Hiệu lực từ</Typography>
-                <Typography fontWeight="medium">{formatDate(program.effectiveFrom)}</Typography>
+                <Typography fontWeight="medium">{formatDate(program.effective_from)}</Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Hiệu lực đến</Typography>
-                <Typography fontWeight="medium">{formatDate(program.effectiveTo)}</Typography>
+                <Typography fontWeight="medium">{formatDate(program.effective_to)}</Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Số khối học phần</Typography>
-                <Typography fontWeight="medium">{program.stats.blockCount}</Typography>
+                <Typography fontWeight="medium">{program.stats?.block_count ?? 0}</Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
                 <Typography color="text.secondary">Số học phần</Typography>
-                <Typography fontWeight="medium">{program.stats.courseCount}</Typography>
+                <Typography fontWeight="medium">{program.stats?.course_count ?? 0}</Typography>
               </Stack>
             </Stack>
           </Box>
@@ -159,101 +230,65 @@ function ProgramSummary({ program }: { program: ProgramDetail }): JSX.Element {
   );
 }
 
-function RulesList({
-  rules,
-}: {
-  rules: Array<{ id: string; minCredits: number | null; maxCredits: number | null; minCourses: number | null; maxCourses: number | null }>;
-}): JSX.Element | null {
-  if (!rules || rules.length === 0) return null;
+function RulesList({ rules }: { rules: Array<{
+  id: string;
+  min_credits: number;
+  max_credits?: number | null;
+  min_courses: number;
+  max_courses?: number | null;
+  rule_type: string;
+}> }): JSX.Element {
+  if (!rules || rules.length === 0) return <></>;
 
   return (
-    <Stack spacing={1} sx={{ mt: 1 }}>
-      <Typography variant="caption" color="text.secondary">
-        Quy tắc áp dụng:
+    <Box sx={{ mt: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+        Quy tắc:
       </Typography>
-      {rules.map((rule) => {
-        const parts: string[] = [];
-
-        if (rule.minCredits != null || rule.maxCredits != null) {
-          const creditRange = [rule.minCredits, rule.maxCredits]
-            .map((value) => (value != null ? `${value}` : '—'))
-            .join(' - ');
-          parts.push(`Tín chỉ: ${creditRange}`);
-        }
-
-        if (rule.minCourses != null || rule.maxCourses != null) {
-          const courseRange = [rule.minCourses, rule.maxCourses]
-            .map((value) => (value != null ? `${value}` : '—'))
-            .join(' - ');
-          parts.push(`Số học phần: ${courseRange}`);
-        }
-
-        return (
+      <Stack spacing={0.5} sx={{ mt: 0.5 }}>
+        {rules.map((rule) => (
           <Typography key={rule.id} variant="caption" color="text.secondary">
-            • {parts.join(' • ')}
+            • Tối thiểu {rule.min_credits} tín chỉ
+            {rule.max_credits && `, tối đa ${rule.max_credits} tín chỉ`}
+            • Tối thiểu {rule.min_courses} học phần
+            {rule.max_courses && `, tối đa ${rule.max_courses} học phần`}
           </Typography>
-        );
-      })}
-    </Stack>
-  );
-}
-
-function summarizeCourses(courses: ProgramDetail['blocks'][number]['courses']) {
-  return courses.reduce(
-    (acc, course) => {
-      const credits = course.credits ?? 0;
-      acc.totalCredits += credits;
-      if (course.required) {
-        acc.requiredCredits += credits;
-        acc.requiredCount += 1;
-      } else {
-        acc.optionalCredits += credits;
-        acc.optionalCount += 1;
-      }
-      return acc;
-    },
-    { totalCredits: 0, requiredCredits: 0, optionalCredits: 0, requiredCount: 0, optionalCount: 0 },
+        ))}
+      </Stack>
+    </Box>
   );
 }
 
 export default function TrainingProgramFrameworkPage(): JSX.Element {
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
-  const [programDetail, setProgramDetail] = useState<ProgramDetail | null>(null);
+  const [programDetail, setProgramDetail] = useState<ProgramDetailApiWrapper['data'] | null>(null);
   const [loadingPrograms, setLoadingPrograms] = useState<boolean>(false);
   const [loadingDetail, setLoadingDetail] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
 
   const fetchPrograms = useCallback(async () => {
     try {
       setLoadingPrograms(true);
-      const response = await fetch('/api/tms/programs/list?limit=200');
-      const result: ProgramListApiResponse = await response.json();
+      const response = await fetch('/api/tms/programs?limit=200');
+      const result = await response.json();
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải danh sách chương trình');
-      }
-
-      const items = result.data?.items ?? [];
-      const mapped = items.map(mapProgramResponse);
-      const options: ProgramOption[] = mapped.map((program) => ({
-        id: program.id,
-        code: program.code,
-        name: program.nameVi,
-        label: `${program.code} — ${program.nameVi}`,
-      }));
-
-      setPrograms(options);
-      if (!selectedProgramId && options.length > 0) {
-        setSelectedProgramId(options[0].id);
+      if (response.ok && result.data?.items) {
+        const mappedPrograms = result.data.items.map((program: any) => ({
+          id: program.id,
+          code: program.code || '—',
+          name: program.name_vi || 'Chưa đặt tên',
+          label: `${program.code || '—'} — ${program.name_vi || 'Chưa đặt tên'}`,
+        }));
+        setPrograms(mappedPrograms);
       }
     } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Không thể tải danh sách chương trình');
+      console.error('Failed to fetch programs', err);
     } finally {
       setLoadingPrograms(false);
     }
-  }, [selectedProgramId]);
+  }, []);
 
   const fetchProgramDetail = useCallback(async (programId: string) => {
     try {
@@ -266,7 +301,7 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
         throw new Error(result.error || 'Không thể tải thông tin chương trình');
       }
 
-      setProgramDetail(mapProgramDetail(result.data));
+      setProgramDetail(result.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Không thể tải thông tin chương trình');
       setProgramDetail(null);
@@ -295,26 +330,70 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
     setSelectedProgramId(option.id);
   };
 
-  const renderBlock = (block: ProgramDetail['blocks'][number]) => {
-    const groups = Array.isArray(block.groups) ? block.groups : [];
-    const blockSummary = summarizeCourses(block.courses);
+  const toggleBlockExpanded = (blockId: string) => {
+    setExpandedBlocks(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(blockId)) {
+        newSet.delete(blockId);
+      } else {
+        newSet.add(blockId);
+      }
+      return newSet;
+    });
+  };
 
-    const coursesByGroup = groups.reduce<Record<string, typeof block.courses>>((acc, group) => {
-      acc[group.id] = block.courses.filter((course) => course.groupId === group.id);
+  const toggleAllBlocks = () => {
+    if (!programDetail?.blockAssignments) return;
+    
+    setExpandedBlocks(prev => {
+      const allBlockIds = new Set(programDetail.blockAssignments!.map(assignment => assignment.id));
+      const allExpanded = programDetail.blockAssignments!.every(assignment => prev.has(assignment.id));
+      
+      if (allExpanded) {
+        return new Set();
+      } else {
+        return allBlockIds;
+      }
+    });
+  };
+
+  const renderBlock = (assignment: any) => {
+    const template = assignment.template;
+    const groups = Array.isArray(template.groups) ? template.groups : [];
+    const courses = Array.isArray(template.courses) ? template.courses : [];
+    const isExpanded = expandedBlocks.has(assignment.id);
+
+    // Calculate block summary
+    const blockSummary = courses.reduce((acc: any, course: any) => {
+      const credits = course.course?.credits ?? 0;
+      acc.totalCredits += credits;
+      if (course.is_required) {
+        acc.requiredCount++;
+      } else {
+        acc.optionalCount++;
+      }
+      return acc;
+    }, { totalCredits: 0, requiredCount: 0, optionalCount: 0 });
+
+    const coursesByGroup = groups.reduce((acc: any, group: any) => {
+      acc[group.id] = courses.filter((course: any) => course.group_id === group.id);
       return acc;
     }, {});
 
     // Sort groups by display order
-    const sortedGroups = [...groups].sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+    const sortedGroups = [...groups].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
-    const groupedCourseIds = new Set<string>();
-
-    const renderGroupCard = (group: ProgramBlockGroupItem, courses: ProgramDetail['blocks'][number]['courses']) => {
-      courses.forEach((course) => groupedCourseIds.add(course.mapId));
-      const summary = summarizeCourses(courses);
-      const rawTypeLabel = group.rawGroupType && !group.rawGroupType.toLowerCase().startsWith(group.groupType)
-        ? group.rawGroupType
-        : null;
+    const renderGroupCard = (group: any, courses: any[]) => {
+      const summary = courses.reduce((acc: any, course: any) => {
+        const credits = course.course?.credits ?? 0;
+        acc.totalCredits += credits;
+        if (course.is_required) {
+          acc.requiredCount++;
+        } else {
+          acc.optionalCount++;
+        }
+        return acc;
+      }, { totalCredits: 0, requiredCount: 0, optionalCount: 0 });
 
       return (
         <Paper key={group.id} variant="outlined" sx={{ p: 1.5 }}>
@@ -323,8 +402,7 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
               <Box>
                 <Typography fontWeight={600}>{group.code} — {group.title}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {getProgramBlockGroupTypeLabel(group.groupType)}
-                  {rawTypeLabel ? ` • ${rawTypeLabel}` : ''}
+                  {getProgramBlockGroupTypeLabel(group.group_type as any)}
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1} alignItems="center">
@@ -332,35 +410,38 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
                 <Chip label={`${summary.totalCredits} tín chỉ`} size="small" variant="outlined" />
               </Stack>
             </Stack>
-            <RulesList rules={group.rules} />
+            {group.rules && group.rules.length > 0 && (
+              <RulesList rules={group.rules} />
+            )}
             {courses.length > 0 ? (
               <Stack spacing={1} sx={{ mt: 1 }}>
                 <Typography variant="caption" color="text.secondary">
                   {summary.requiredCount} học phần bắt buộc • {summary.optionalCount} học phần tự chọn
                 </Typography>
-                {courses.map((course) => (
-                  <Paper key={course.mapId} variant="outlined" sx={{ p: 1.5 }}>
+                {courses.map((course: any) => (
+                  <Paper key={course.id} variant="outlined" sx={{ p: 1.5 }}>
                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
                       <Box>
                         <Typography variant="body2" fontWeight={600}>
-                          {course.code} — {course.name}
+                          {course.course?.code} — {course.course?.name_vi}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {course.credits} tín chỉ • Thứ tự: {course.displayOrder}
+                          {course.course?.credits} tín chỉ
                         </Typography>
                       </Box>
                       <Chip
-                        label={course.required ? 'Bắt buộc' : 'Tự chọn'}
-                        color={course.required ? 'success' : 'default'}
+                        label={course.is_required ? 'Bắt buộc' : 'Tự chọn'}
+                        color={course.is_required ? 'primary' : 'default'}
                         size="small"
+                        variant={course.is_required ? 'filled' : 'outlined'}
                       />
                     </Stack>
                   </Paper>
                 ))}
               </Stack>
             ) : (
-              <Typography variant="caption" color="text.secondary">
-                Chưa có học phần trong nhóm.
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                Chưa có học phần nào trong nhóm này
               </Typography>
             )}
           </Stack>
@@ -369,182 +450,147 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
     };
 
     return (
-      <Card key={block.id} variant="outlined">
+      <Card key={assignment.id} variant="outlined">
         <CardHeader
           title={
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', md: 'center' }}>
               <Typography variant="h6" component="span">
-                {block.code} — {block.title}
+                {assignment.custom_title || template.title}
               </Typography>
-              <Chip label={getProgramBlockTypeLabel(block.blockType)} size="small" color="primary" variant="outlined" />
+              <Stack direction="row" spacing={1}>
+                <Chip
+                  label={getProgramBlockTypeLabel(template.block_type as any)}
+                  size="small"
+                  variant="outlined"
+                />
+                {assignment.is_required && (
+                  <Chip label="Bắt buộc" color="primary" size="small" />
+                )}
+                {!assignment.is_active && (
+                  <Chip label="Không hoạt động" color="error" size="small" />
+                )}
+              </Stack>
             </Stack>
           }
-          subheader={`${block.courses.length} học phần • ${blockSummary.totalCredits} tín chỉ • ${groups.length} nhóm`}
+          subheader={template.description || undefined}
           action={
             <Stack direction="row" spacing={1} alignItems="center">
-              <Chip label={`${blockSummary.requiredCount} bắt buộc`} size="small" variant="outlined" color="success" />
-              <Chip label={`${blockSummary.optionalCount} tự chọn`} size="small" variant="outlined" />
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip label={`${groups.length} nhóm`} size="small" variant="outlined" />
+                <Chip label={`${courses.length} học phần`} size="small" variant="outlined" />
+                <Chip label={`${blockSummary.totalCredits} tín chỉ`} size="small" variant="outlined" />
+              </Stack>
+              <IconButton
+                onClick={() => toggleBlockExpanded(assignment.id)}
+                size="small"
+              >
+                {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+              </IconButton>
             </Stack>
           }
         />
-        <CardContent>
-          <Stack spacing={2}>
-            {sortedGroups.length > 0 && (
-              <Stack spacing={2}>
-                <Typography variant="subtitle2">Nhóm khối học phần</Typography>
-                <Stack spacing={2}>
-                  {sortedGroups.map((group) => renderGroupCard(group, coursesByGroup[group.id] ?? []))}
-                </Stack>
-              </Stack>
-            )}
-
-            {(() => {
-              const ungroupedCourses = block.courses.filter((course) => !groupedCourseIds.has(course.mapId));
-              if (ungroupedCourses.length === 0) return null;
-              const summary = summarizeCourses(ungroupedCourses);
-              return (
-                <Stack spacing={1.5}>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="subtitle2">Học phần không thuộc nhóm</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {summary.totalCredits} tín chỉ • {summary.requiredCount} bắt buộc • {summary.optionalCount} tự chọn
-                  </Typography>
-                  <Stack spacing={1}>
-                    {ungroupedCourses.map((course) => (
-                      <Paper key={course.mapId} variant="outlined" sx={{ p: 1.5 }}>
-                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', md: 'center' }}>
-                          <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="body1" fontWeight={600}>
-                              {course.code} — {course.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {course.credits} tín chỉ • Thứ tự: {course.displayOrder}
-                            </Typography>
-                          </Box>
-                          <Chip
-                            label={course.required ? 'Bắt buộc' : 'Tự chọn'}
-                            color={course.required ? 'success' : 'default'}
-                            size="small"
-                          />
-                        </Stack>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Stack>
-              );
-            })()}
-          </Stack>
-        </CardContent>
-      </Card>
-    );
-  };
-
-  const renderStandaloneCourses = () => {
-    if (!programDetail || programDetail.standaloneCourses.length === 0) return null;
-
-    return (
-      <Card variant="outlined">
-        <CardHeader
-          title="Học phần độc lập"
-          subheader={`${programDetail.standaloneCourses.length} học phần nằm ngoài các khối`}
-        />
-        <CardContent>
-          <Stack spacing={1.5}>
-            {programDetail.standaloneCourses.map((course) => (
-              <Paper key={course.mapId} variant="outlined" sx={{ p: 1.5 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'flex-start', md: 'center' }}>
-                  <Box sx={{ flexGrow: 1 }}>
-                    <Typography variant="body1" fontWeight={600}>
-                      {course.code} — {course.name}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {course.credits} tín chỉ • Thứ tự: {course.displayOrder}
-                    </Typography>
+        <Collapse in={isExpanded}>
+          <CardContent>
+            <Stack spacing={2}>
+              {sortedGroups.length > 0 ? (
+                sortedGroups.map((group) => (
+                  <Box key={group.id}>
+                    {renderGroupCard(group, coursesByGroup[group.id] || [])}
                   </Box>
-                  <Chip
-                    label={course.required ? 'Bắt buộc' : 'Tự chọn'}
-                    color={course.required ? 'success' : 'default'}
-                    size="small"
-                  />
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
-        </CardContent>
+                ))
+              ) : (
+                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', textAlign: 'center', py: 2 }}>
+                  Chưa có nhóm học phần nào trong khối này
+                </Typography>
+              )}
+            </Stack>
+          </CardContent>
+        </Collapse>
       </Card>
     );
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', md: 'center' }} sx={{ mb: 3 }}>
-        <Typography variant="h4" component="h1" sx={{ flexGrow: 1 }}>
-          Khung chương trình đào tạo
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Tooltip title="Làm mới">
-            <span>
-              <IconButton onClick={() => selectedProgramId && fetchProgramDetail(selectedProgramId)} disabled={loadingDetail}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Autocomplete
-            options={programs}
-            value={selectedProgram}
-            onChange={handleProgramChange}
-            loading={loadingPrograms}
-            sx={{ minWidth: { xs: 240, sm: 320 } }}
-            getOptionLabel={(option) => option.label}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Chọn chương trình"
-                InputProps={{
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {loadingPrograms ? <CircularProgress color="inherit" size={16} /> : null}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                }}
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Container maxWidth={false} sx={{ px: 2 }}>
+        <Stack spacing={4}>
+          <Box>
+            <Typography variant="h4" component="h1" gutterBottom>
+              Khung chương trình đào tạo
+            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Tooltip title="Làm mới">
+                <span>
+                  <IconButton onClick={() => selectedProgramId && fetchProgramDetail(selectedProgramId)} disabled={loadingDetail}>
+                    <RefreshIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+              <Autocomplete
+                options={programs}
+                value={selectedProgram}
+                onChange={handleProgramChange}
+                loading={loadingPrograms}
+                sx={{ minWidth: { xs: 240, sm: 320 } }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Chọn chương trình đào tạo"
+                    placeholder="Tìm kiếm chương trình..."
+                  />
+                )}
+                getOptionLabel={(option) => option.label}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
               />
-            )}
-          />
-        </Stack>
-      </Stack>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      )}
-
-      {loadingDetail && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
-          <CircularProgress size={32} />
-        </Box>
-      )}
-
-      {!loadingDetail && programDetail && (
-        <Stack spacing={3}>
-          <ProgramSummary program={programDetail} />
-
-          <Stack spacing={2}>
-            <Typography variant="h6">Khung chương trình đào tạo</Typography>
-            <Stack spacing={3}>
-              {programDetail.blocks.map((block) => (
-                <Box key={block.id}>
-                  {renderBlock(block)}
-                </Box>
-              ))}
             </Stack>
-          </Stack>
+          </Box>
 
-          {renderStandaloneCourses()}
+          {error && (
+            <Alert severity="error" action={
+              <Button color="inherit" size="small" onClick={() => selectedProgramId && fetchProgramDetail(selectedProgramId)}>
+                Thử lại
+              </Button>
+            }>
+              {error}
+            </Alert>
+          )}
+
+          {loadingDetail && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {programDetail && !loadingDetail && (
+            <>
+              <ProgramSummary program={programDetail} />
+
+              <Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6">Khung chương trình đào tạo</Typography>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={programDetail.blockAssignments?.every(assignment => expandedBlocks.has(assignment.id)) ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    onClick={toggleAllBlocks}
+                  >
+                    {programDetail.blockAssignments?.every(assignment => expandedBlocks.has(assignment.id)) ? 'Thu gọn tất cả' : 'Mở rộng tất cả'}
+                  </Button>
+                </Stack>
+                <Stack spacing={3} sx={{ mt: 2 }}>
+                  {programDetail.blockAssignments
+                    ?.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                    .map((assignment) => (
+                      <Box key={assignment.id}>
+                        {renderBlock(assignment)}
+                      </Box>
+                    ))}
+                </Stack>
+              </Box>
+            </>
+          )}
         </Stack>
-      )}
-    </Container>
+      </Container>
+    </Box>
   );
 }
