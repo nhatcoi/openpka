@@ -174,7 +174,7 @@ export default function ProgramBlocksPage(): JSX.Element {
   const fetchTemplates = useCallback(async () => {
     try {
       setTemplateLoading(true);
-      const params = new URLSearchParams({ limit: '200', active: 'true', templates: 'true' });
+      const params = new URLSearchParams({ limit: '200', templates: 'true' });
       const res = await fetch(`/api/tms/programs/blocks?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json?.success || !Array.isArray(json.data)) {

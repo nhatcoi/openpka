@@ -15,25 +15,29 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
 
   const blockId = BigInt(params.id);
 
-  const block = await (db as any).programBlockAssignment.findUnique({
+  // Get program block template
+  const block = await db.programBlock.findUnique({
     where: { id: blockId },
     include: {
-      Program: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true,
-          name_en: true,
-        }
-      },
-      template: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          title_en: true,
-          block_type: true,
-          description: true,
+      ProgramCourseMap: {
+        include: {
+          Program: {
+            select: {
+              id: true,
+              code: true,
+              name_vi: true,
+              name_en: true,
+            }
+          },
+          Course: {
+            select: {
+              id: true,
+              code: true,
+              name_vi: true,
+              name_en: true,
+              credits: true
+            }
+          }
         }
       }
     }
@@ -43,22 +47,29 @@ export const GET = withErrorHandling(async (req: NextRequest, { params }: { para
     return createErrorResponse('Not Found', 'Không tìm thấy khối học phần', 404);
   }
 
+  // Group by program
+  const programGroups = block.ProgramCourseMap.reduce((acc: any, mapping: any) => {
+    const programId = mapping.program_id.toString();
+    if (!acc[programId]) {
+      acc[programId] = {
+        programId,
+        programCode: mapping.Program?.code || '—',
+        programName: mapping.Program?.name_vi || 'Chưa cập nhật',
+        courses: []
+      };
+    }
+    acc[programId].courses.push(mapping.Course);
+    return acc;
+  }, {});
+
   const formattedBlock = {
     id: block.id.toString(),
-    programId: block.program_id.toString(),
-    programCode: block.Program?.code || '—',
-    programName: block.Program?.name_vi || 'Chưa cập nhật',
-    templateId: block.template_id.toString(),
-    templateCode: block.template?.code || '—',
-    templateTitle: block.template?.title || 'Chưa cập nhật',
-    blockType: block.template?.block_type || 'unknown',
-    blockTypeLabel: getBlockTypeLabel(block.template?.block_type || 'unknown'),
+    code: block.code,
+    title: block.title,
+    blockType: block.block_type,
+    blockTypeLabel: getBlockTypeLabel(block.block_type),
     displayOrder: block.display_order,
-    isRequired: block.is_required,
-    isActive: block.is_active,
-    customTitle: block.custom_title,
-    customDescription: block.custom_description,
-    assignedAt: block.assigned_at.toISOString(),
+    programs: Object.values(programGroups)
   };
 
   return {
@@ -74,36 +85,17 @@ export const PATCH = withBody(async (body: unknown, { params }: { params: { id: 
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
   }
 
-  const userId = BigInt(session.user.id);
   const blockId = BigInt(params.id);
   const data = body as {
+    code?: string;
+    title?: string;
+    block_type?: string;
     display_order?: number;
-    is_required?: boolean;
-    is_active?: boolean;
-    custom_title?: string;
-    custom_description?: string;
   };
 
   // Check if block exists
-  const existingBlock = await (db as any).programBlockAssignment.findUnique({
-    where: { id: blockId },
-    include: {
-      Program: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true,
-        }
-      },
-      template: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          block_type: true,
-        }
-      }
-    }
+  const existingBlock = await db.programBlock.findUnique({
+    where: { id: blockId }
   });
 
   if (!existingBlock) {
@@ -112,62 +104,33 @@ export const PATCH = withBody(async (body: unknown, { params }: { params: { id: 
 
   const updateData: any = {};
   
+  if (data.code !== undefined) {
+    updateData.code = data.code.trim();
+  }
+  if (data.title !== undefined) {
+    updateData.title = data.title.trim();
+  }
+  if (data.block_type !== undefined) {
+    updateData.block_type = data.block_type;
+  }
   if (data.display_order !== undefined) {
     updateData.display_order = data.display_order;
   }
-  if (data.is_required !== undefined) {
-    updateData.is_required = data.is_required;
-  }
-  if (data.is_active !== undefined) {
-    updateData.is_active = data.is_active;
-  }
-  if (data.custom_title !== undefined) {
-    updateData.custom_title = data.custom_title?.trim() || null;
-  }
-  if (data.custom_description !== undefined) {
-    updateData.custom_description = data.custom_description?.trim() || null;
-  }
 
-  updateData.updated_at = new Date();
-  updateData.updated_by = userId;
-
-  const result = await (db as any).programBlockAssignment.update({
+  const result = await db.programBlock.update({
     where: { id: blockId },
-    data: updateData,
-    include: {
-      Program: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true,
-        }
-      },
-      template: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          block_type: true,
-        }
-      }
-    }
+    data: updateData
   });
 
   return {
     success: true,
     data: {
       id: result.id.toString(),
-      programCode: result.Program?.code || '—',
-      programName: result.Program?.name_vi || 'Chưa cập nhật',
-      templateCode: result.template?.code || '—',
-      templateTitle: result.template?.title || 'Chưa cập nhật',
-      blockType: result.template?.block_type || 'unknown',
-      blockTypeLabel: getBlockTypeLabel(result.template?.block_type || 'unknown'),
-      displayOrder: result.display_order,
-      isRequired: result.is_required,
-      isActive: result.is_active,
-      customTitle: result.custom_title,
-      customDescription: result.custom_description,
+      code: result.code,
+      title: result.title,
+      blockType: result.block_type,
+      blockTypeLabel: getBlockTypeLabel(result.block_type),
+      displayOrder: result.display_order
     }
   };
 }, CONTEXT);
@@ -182,29 +145,33 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
   const blockId = BigInt(params.id);
 
   // Check if block exists
-  const existingBlock = await (db as any).programBlockAssignment.findUnique({
-    where: { id: blockId },
-    include: {
-      Program: {
-        select: {
-          code: true,
-          name_vi: true,
-        }
-      },
-      template: {
-        select: {
-          code: true,
-          title: true,
-        }
-      }
-    }
+  const existingBlock = await db.programBlock.findUnique({
+    where: { id: blockId }
   });
 
   if (!existingBlock) {
     throw new Error('Không tìm thấy khối học phần');
   }
 
-  await (db as any).programBlockAssignment.delete({
+  // Check if block is used in any program course mappings
+  const courseMappings = await db.programCourseMap.findMany({
+    where: { block_id: blockId },
+    include: {
+      Program: {
+        select: {
+          code: true,
+          name_vi: true
+        }
+      }
+    }
+  });
+
+  if (courseMappings.length > 0) {
+    const programs = courseMappings.map(m => `${m.Program?.code || ''} (${m.Program?.name_vi || ''})`).join(', ');
+    throw new Error(`Không thể xóa khối học phần này vì đang được sử dụng trong các chương trình: ${programs}`);
+  }
+
+  await db.programBlock.delete({
     where: { id: blockId }
   });
 
@@ -212,7 +179,7 @@ export const DELETE = withErrorHandling(async (req: NextRequest, { params }: { p
     success: true,
     data: {
       id: params.id,
-      message: `Đã xóa khối học phần ${existingBlock.template?.code || ''} khỏi chương trình ${existingBlock.Program?.code || ''}`
+      message: `Đã xóa khối học phần ${existingBlock.code}`
     }
   };
 }, CONTEXT);
