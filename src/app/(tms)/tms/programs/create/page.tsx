@@ -8,9 +8,17 @@ import {
   Button,
   Chip,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   Grid,
   IconButton,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   Paper,
   Select,
@@ -24,7 +32,10 @@ import {
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
@@ -64,6 +75,13 @@ import {
   mapOrgUnitOptions,
 } from '../program-utils';
 
+interface ProgramOption {
+  id: string;
+  code: string;
+  nameVi: string;
+  totalCredits: number;
+}
+
 export default function CreateProgramPage(): JSX.Element {
   const router = useRouter();
   const [form, setForm] = useState<ProgramFormState>(createDefaultProgramForm());
@@ -75,6 +93,9 @@ export default function CreateProgramPage(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [programOptions, setProgramOptions] = useState<ProgramOption[]>([]);
+  const [enableCopyStructure, setEnableCopyStructure] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   // Program code suggestions
   const programCodeSuggestions = [
@@ -190,10 +211,30 @@ export default function CreateProgramPage(): JSX.Element {
     }
   }, []);
 
+  const fetchProgramOptions = useCallback(async () => {
+    try {
+      const response = await fetch('/api/tms/programs?page=1&limit=100');
+      const result = await response.json();
+
+      if (response.ok && result?.success && Array.isArray(result.data?.items)) {
+        const mapped: ProgramOption[] = result.data.items.map((item: any) => ({
+          id: item.id?.toString() ?? '',
+          code: item.code ?? '',
+          nameVi: item.name_vi ?? '',
+          totalCredits: Number(item.total_credits ?? 0),
+        }));
+        setProgramOptions(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to fetch programs', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchOrgUnits();
     fetchCourseOptions();
-  }, [fetchOrgUnits, fetchCourseOptions]);
+    fetchProgramOptions();
+  }, [fetchOrgUnits, fetchCourseOptions, fetchProgramOptions]);
 
   useEffect(() => {
     if (form.orgUnitId) {
@@ -694,13 +735,23 @@ export default function CreateProgramPage(): JSX.Element {
 
   return (
     <Container maxWidth={false} sx={{ py: 4 }}>
-      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
-          Quay lại
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+        <Stack direction="row" alignItems="center" spacing={2}>
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
+            Quay lại
+          </Button>
+          <Typography variant="h4" component="h1">
+            Tạo chương trình đào tạo mới
+          </Typography>
+        </Stack>
+        <Button
+          variant="outlined"
+          startIcon={<HelpOutlineIcon />}
+          onClick={() => setHelpDialogOpen(true)}
+          color="primary"
+        >
+          Hướng dẫn
         </Button>
-        <Typography variant="h4" component="h1">
-          Tạo chương trình đào tạo mới
-        </Typography>
       </Stack>
 
       {error && (
@@ -827,11 +878,59 @@ export default function CreateProgramPage(): JSX.Element {
                 control={
                   <Checkbox
                     checked={!!form.applyDefaultFramework}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateForm('applyDefaultFramework', e.target.checked)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      if (e.target.checked) {
+                        setEnableCopyStructure(false);
+                        updateForm('copyFromProgramId', '');
+                      }
+                      updateForm('applyDefaultFramework', e.target.checked);
+                    }}
                   />
                 }
                 label="Áp dụng khung chuẩn"
               />
+              <Stack spacing={2}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={enableCopyStructure}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        setEnableCopyStructure(e.target.checked);
+                        if (e.target.checked) {
+                          updateForm('applyDefaultFramework', false);
+                        } else {
+                          updateForm('copyFromProgramId', '');
+                        }
+                      }}
+                    />
+                  }
+                  label="Sao chép cấu trúc CTĐT"
+                />
+                {enableCopyStructure && (
+                  <Select
+                    value={form.copyFromProgramId || ''}
+                    onChange={(event) => updateForm('copyFromProgramId', event.target.value)}
+                    displayEmpty
+                    fullWidth
+                    renderValue={(value) => {
+                      if (!value) {
+                        return <span style={{ color: '#9e9e9e' }}>Chọn chương trình đào tạo để sao chép</span>;
+                      }
+                      const program = programOptions.find((p) => p.id === value);
+                      return program ? `${program.code} - ${program.nameVi} (${program.totalCredits} TC)` : value;
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Chọn chương trình đào tạo</em>
+                    </MenuItem>
+                    {programOptions.map((program) => (
+                      <MenuItem key={program.id} value={program.id}>
+                        {program.code} - {program.nameVi} ({program.totalCredits} TC)
+                      </MenuItem>
+                    ))}
+                  </Select>
+                )}
+              </Stack>
             </Stack>
           </Paper>
 
@@ -1225,6 +1324,133 @@ export default function CreateProgramPage(): JSX.Element {
           </Paper>
         </Box>
       </Stack>
+
+      <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <InfoIcon />
+          Hướng dẫn tạo Chương trình đào tạo
+        </DialogTitle>
+        <DialogContent dividers sx={{ pt: 3 }}>
+          <Stack spacing={3}>
+            <Box>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                1. Điền thông tin cơ bản
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Nhập đầy đủ thông tin cơ bản của chương trình đào tạo bao gồm mã chương trình, tên tiếng Việt, tên tiếng Anh, đơn vị phụ trách, ngành đào tạo và các thông tin khác.
+              </Typography>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                <strong>Lưu ý:</strong> Mã chương trình và Tên chương trình là bắt buộc. Mã chương trình phải là duy nhất trong hệ thống.
+              </Alert>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                2. Chọn cách thiết lập cấu trúc
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Bạn có 3 lựa chọn để thiết lập cấu trúc chương trình:
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckCircleIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Áp dụng khung chuẩn" 
+                    secondary="Sử dụng khung chương trình đào tạo chuẩn có sẵn trong hệ thống"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckCircleIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Sao chép cấu trúc CTĐT" 
+                    secondary="Sao chép toàn bộ cấu trúc (khối học phần, học phần) từ một chương trình đào tạo khác"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckCircleIcon color="primary" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Tự xây dựng" 
+                    secondary="Không chọn cả hai tùy chọn trên, tự xây dựng cấu trúc sau khi tạo chương trình"
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                <strong>Chú ý:</strong> Chỉ được chọn một trong hai tùy chọn "Áp dụng khung chuẩn" hoặc "Sao chép cấu trúc CTĐT".
+              </Alert>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                3. Thêm chuẩn đầu ra (PLO)
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Sử dụng các mẫu chuẩn đầu ra có sẵn hoặc tự nhập chuẩn đầu ra cho chương trình. Mỗi chuẩn đầu ra có thể là chuẩn chung hoặc chuẩn cụ thể.
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                4. Xây dựng cấu trúc khối học phần (tùy chọn)
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Nếu không chọn áp dụng khung chuẩn hoặc sao chép, bạn có thể thêm các khối học phần và phân công học phần vào từng khối ngay tại đây, hoặc có thể bỏ qua và thiết lập sau.
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemIcon>
+                    <InfoIcon color="info" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Khối học phần" 
+                    secondary="Bao gồm: Kiến thức bắt buộc, Kiến thức tự chọn, Thực tập, Đồ án,..."
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon>
+                    <InfoIcon color="info" />
+                  </ListItemIcon>
+                  <ListItemText 
+                    primary="Gán học phần" 
+                    secondary="Thêm học phần vào khối, đánh dấu bắt buộc/tự chọn"
+                  />
+                </ListItem>
+              </List>
+            </Box>
+
+            <Box>
+              <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                5. Lưu chương trình
+              </Typography>
+              <Typography variant="body1" paragraph>
+                Sau khi hoàn tất, nhấn nút "Lưu chương trình" để tạo chương trình mới. Chương trình sẽ được lưu ở trạng thái Draft (Nháp) và bạn có thể tiếp tục chỉnh sửa.
+              </Typography>
+              <Alert severity="success" sx={{ mt: 1 }}>
+                <strong>Sau khi lưu:</strong> Bạn có thể vào trang chi tiết để tiếp tục chỉnh sửa cấu trúc, thêm/xóa khối học phần, gán học phần, và gửi chương trình lên phê duyệt.
+              </Alert>
+            </Box>
+
+            <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mt: 2 }}>
+              <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Quy trình tổng quan:
+              </Typography>
+              <Typography variant="body2" component="div">
+                Điền thông tin → Chọn cách thiết lập → Thêm PLO → (Tùy chọn) Xây dựng cấu trúc → Lưu → Hoàn thiện sau → Gửi phê duyệt
+              </Typography>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setHelpDialogOpen(false)} variant="contained">
+            Đã hiểu
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

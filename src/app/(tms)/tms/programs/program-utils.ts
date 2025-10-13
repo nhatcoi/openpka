@@ -259,6 +259,7 @@ export interface ProgramFormState {
   blocks: ProgramBlockFormItem[];
   standaloneCourses: ProgramCourseFormItem[];
   applyDefaultFramework?: boolean;
+  copyFromProgramId?: string;
 }
 
 const dateToInput = (value?: string | null): string => {
@@ -571,6 +572,7 @@ export const buildProgramPayloadFromForm = (form: ProgramFormState, includeBlock
   effective_from: form.effectiveFrom || undefined,
   effective_to: form.effectiveTo || undefined,
   apply_default_framework: !!form.applyDefaultFramework,
+  copy_from_program_id: form.copyFromProgramId ? Number(form.copyFromProgramId) : undefined,
   // Send as plain object map: { PLO1: "..", PLO2: ".." }
   plo: (() => {
     if (!form.outcomes.length) return undefined;

@@ -537,6 +537,10 @@ export default function TmsLayout({
           {/* User info */}
           {session && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1" sx={{ color: 'white' }}>
+                Xin chào {(session.user as { full_name?: string }).full_name || session.user.username}
+              </Typography>
+              
               <Chip
                 label={`${session.user.permissions?.length || 0} quyền`}
                 size="small"

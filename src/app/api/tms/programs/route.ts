@@ -285,6 +285,52 @@ export const POST = withBody(async (body: unknown) => {
     return { program, blockCount, courseCount };
   });
 
+  // Sao chép cấu trúc từ chương trình khác nếu được chỉ định
+  let copiedCount = 0;
+  if ((data as any).copy_from_program_id) {
+    try {
+      const sourceProgramId = BigInt((data as any).copy_from_program_id);
+      
+      // Lấy tất cả ProgramCourseMap từ chương trình nguồn
+      const sourceMappings = await db.programCourseMap.findMany({
+        where: { program_id: sourceProgramId },
+        select: {
+          course_id: true,
+          block_id: true,
+          group_id: true,
+          is_required: true,
+          display_order: true,
+        },
+        orderBy: [
+          { block_id: 'asc' },
+          { display_order: 'asc' },
+        ],
+      });
+
+      if (sourceMappings.length > 0) {
+        // Sao chép các mapping sang program mới
+        const newMappings = sourceMappings.map((mapping) => ({
+          program_id: result.program.id,
+          course_id: mapping.course_id,
+          block_id: mapping.block_id,
+          group_id: mapping.group_id,
+          is_required: mapping.is_required,
+          display_order: mapping.display_order,
+        }));
+
+        const copyResult = await db.programCourseMap.createMany({
+          data: newMappings,
+          skipDuplicates: true,
+        });
+
+        copiedCount = copyResult.count;
+      }
+    } catch (copyError) {
+      console.error('Failed to copy program structure:', copyError);
+      // Không throw error, chỉ log để không làm gián đoạn việc tạo program
+    }
+  }
+
   return {
     id: result.program.id,
     code: result.program.code,
@@ -310,9 +356,11 @@ export const POST = withBody(async (body: unknown) => {
     stats: {
       student_count: 0,
       block_count: result.blockCount,
-      course_count: result.courseCount,
+      course_count: copiedCount > 0 ? copiedCount : result.courseCount,
     },
     created_at: result.program.created_at ?? now,
     updated_at: result.program.updated_at ?? now,
+    copied_structure_from: (data as any).copy_from_program_id || null,
+    copied_course_count: copiedCount,
   };
 }, CREATE_CONTEXT);

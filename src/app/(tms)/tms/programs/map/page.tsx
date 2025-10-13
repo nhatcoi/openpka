@@ -18,6 +18,10 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   Pagination,
   Paper,
@@ -39,8 +43,11 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
@@ -225,6 +232,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     message: '',
     severity: 'success',
   });
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<FormMode>('create');
@@ -484,7 +492,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
   const fetchCourses = useCallback(async () => {
     try {
       setLoadingCourses(true);
-      const response = await fetch('/api/tms/courses?limit=200&list=true');
+      const response = await fetch('/api/tms/courses?limit=200&list=true&status=APPROVED,PUBLISHED');
       const result: CourseListApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -716,6 +724,14 @@ export default function ProgramCourseMapPage(): JSX.Element {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => setHelpDialogOpen(true)}
+              color="primary"
+            >
+              Hướng dẫn
+            </Button>
             <Tooltip title="Làm mới">
             <span>
               <IconButton onClick={fetchMappings} disabled={loading}>
@@ -1342,6 +1358,170 @@ export default function ProgramCourseMapPage(): JSX.Element {
             </Button>
             <Button onClick={handleSubmitForm} variant="contained" disabled={formSubmitting || !isFormValid}>
               {formSubmitting ? 'Đang lưu...' : 'Lưu'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoIcon />
+            Hướng dẫn quản lý Bản đồ học phần
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 3 }}>
+            <Stack spacing={3}>
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  1. Chọn chương trình đào tạo
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Trước tiên, chọn chương trình đào tạo mà bạn muốn quản lý bản đồ học phần từ dropdown "Chọn chương trình đào tạo".
+                </Typography>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  <strong>Lưu ý:</strong> Bạn phải chọn chương trình trước khi thực hiện bất kỳ thao tác nào khác.
+                </Alert>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  2. Thêm học phần vào chương trình
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Có 2 cách để thêm học phần vào chương trình:
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Thêm từng học phần" 
+                      secondary="Nhấn nút 'Thêm học phần', chọn học phần, khối, nhóm, và trạng thái bắt buộc/tự chọn"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Gán hàng loạt" 
+                      secondary="Nhấn nút 'Gán hàng loạt', kéo thả các học phần từ danh sách sang phải để chọn nhiều học phần cùng lúc"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  3. Phân loại học phần
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Mỗi học phần có thể được phân loại theo:
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon color="info" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Khối học phần" 
+                      secondary="Kiến thức bắt buộc, Kiến thức tự chọn, Thực tập, Đồ án,..."
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon color="info" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Nhóm học phần" 
+                      secondary="Phân nhóm chi tiết hơn trong mỗi khối"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon color="info" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Trạng thái" 
+                      secondary="Bắt buộc hoặc Tự chọn"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon color="info" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Thứ tự hiển thị" 
+                      secondary="Số thứ tự để sắp xếp học phần trong chương trình"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  4. Gán hàng loạt với Drag & Drop
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Sử dụng tính năng kéo thả trong dialog "Gán hàng loạt":
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Kéo từ trái sang phải" 
+                      secondary="Kéo học phần từ danh sách bên trái sang danh sách đã chọn bên phải"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Sắp xếp thứ tự" 
+                      secondary="Kéo thả học phần trong danh sách bên phải để thay đổi thứ tự"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Double-click" 
+                      secondary="Double-click vào học phần bên trái để thêm nhanh"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  5. Chỉnh sửa và xóa
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Sử dụng các nút trong cột "Thao tác" để chỉnh sửa hoặc xóa học phần khỏi chương trình.
+                </Typography>
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  <strong>Cảnh báo:</strong> Việc xóa học phần khỏi chương trình là vĩnh viễn và không thể hoàn tác.
+                </Alert>
+              </Box>
+
+              <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  Mẹo sử dụng:
+                </Typography>
+                <Typography variant="body2" component="div">
+                  • Sử dụng bộ lọc để tìm học phần theo khối hoặc trạng thái<br/>
+                  • Gán hàng loạt giúp tiết kiệm thời gian khi thêm nhiều học phần cùng lúc<br/>
+                  • Số thứ tự hiển thị giúp sắp xếp học phần theo học kỳ hoặc năm học
+                </Typography>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setHelpDialogOpen(false)} variant="contained">
+              Đã hiểu
             </Button>
           </DialogActions>
         </Dialog>

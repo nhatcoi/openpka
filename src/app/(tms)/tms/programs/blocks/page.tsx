@@ -40,8 +40,11 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   School as SchoolIcon,

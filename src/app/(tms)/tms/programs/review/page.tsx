@@ -841,35 +841,53 @@ export default function ProgramReviewPage(): JSX.Element {
                   <Stepper orientation="vertical" sx={{ mt: 1 }}>
                     <Step>
                       <StepLabel>
-                        <Typography variant="body2" fontWeight="bold">Bước 1: Giảng viên soạn thảo</Typography>
+                        <Typography variant="body2" fontWeight="bold">Bước 1: Khoa soạn thảo (Draft)</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Tạo và hoàn thiện chương trình đào tạo
+                          Khoa (hoặc người được ủy quyền) tạo bản draft CTĐT
                         </Typography>
                       </StepLabel>
+                      <Box sx={{ ml: 4, mt: 1, p: 1.5, bgcolor: 'success.50', borderRadius: 1, border: '1px solid', borderColor: 'success.200' }}>
+                        <Typography variant="caption" display="block" fontWeight="bold" color="success.dark">
+                          ✓ Toàn quyền CRUD
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Tự do thêm/sửa/xóa khối học phần, gán học phần (thủ công, hàng loạt, kéo thả)
+                        </Typography>
+                      </Box>
                     </Step>
                     <Step>
                       <StepLabel>
-                        <Typography variant="body2" fontWeight="bold">Bước 2: Khoa xem xét</Typography>
+                        <Typography variant="body2" fontWeight="bold">Bước 2: Gửi lên Phòng Đào tạo</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Trưởng khoa/Phó trưởng khoa đánh giá và quyết định
+                          Sau khi gửi, Khoa mất quyền chỉnh sửa
                         </Typography>
                       </StepLabel>
+                      <Box sx={{ ml: 4, mt: 1, p: 1.5, bgcolor: 'info.50', borderRadius: 1, border: '1px solid', borderColor: 'info.200' }}>
+                        <Typography variant="caption" display="block" fontWeight="bold" color="info.dark">
+                          Phòng Đào tạo xem xét:
+                        </Typography>
+                        <Typography variant="caption" component="div" color="text.secondary">
+                          • <strong>Duyệt:</strong> CTĐT có hiệu lực sử dụng ngay<br/>
+                          • <strong>Từ chối:</strong> Kết thúc quy trình<br/>
+                          • <strong>Yêu cầu chỉnh sửa:</strong> Khoa được quyền chỉnh sửa lại và gửi lại
+                        </Typography>
+                      </Box>
                     </Step>
                     <Step>
                       <StepLabel>
-                        <Typography variant="body2" fontWeight="bold">Bước 3: Phòng Đào tạo phê duyệt</Typography>
+                        <Typography variant="body2" fontWeight="bold">Bước 3: Hội đồng/BGH công bố</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Phòng Đào tạo xem xét và phê duyệt chính thức
+                          Công bố chính thức toàn hệ thống đại học
                         </Typography>
                       </StepLabel>
-                    </Step>
-                    <Step>
-                      <StepLabel>
-                        <Typography variant="body2" fontWeight="bold">Bước 4: Hội đồng khoa học công bố</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Hội đồng khoa học công bố chương trình
+                      <Box sx={{ ml: 4, mt: 1, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: '1px solid', borderColor: 'warning.200' }}>
+                        <Typography variant="caption" display="block" fontWeight="bold" color="warning.dark">
+                          Hội đồng đào tạo/BGH:
                         </Typography>
-                      </StepLabel>
+                        <Typography variant="caption" color="text.secondary">
+                          Quy trình tương tự PĐT, nhưng cấp độ công bố toàn hệ thống
+                        </Typography>
+                      </Box>
                     </Step>
                   </Stepper>
                 </Box>
@@ -953,27 +971,50 @@ export default function ProgramReviewPage(): JSX.Element {
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
+                  <ListItemIcon><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
                   <ListItemText 
-                    primary="Nút luôn hiển thị theo trạng thái" 
-                    secondary="Khi không có quyền, nút sẽ bị disable và hiển thị tooltip thông báo" 
+                    primary="Khoa có toàn quyền khi Draft" 
+                    secondary="Ở trạng thái Draft, Khoa có thể thêm/sửa/xóa tự do mọi thành phần của CTĐT" 
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><CheckCircleIcon color="warning" fontSize="small" /></ListItemIcon>
+                  <ListItemText 
+                    primary="Mất quyền chỉnh sửa sau khi gửi" 
+                    secondary="Sau khi gửi lên PĐT, Khoa không thể chỉnh sửa cho đến khi được yêu cầu chỉnh sửa" 
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
+                  <ListItemText 
+                    primary="PĐT duyệt = Có hiệu lực ngay" 
+                    secondary="Khi Phòng Đào tạo duyệt, CTĐT có thể sử dụng ngay tại cấp Khoa/Đơn vị" 
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><CheckCircleIcon color="primary" fontSize="small" /></ListItemIcon>
+                  <ListItemText 
+                    primary="HĐKH công bố = Toàn hệ thống" 
+                    secondary="Hội đồng khoa học công bố chính thức, áp dụng toàn hệ thống đại học" 
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon><CheckCircleIcon color="error" fontSize="small" /></ListItemIcon>
                   <ListItemText 
                     primary="Quyền xóa chỉ dành cho Admin" 
-                    secondary="Đảm bảo an toàn dữ liệu, tránh xóa nhầm chương trình" 
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
-                  <ListItemText 
-                    primary="Hội đồng khoa học có quyền cao nhất" 
-                    secondary="Chỉ HĐKH mới có thể công bố chương trình chính thức" 
+                    secondary="Đảm bảo an toàn dữ liệu, tránh xóa nhầm chương trình đã được duyệt" 
                   />
                 </ListItem>
               </List>
+              
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
+                  Tóm tắt luồng phê duyệt:
+                </Typography>
+                <Typography variant="body2">
+                  Draft (Khoa toàn quyền) → Gửi PĐT (Khoa mất quyền) → PĐT xem xét → (Nếu duyệt) Hiệu lực tại Khoa → HĐKH xem xét → (Nếu duyệt) Công bố toàn hệ thống
+                </Typography>
+              </Alert>
             </CardContent>
           </Card>
         </Collapse>
