@@ -75,6 +75,7 @@ interface ProgramCourseMapListItem {
   programId: string;
   courseId: string;
   blockId: string | null;
+  groupId: string | null;
   isRequired: boolean;
   displayOrder: number;
   course: {
@@ -128,6 +129,7 @@ interface ProgramCourseMapApiItem {
   programId?: string | number;
   courseId?: string | number;
   blockId?: string | number | null;
+  groupId?: string | number | null;
   isRequired?: boolean;
   displayOrder?: number;
   course?: {
@@ -188,6 +190,7 @@ interface MappingFormState {
   programId: string;
   courseId: string;
   blockId: string | null;
+  groupId: string | null;
   isRequired: boolean;
   displayOrder: number | '';
 }
@@ -229,6 +232,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     programId: '',
     courseId: '',
     blockId: null,
+    groupId: null,
     isRequired: true,
     displayOrder: '',
   });
@@ -238,6 +242,102 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
   const [availableCourses, setAvailableCourses] = useState<CourseOption[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
+
+  // Bulk assign state
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkFormSubmitting, setBulkFormSubmitting] = useState(false);
+  const [bulkSelectedCourses, setBulkSelectedCourses] = useState<string[]>([]);
+  const [bulkBlockId, setBulkBlockId] = useState<string | null>(null);
+  const [bulkGroupId, setBulkGroupId] = useState<string | null>(null);
+  const [bulkBlockOptions, setBulkBlockOptions] = useState<ProgramBlockOption[]>([]);
+  const [groupOptions, setGroupOptions] = useState<Array<{ id: string; code: string; title: string }>>([]);
+  const [bulkRequired, setBulkRequired] = useState<boolean>(true);
+  const [bulkStartOrder, setBulkStartOrder] = useState<number | ''>('');
+  const [bulkDragIndex, setBulkDragIndex] = useState<number | null>(null);
+  const [leftListIds, setLeftListIds] = useState<string[]>([]);
+  const [draggingCourseId, setDraggingCourseId] = useState<string | null>(null);
+  const [existingCourseIds, setExistingCourseIds] = useState<Set<string>>(new Set());
+
+  const loadBulkBlockOptions = useCallback(async (_programId?: string) => {
+    try {
+      // Use templates mode to fetch available block templates
+      const paramsBlk = new URLSearchParams({ templates: 'true', limit: '200' });
+      const resBlk = await fetch(`/api/tms/program-blocks?${paramsBlk.toString()}`);
+      const jsonBlk = await resBlk.json();
+      if (resBlk.ok && jsonBlk?.success) {
+        const itemsBlk = Array.isArray(jsonBlk.data?.items) ? jsonBlk.data.items : Array.isArray(jsonBlk.data) ? jsonBlk.data : [];
+        const mappedBlk: ProgramBlockOption[] = itemsBlk.map((item: any) => ({
+          id: item.id?.toString() ?? '',
+          code: item.code ?? '—',
+          title: item.title ?? 'Không xác định',
+          blockType: (item.blockType ?? ProgramBlockType.CORE) as ProgramBlockType,
+        }));
+        setBulkBlockOptions(mappedBlk);
+      } else {
+        setBulkBlockOptions([]);
+      }
+    } catch {
+      setBulkBlockOptions([]);
+    }
+  }, []);
+
+  const loadGroupOptions = useCallback(async (programId?: string) => {
+    try {
+      const params = new URLSearchParams({ limit: '200' });
+      if (programId) params.set('programId', programId);
+      const res = await fetch(`/api/tms/program-groups?${params.toString()}`);
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        const items = Array.isArray(json.data?.items) ? json.data.items : [];
+        setGroupOptions(items.map((g: any) => ({ id: g.id?.toString() ?? '', code: g.code ?? '—', title: g.title ?? '' })));
+      } else {
+        setGroupOptions([]);
+      }
+    } catch {
+      setGroupOptions([]);
+    }
+  }, []);
+
+  const loadExistingCourseIds = useCallback(async (programId: string) => {
+    try {
+      const params = new URLSearchParams({ programId, limit: '10000' });
+      const res = await fetch(`/api/tms/program-course-map?${params.toString()}`);
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        const items = Array.isArray(json.data?.items) ? json.data.items : [];
+        const ids = new Set<string>(items
+          .map((it: any) => it?.courseId?.toString?.() ?? it?.course?.id?.toString?.())
+          .filter((v: any) => typeof v === 'string' && v.length > 0));
+        setExistingCourseIds(ids);
+      } else {
+        setExistingCourseIds(new Set());
+      }
+    } catch {
+      setExistingCourseIds(new Set());
+    }
+  }, []);
+
+  const loadExistingCourseIdsAndReturn = useCallback(async (programId: string): Promise<Set<string>> => {
+    try {
+      const params = new URLSearchParams({ programId, limit: '10000' });
+      const res = await fetch(`/api/tms/program-course-map?${params.toString()}`);
+      const json = await res.json();
+      if (res.ok && json?.success) {
+        const items = Array.isArray(json.data?.items) ? json.data.items : [];
+        const ids = new Set<string>(items
+          .map((it: any) => it?.courseId?.toString?.() ?? it?.course?.id?.toString?.())
+          .filter((v: any) => typeof v === 'string' && v.length > 0));
+        setExistingCourseIds(ids);
+        return ids;
+      } else {
+        setExistingCourseIds(new Set());
+        return new Set();
+      }
+    } catch {
+      setExistingCourseIds(new Set());
+      return new Set();
+    }
+  }, []);
 
   const selectedProgram = useMemo(() => programs.find((p) => p.id === selectedProgramId) ?? null, [programs, selectedProgramId]);
 
@@ -345,6 +445,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
         programId: item.programId?.toString() ?? selectedProgramId,
         courseId: item.courseId?.toString() ?? '',
         blockId: item.blockId != null ? item.blockId.toString() : null,
+        groupId: item.groupId != null ? item.groupId.toString() : null,
         isRequired: item.isRequired ?? true,
         displayOrder: item.displayOrder ?? 1,
         course: item.course
@@ -414,8 +515,19 @@ export default function ProgramCourseMapPage(): JSX.Element {
   useEffect(() => {
     if (selectedProgramId) {
       fetchProgramBlocks(selectedProgramId);
+      loadExistingCourseIds(selectedProgramId);
     }
-  }, [fetchProgramBlocks, selectedProgramId]);
+  }, [fetchProgramBlocks, loadExistingCourseIds, selectedProgramId]);
+
+  // Update leftListIds when existingCourseIds changes (after program change)
+  useEffect(() => {
+    if (selectedProgramId && availableCourses.length > 0) {
+      const updatedLeft = availableCourses
+        .filter((c) => !existingCourseIds.has(c.id))
+        .map((c) => c.id);
+      setLeftListIds(updatedLeft);
+    }
+  }, [existingCourseIds, availableCourses, selectedProgramId]);
 
   useEffect(() => {
     fetchMappings();
@@ -468,6 +580,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
       programId: selectedProgramId,
       courseId: '',
       blockId: null,
+      groupId: null,
       isRequired: true,
       displayOrder: pagination.totalItems + 1,
     });
@@ -475,6 +588,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     if (availableCourses.length === 0) {
       fetchCourses();
     }
+    loadGroupOptions(selectedProgramId);
   };
 
   const openEditDialog = (mapping: ProgramCourseMapListItem) => {
@@ -485,6 +599,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
       programId: mapping.programId,
       courseId: mapping.courseId,
       blockId: mapping.blockId,
+      groupId: mapping.groupId || null,
       isRequired: mapping.isRequired,
       displayOrder: mapping.displayOrder,
     });
@@ -492,12 +607,13 @@ export default function ProgramCourseMapPage(): JSX.Element {
     if (availableCourses.length === 0) {
       fetchCourses();
     }
+    loadGroupOptions(mapping.programId);
   };
 
   const closeDialog = () => {
     if (formSubmitting) return;
     setDialogOpen(false);
-    setFormState({ programId: selectedProgramId, courseId: '', blockId: null, isRequired: true, displayOrder: '' });
+    setFormState({ programId: selectedProgramId, courseId: '', blockId: null, groupId: null, isRequired: true, displayOrder: '' });
     setEditingMapping(null);
     setFormError(null);
   };
@@ -511,8 +627,8 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
   const courseOptionsForForm = useMemo(() => {
     if (!formState.programId) return [];
-    return availableCourses.filter((course) => dialogMode === 'edit' || !mappedCourseIds.has(course.id));
-  }, [availableCourses, dialogMode, mappedCourseIds, formState.programId]);
+    return availableCourses.filter((course) => dialogMode === 'edit' || !existingCourseIds.has(course.id));
+  }, [availableCourses, dialogMode, existingCourseIds, formState.programId]);
 
   const isFormValid = useMemo(() => {
     return Boolean(formState.programId && formState.courseId && (formState.displayOrder === '' || Number(formState.displayOrder) > 0));
@@ -531,6 +647,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
       program_id: formState.programId,
       course_id: formState.courseId,
       block_id: formState.blockId ?? null,
+      group_id: formState.groupId ?? null,
       is_required: formState.isRequired,
       display_order: formState.displayOrder === '' ? undefined : Number(formState.displayOrder),
     };
@@ -606,6 +723,33 @@ export default function ProgramCourseMapPage(): JSX.Element {
               </IconButton>
             </span>
             </Tooltip>
+            <Button variant="outlined" onClick={async () => {
+              if (!selectedProgramId) {
+                setSnackbar({ open: true, message: 'Vui lòng chọn chương trình trước khi gán hàng loạt.', severity: 'error' });
+                return;
+              }
+              setBulkSelectedCourses([]);
+              setBulkBlockId(null);
+              setBulkGroupId(null);
+              setBulkRequired(true);
+              setBulkStartOrder(pagination.totalItems + 1);
+              // init left list excluding already-mapped courses (load full set)
+              const existingIds = await loadExistingCourseIdsAndReturn(selectedProgramId);
+              const initialLeft = availableCourses
+                .filter((c) => !existingIds.has(c.id))
+                .map((c) => c.id);
+              setLeftListIds(initialLeft);
+              await Promise.all([
+                loadGroupOptions(selectedProgramId),
+                loadBulkBlockOptions(selectedProgramId),
+              ]);
+              setBulkDialogOpen(true);
+              if (availableCourses.length === 0) {
+                fetchCourses();
+              }
+            }} disabled={!selectedProgramId}>
+              Gán hàng loạt
+            </Button>
             <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} disabled={!selectedProgramId}>
               Thêm học phần
             </Button>
@@ -791,7 +935,283 @@ export default function ProgramCourseMapPage(): JSX.Element {
           </Stack>
         </Paper>
 
-        <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
+        {/* Bulk assign dialog */}
+        <Dialog open={bulkDialogOpen} onClose={() => { if (!bulkFormSubmitting) setBulkDialogOpen(false); }} fullWidth maxWidth="md">
+          <DialogTitle>Gán học phần hàng loạt cho một khối</DialogTitle>
+          <DialogContent dividers>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 1 }}>
+              {/* Left: source list and options */}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Stack spacing={2}>
+                  <FormControl>
+                    <InputLabel id="bulk-block-label">Gán vào khối</InputLabel>
+                    <Select
+                        labelId="bulk-block-label"
+                        label="Gán vào khối"
+                        value={bulkBlockId ?? 'null'}
+                        onOpen={() => { if (selectedProgramId) loadBulkBlockOptions(selectedProgramId); }}
+                        onChange={(event) => {
+                          const value = event.target.value as string;
+                          setBulkBlockId(value === 'null' ? null : value);
+                        }}
+                        disabled={bulkBlockOptions.length === 0}
+                    >
+                      <MenuItem value="null">Không thuộc khối</MenuItem>
+                      {bulkBlockOptions.map((block) => (
+                          <MenuItem key={block.id} value={block.id}>
+                            {block.code} — {block.title} ({getProgramBlockTypeLabel(block.blockType)})
+                          </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl>
+                    <InputLabel id="bulk-group-label">Nhóm (tuỳ chọn)</InputLabel>
+                    <Select
+                        labelId="bulk-group-label"
+                        label="Nhóm (tuỳ chọn)"
+                        value={bulkGroupId ?? 'null'}
+                        onOpen={() => loadGroupOptions(selectedProgramId)}
+                        onChange={(event) => {
+                          const value = event.target.value as string;
+                          setBulkGroupId(value === 'null' ? null : value);
+                        }}
+                    >
+                      <MenuItem value="null">Không thuộc nhóm</MenuItem>
+                      {groupOptions.map((g) => (
+                          <MenuItem key={g.id} value={g.id}>{g.code} — {g.title}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl component="fieldset">
+                    <RadioGroup
+                        row
+                        value={bulkRequired ? 'true' : 'false'}
+                        onChange={(event) => setBulkRequired(event.target.value === 'true')}
+                    >
+                      <FormControlLabel value="true" control={<Radio />} label="Bắt buộc" />
+                      <FormControlLabel value="false" control={<Radio />} label="Tự chọn" />
+                    </RadioGroup>
+                  </FormControl>
+
+                  <TextField
+                      label="Thứ tự bắt đầu"
+                      type="number"
+                      value={bulkStartOrder}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setBulkStartOrder(value === '' ? '' : Number(value));
+                      }}
+                      inputProps={{ min: 1 }}
+                  />
+
+                  <TextField
+                      label="Tìm kiếm học phần"
+                      placeholder="Nhập mã hoặc tên"
+                      onChange={(e) => {
+                        const q = e.target.value.trim().toLowerCase();
+                        const all = availableCourses.filter((c) => !existingCourseIds.has(c.id) && !bulkSelectedCourses.includes(c.id));
+                        const filtered = q
+                          ? all.filter((c) => (c.code + ' ' + c.name).toLowerCase().includes(q))
+                          : all;
+                        setLeftListIds(filtered.map((c) => c.id));
+                      }}
+                  />
+
+                  {/* Left list */}
+                  <Paper variant="outlined" sx={{ p: 1, maxHeight: 360, overflow: 'auto' }}>
+                    <Stack spacing={1}>
+                      {leftListIds.map((cid) => {
+                        const c = availableCourses.find((x) => x.id === cid);
+                        if (!c) return null;
+                        return (
+                            <Box
+                                key={cid}
+                                draggable
+                                onDragStart={() => setDraggingCourseId(cid)}
+                                onDoubleClick={() => {
+                                  if (!bulkSelectedCourses.includes(cid)) setBulkSelectedCourses((prev) => [...prev, cid]);
+                                }}
+                                sx={{
+                                  px: 1.5,
+                                  py: 1,
+                                  borderRadius: 1,
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  bgcolor: 'background.paper',
+                                  cursor: 'grab',
+                                  '&:active': { cursor: 'grabbing' },
+                                }}
+                            >
+                              <Typography variant="body2">{c.code} — {c.name}</Typography>
+                            </Box>
+                        );
+                      })}
+                      {leftListIds.length === 0 && (
+                          <Typography variant="body2" color="text.secondary">Không còn học phần để thêm.</Typography>
+                      )}
+                    </Stack>
+                  </Paper>
+                </Stack>
+              </Box>
+
+              {/* Right: selected list and preview */}
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Đã chọn</Typography>
+                <Paper
+                    variant="outlined"
+                    sx={{ p: 1, minHeight: 360, maxHeight: 360, overflow: 'auto' }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (!draggingCourseId) return;
+                      if (!bulkSelectedCourses.includes(draggingCourseId)) {
+                        setBulkSelectedCourses((prev) => [...prev, draggingCourseId]);
+                      }
+                      setDraggingCourseId(null);
+                    }}
+                >
+                  <Stack spacing={1}>
+                    {bulkSelectedCourses.map((cid, idx) => {
+                      const course = availableCourses.find((c) => c.id === cid);
+                      const label = course ? `${course.code} — ${course.name}` : cid;
+                      return (
+                          <Box
+                              key={cid}
+                              draggable
+                              onDragStart={() => setBulkDragIndex(idx)}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={() => {
+                                if (bulkDragIndex === null || bulkDragIndex === idx) return;
+                                const updated = [...bulkSelectedCourses];
+                                const [moved] = updated.splice(bulkDragIndex, 1);
+                                updated.splice(idx, 0, moved);
+                                setBulkSelectedCourses(updated);
+                                setBulkDragIndex(null);
+                              }}
+                              sx={{
+                                px: 1.5,
+                                py: 1,
+                                borderRadius: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                bgcolor: 'background.paper',
+                                cursor: 'grab',
+                                '&:active': { cursor: 'grabbing' },
+                              }}
+                          >
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="body2">{idx + 1}. {label}</Typography>
+                              <Button size="small" onClick={() => setBulkSelectedCourses((prev) => prev.filter((x) => x !== cid))}>Bỏ</Button>
+                            </Stack>
+                          </Box>
+                      );
+                    })}
+                    {bulkSelectedCourses.length === 0 && (
+                        <Typography variant="body2" color="text.secondary">Kéo học phần từ bên trái qua đây để chọn.</Typography>
+                    )}
+                  </Stack>
+                </Paper>
+
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>Xem trước cấu trúc</Typography>
+                  <Paper variant="outlined" sx={{ p: 1.5 }}>
+                    {/* Block */}
+                    <Stack spacing={0.5}>
+                      <Typography variant="body2" fontWeight={600}>Khối</Typography>
+                      <Box sx={{ pl: 2 }}>
+                        {bulkBlockId ? (
+                            (() => {
+                              const blk = bulkBlockOptions.find((b) => b.id === bulkBlockId);
+                              return <Typography variant="body2">{blk ? `${blk.code} — ${blk.title} (${getProgramBlockTypeLabel(blk.blockType)})` : '—'}</Typography>;
+                            })()
+                        ) : (
+                            <Typography variant="body2" color="text.secondary">Không thuộc khối</Typography>
+                        )}
+                      </Box>
+
+                      {/* Group */}
+                      <Typography variant="body2" fontWeight={600} sx={{ mt: 1 }}>Nhóm khối</Typography>
+                      <Box sx={{ pl: 2 }}>
+                        {bulkGroupId ? (
+                            (() => {
+                              const grp = groupOptions.find((g) => g.id === bulkGroupId);
+                              return <Typography variant="body2">{grp ? `${grp.code} — ${grp.title}` : '—'}</Typography>;
+                            })()
+                        ) : (
+                            <Typography variant="body2" color="text.secondary">Không thuộc nhóm</Typography>
+                        )}
+                      </Box>
+
+                      {/* Courses */}
+                      <Typography variant="body2" fontWeight={600} sx={{ mt: 1 }}>Học phần</Typography>
+                      <Box sx={{ pl: 2 }}>
+                        {bulkSelectedCourses.length > 0 ? (
+                            <Stack spacing={0.5}>
+                              {bulkSelectedCourses.map((cid, idx) => {
+                                const course = availableCourses.find((c) => c.id === cid);
+                                const orderBase = bulkStartOrder === '' ? 1 : Number(bulkStartOrder);
+                                const indexLabel = `${orderBase + idx}.`;
+                                return (
+                                    <Typography key={cid} variant="body2">{indexLabel} {course ? `${course.code} — ${course.name}` : cid}</Typography>
+                                );
+                              })}
+                            </Stack>
+                        ) : (
+                            <Typography variant="body2" color="text.secondary">Chưa chọn học phần</Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  </Paper>
+                </Box>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBulkDialogOpen(false)} disabled={bulkFormSubmitting}>Hủy</Button>
+            <Button
+                variant="contained"
+                disabled={bulkFormSubmitting || bulkSelectedCourses.length === 0}
+                onClick={async () => {
+                  try {
+                    setBulkFormSubmitting(true);
+                    const payload = {
+                      program_id: selectedProgramId,
+                      block_id: bulkBlockId ?? null,
+                      group_id: bulkGroupId ?? null,
+                      items: bulkSelectedCourses.map((cid, idx) => ({
+                        course_id: cid,
+                        is_required: bulkRequired,
+                        display_order: bulkStartOrder === '' ? undefined : Number(bulkStartOrder) + idx,
+                      })),
+                    };
+                    const response = await fetch('/api/tms/program-course-map/bulk', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(payload),
+                    });
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                      throw new Error(result.error || 'Không thể gán học phần hàng loạt');
+                    }
+                    setSnackbar({ open: true, message: 'Đã gán học phần hàng loạt', severity: 'success' });
+                    setBulkDialogOpen(false);
+                    setBulkSelectedCourses([]);
+                    fetchMappings();
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : 'Không thể gán học phần hàng loạt';
+                    setSnackbar({ open: true, message, severity: 'error' });
+                  } finally {
+                    setBulkFormSubmitting(false);
+                  }
+                }}
+            >
+              {bulkFormSubmitting ? 'Đang lưu...' : 'Gán'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="md">
           <DialogTitle>{dialogMode === 'edit' ? 'Cập nhật bản đồ học phần' : 'Thêm học phần vào chương trình'}</DialogTitle>
           <DialogContent dividers>
             <Stack spacing={2} sx={{ mt: 1 }}>
@@ -804,9 +1224,11 @@ export default function ProgramCourseMapPage(): JSX.Element {
                       ...prev,
                       programId: newProgramId,
                       blockId: null,
+                      groupId: null,
                     }));
                     if (newProgramId) {
                       fetchProgramBlocks(newProgramId);
+                      loadGroupOptions(newProgramId);
                     }
                   }}
                   getOptionLabel={(option) => option.label}
@@ -862,6 +1284,28 @@ export default function ProgramCourseMapPage(): JSX.Element {
                   {programBlocks.map((block) => (
                       <MenuItem key={block.id} value={block.id}>
                         {block.code} — {block.title} ({getProgramBlockTypeLabel(block.blockType)})
+                      </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <InputLabel id="mapping-group-label">Gán vào nhóm</InputLabel>
+                <Select
+                    labelId="mapping-group-label"
+                    label="Gán vào nhóm"
+                    value={formState.groupId ?? 'null'}
+                    onOpen={() => loadGroupOptions(formState.programId)}
+                    onChange={(event) => {
+                      const value = event.target.value as string;
+                      setFormState((prev) => ({ ...prev, groupId: value === 'null' ? null : value }));
+                    }}
+                    disabled={groupOptions.length === 0}
+                >
+                  <MenuItem value="null">Không thuộc nhóm</MenuItem>
+                  {groupOptions.map((group) => (
+                      <MenuItem key={group.id} value={group.id}>
+                        {group.code} — {group.title}
                       </MenuItem>
                   ))}
                 </Select>

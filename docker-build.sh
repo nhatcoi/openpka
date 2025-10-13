@@ -3,5 +3,5 @@
 # Build and push Docker image to Docker Hub
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t noahdev206/trasy-app:latest \
+  -t noahdev206/openpka-app:latest \
   --push .

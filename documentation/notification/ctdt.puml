@@ -1,0 +1,65 @@
+@startuml
+title Quy trình phê duyệt CTĐT (Khoa → PĐT → HĐĐT/BGH)
+
+skinparam dpi 180
+skinparam activity {
+  ArrowThickness 1
+  BorderColor #555
+  BackgroundColor #eef5ff
+  BarColor #999
+}
+skinparam partitionBorderColor #888
+skinparam partitionBackgroundColor #f9f9f9
+skinparam shadowing false
+
+start
+
+partition "Khoa / Người được Khoa ủy quyền" as KHOA {
+  :Tạo **Draft CTĐT**;
+  :Gán **Khối**\n- Khối mẫu (template)\n- Khối tự do\n- Khối sao chép từ CTĐT khác;
+  :Gán **Học phần** vào khối\n- Gán hàng loạt\n- Kéo thả\n- Các thao tác tiện ích khác;
+  note right
+    Trong trạng thái Draft:
+    - CRUD không giới hạn (khối, HP, ràng buộc,...)
+  end note
+
+  if ("Hoàn tất bản thảo?") then (Chưa)
+    :Tiếp tục chỉnh sửa Draft;
+
+  else (Rồi)
+    :**Gửi lên PĐT**;
+  endif
+}
+
+partition "PĐT" as PDT {
+  :Nhận hồ sơ CTĐT (Khoa mất quyền sửa);
+  if ("Thẩm định") then (Yêu cầu chỉnh sửa)
+    :Trả về cho Khoa kèm góp ý;
+    note right
+      Khi trả về:
+      - Quyền sửa được **mở lại** cho Khoa
+    end note
+    detach
+  elseif (Từ chối)
+    :Từ chối (nêu lý do);
+    stop
+  else (Phê duyệt)
+    :**Phê duyệt sử dụng**\n(CTĐT dùng được ngay nội bộ);
+  endif
+}
+
+partition "HĐĐT / BGH" as HDT {
+  :Nhận CTĐT đã được PĐT duyệt (dùng nội bộ);
+  if ("Thẩm định công bố") then (Yêu cầu chỉnh sửa)
+    :Trả về PĐT/Khoa kèm góp ý;
+    detach
+  elseif (Từ chối công bố)
+    :Từ chối công bố;
+    stop
+  else (Phê duyệt công bố)
+    :**Phê duyệt Công bố**\n(CTĐT áp dụng toàn Trường);
+  endif
+}
+
+stop
+@enduml

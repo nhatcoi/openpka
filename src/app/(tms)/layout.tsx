@@ -526,7 +526,7 @@ export default function TmsLayout({
           </IconButton>
           
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Trasy App - Hệ thống quản lý đào tạo (TMS)
+            OpenPKA - Hệ thống quản lý đào tạo (TMS)
           </Typography>
           
           {/* Loading state */}

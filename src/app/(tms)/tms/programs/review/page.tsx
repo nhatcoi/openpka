@@ -431,9 +431,8 @@ export default function ProgramReviewPage(): JSX.Element {
     if (program.status === ProgramStatus.DRAFT) {
       // Draft: Gửi xem xét + Xóa (Xóa đã thêm ở trên)
       buttons.push(
-        <PermissionButton
+        <Button
           key={`submit-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.SUBMIT]}
           size="small"
           variant="contained"
           color="primary"
@@ -442,10 +441,9 @@ export default function ProgramReviewPage(): JSX.Element {
             event.stopPropagation();
             openActionConfirm(program, ProgramWorkflowAction.SUBMIT);
           }}
-          noPermissionTooltip="Bạn không có quyền gửi chương trình xem xét"
         >
           Gửi xem xét
-        </PermissionButton>,
+        </Button>,
       );
     }
 
@@ -634,84 +632,81 @@ export default function ProgramReviewPage(): JSX.Element {
           </Stack>
 
         {/* Stats */}
-        <Grid container spacing={2} mb={4}>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Avatar sx={{ bgcolor: 'warning.main' }}>
-                    <RocketLaunchIcon fontSize="small" />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Đang chờ xử lý
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {stats.pending}
-                    </Typography>
-                  </Stack>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, 
+          gap: 2, 
+          mb: 4 
+        }}>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Avatar sx={{ bgcolor: 'warning.main' }}>
+                  <RocketLaunchIcon fontSize="small" />
+                </Avatar>
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Đang chờ xử lý
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {stats.pending}
+                  </Typography>
                 </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Avatar sx={{ bgcolor: 'info.main' }}>
-                    <TimelineIcon fontSize="small" />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Đang xem xét
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {stats.reviewing}
-                    </Typography>
-                  </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Avatar sx={{ bgcolor: 'info.main' }}>
+                  <TimelineIcon fontSize="small" />
+                </Avatar>
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Đang xem xét
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {stats.reviewing}
+                  </Typography>
                 </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Avatar sx={{ bgcolor: 'success.main' }}>
-                    <CheckCircleIcon fontSize="small" />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Đã phê duyệt
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {stats.approved}
-                    </Typography>
-                  </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Avatar sx={{ bgcolor: 'success.main' }}>
+                  <CheckCircleIcon fontSize="small" />
+                </Avatar>
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Đã phê duyệt
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {stats.approved}
+                  </Typography>
                 </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Avatar sx={{ bgcolor: 'error.main' }}>
-                    <CancelIcon fontSize="small" />
-                  </Avatar>
-                  <Stack spacing={0.5}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Bị từ chối
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                      {stats.rejected}
-                    </Typography>
-                  </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Avatar sx={{ bgcolor: 'error.main' }}>
+                  <CancelIcon fontSize="small" />
+                </Avatar>
+                <Stack spacing={0.5}>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Bị từ chối
+                  </Typography>
+                  <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                    {stats.rejected}
+                  </Typography>
                 </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
 
         <Paper
           elevation={0}
@@ -833,9 +828,13 @@ export default function ProgramReviewPage(): JSX.Element {
               subheader="Quy trình và phân quyền theo từng cấp"
             />
             <CardContent>
-              <Grid container spacing={3}>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, 
+                gap: 3 
+              }}>
                 {/* Quy trình */}
-                <Grid item xs={12} md={6}>
+                <Box>
                   <Typography variant="h6" gutterBottom color="primary">
                     Quy trình phê duyệt
                   </Typography>
@@ -873,10 +872,10 @@ export default function ProgramReviewPage(): JSX.Element {
                       </StepLabel>
                     </Step>
                   </Stepper>
-                </Grid>
+                </Box>
 
                 {/* Phân quyền */}
-                <Grid item xs={12} md={6}>
+                <Box>
                   <Typography variant="h6" gutterBottom color="primary">
                     Phân quyền theo Role
                   </Typography>
@@ -944,8 +943,8 @@ export default function ProgramReviewPage(): JSX.Element {
                       </TableBody>
                     </Table>
                   </TableContainer>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
 
               <Divider sx={{ my: 2 }} />
 
@@ -981,89 +980,84 @@ export default function ProgramReviewPage(): JSX.Element {
 
         {/* Filters */}
         <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Tìm kiếm theo mã hoặc tên"
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    handleSearch();
-                  }
-                }}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton edge="end" onClick={handleSearch}>
-                        <SearchIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2.5}>
-              <FormControl fullWidth>
-                <InputLabel id="status-filter-label">Trạng thái</InputLabel>
-                <Select
-                  labelId="status-filter-label"
-                  label="Trạng thái"
-                  value={selectedStatus}
-                  onChange={(event) => setSelectedStatus(event.target.value as ProgramStatus | 'all')}
-                >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                  {PROGRAM_STATUSES.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {getProgramStatusLabel(status)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2.5}>
-              <FormControl fullWidth>
-                <InputLabel id="stage-filter-label">Bước xử lý</InputLabel>
-                <Select
-                  labelId="stage-filter-label"
-                  label="Bước xử lý"
-                  value={selectedStage}
-                  onChange={(event) => setSelectedStage(event.target.value as ProgramWorkflowStage | 'all')}
-                >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                  {PROGRAM_WORKFLOW_STAGES.map((stage) => (
-                    <MenuItem key={stage} value={stage}>
-                      {getProgramWorkflowStageLabel(stage)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={2.5}>
-              <FormControl fullWidth>
-                <InputLabel id="priority-filter-label">Độ ưu tiên</InputLabel>
-                <Select
-                  labelId="priority-filter-label"
-                  label="Độ ưu tiên"
-                  value={selectedPriority}
-                  onChange={(event) => setSelectedPriority(event.target.value as ProgramPriority | 'all')}
-                >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                  {PROGRAM_PRIORITIES.map((priority) => (
-                    <MenuItem key={priority} value={priority}>
-                      {getProgramPriorityLabel(priority)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={1}>
-              <Button fullWidth variant="text" color="inherit" onClick={handleResetFilters}>
-                Xóa lọc
-              </Button>
-            </Grid>
-          </Grid>
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: { xs: '1fr', md: '2fr 1fr 1fr 1fr 0.5fr' }, 
+            gap: 2,
+            alignItems: 'center'
+          }}>
+            <TextField
+              fullWidth
+              label="Tìm kiếm theo mã hoặc tên"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton edge="end" onClick={handleSearch}>
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <FormControl fullWidth>
+              <InputLabel id="status-filter-label">Trạng thái</InputLabel>
+              <Select
+                labelId="status-filter-label"
+                label="Trạng thái"
+                value={selectedStatus}
+                onChange={(event) => setSelectedStatus(event.target.value as ProgramStatus | 'all')}
+              >
+                <MenuItem value="all">Tất cả</MenuItem>
+                {PROGRAM_STATUSES.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {getProgramStatusLabel(status)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="stage-filter-label">Bước xử lý</InputLabel>
+              <Select
+                labelId="stage-filter-label"
+                label="Bước xử lý"
+                value={selectedStage}
+                onChange={(event) => setSelectedStage(event.target.value as ProgramWorkflowStage | 'all')}
+              >
+                <MenuItem value="all">Tất cả</MenuItem>
+                {PROGRAM_WORKFLOW_STAGES.map((stage) => (
+                  <MenuItem key={stage} value={stage}>
+                    {getProgramWorkflowStageLabel(stage)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel id="priority-filter-label">Độ ưu tiên</InputLabel>
+              <Select
+                labelId="priority-filter-label"
+                label="Độ ưu tiên"
+                value={selectedPriority}
+                onChange={(event) => setSelectedPriority(event.target.value as ProgramPriority | 'all')}
+              >
+                <MenuItem value="all">Tất cả</MenuItem>
+                {PROGRAM_PRIORITIES.map((priority) => (
+                  <MenuItem key={priority} value={priority}>
+                    {getProgramPriorityLabel(priority)}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button fullWidth variant="text" color="inherit" onClick={handleResetFilters}>
+              Xóa lọc
+            </Button>
+          </Box>
         </Paper>
 
         {error && (

@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
@@ -6,177 +6,141 @@ import { withBody, withErrorHandling, createErrorResponse } from '@/lib/api/api-
 
 const CONTEXT = 'quản lý khối học phần chương trình';
 
-// GET /api/tms/programs/blocks - Lấy danh sách khối học phần
-export const GET = withErrorHandling(async (req: NextRequest) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return createErrorResponse('Unauthorized', 'Authentication required', 401);
-  }
-
-  const { searchParams } = new URL(req.url);
-  const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '50');
-  const programId = searchParams.get('programId');
-  const search = searchParams.get('search');
-  const templatesMode = searchParams.get('templates') === 'true';
-
-  if (templatesMode) {
-    // Fetch program block templates from program_blocks table
-    const whereClause: any = {};
-    
-    if (search) {
-      whereClause.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { code: { contains: search, mode: 'insensitive' } },
-        { block_type: { contains: search, mode: 'insensitive' } }
-      ];
+// GET /api/tms/programs/blocks - Lấy danh sách khối học phần và nhóm khối
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return createErrorResponse('Unauthorized', 'Authentication required', 401);
     }
 
-    const templates = await db.programBlock.findMany({
-      take: limit,
-      skip: (page - 1) * limit,
-      where: whereClause,
-      orderBy: { display_order: 'asc' }
-    });
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '50');
+    const type = searchParams.get('type') || 'blocks'; // 'blocks' or 'groups'
+    const search = searchParams.get('search');
 
-    const total = await db.programBlock.count({
-      where: whereClause
-    });
-
-    return {
-      success: true,
-      data: templates,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  // Fetch program block assignments using program_course_map
-  const whereClause: any = {
-    block_id: { not: null } // Only get courses assigned to blocks
-  };
-  
-  if (programId && programId !== 'all') {
-    whereClause.program_id = BigInt(programId);
-  }
-
-  if (search) {
-    whereClause.OR = [
-      {
-        ProgramBlock: {
-          OR: [
-            { title: { contains: search, mode: 'insensitive' } },
-            { code: { contains: search, mode: 'insensitive' } }
-          ]
-        }
-      },
-      {
-        Program: {
-          OR: [
-            { code: { contains: search, mode: 'insensitive' } },
-            { name_vi: { contains: search, mode: 'insensitive' } }
-          ]
-        }
-      },
-      {
-        Course: {
-          OR: [
-            { code: { contains: search, mode: 'insensitive' } },
-            { name_vi: { contains: search, mode: 'insensitive' } }
-          ]
-        }
+    if (type === 'groups') {
+      // Fetch program block groups
+      const whereClause: any = {};
+      
+      if (search) {
+        whereClause.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { group_type: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } }
+        ];
       }
-    ];
-  }
 
-  // Get program course mappings that have block_id
-  const courseMappings = await db.programCourseMap.findMany({
-    take: limit,
-    skip: (page - 1) * limit,
-    where: whereClause,
-    include: {
-      Program: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true
-        }
-      },
-      ProgramBlock: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          block_type: true,
-          display_order: true
-        }
-      },
-      Course: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true,
-          credits: true
-        }
+      const groups = await db.programBlockGroup.findMany({
+        take: limit,
+        skip: (page - 1) * limit,
+        where: whereClause,
+        include: {
+          parent: {
+            select: {
+              id: true,
+              code: true,
+              title: true
+            }
+          },
+          children: {
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              group_type: true,
+              display_order: true
+            },
+            orderBy: { display_order: 'asc' }
+          },
+          _count: {
+            select: {
+              ProgramCourseMap: true,
+              children: true
+            }
+          }
+        },
+        orderBy: { display_order: 'asc' }
+      });
+
+      const total = await db.programBlockGroup.count({
+        where: whereClause
+      });
+
+      // Serialize BigInt values
+      const serializedGroups = JSON.parse(JSON.stringify(groups, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ));
+
+      return NextResponse.json({
+        success: true,
+        data: serializedGroups,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    } else {
+      // Fetch program blocks (default)
+      const whereClause: any = {};
+      
+      if (search) {
+        whereClause.OR = [
+          { title: { contains: search, mode: 'insensitive' } },
+          { code: { contains: search, mode: 'insensitive' } },
+          { block_type: { contains: search, mode: 'insensitive' } }
+        ];
       }
-    },
-    orderBy: [
-      { ProgramBlock: { display_order: 'asc' } },
-      { display_order: 'asc' }
-    ]
-  });
 
-  // Get total count
-  const total = await db.programCourseMap.count({
-    where: whereClause
-  });
+      const blocks = await db.programBlock.findMany({
+        take: limit,
+        skip: (page - 1) * limit,
+        where: whereClause,
+        include: {
+          _count: {
+            select: {
+              ProgramCourseMap: true
+            }
+          }
+        },
+        orderBy: { display_order: 'asc' }
+      });
 
-  // Group by block and program for better organization
-  const groupedBlocks = courseMappings.reduce((acc: any, item: any) => {
-    const key = `${item.program_id}-${item.block_id}`;
-    if (!acc[key]) {
-      acc[key] = {
-        id: item.block_id?.toString(),
-        programId: item.program_id?.toString(),
-        programCode: item.Program?.code || '—',
-        programName: item.Program?.name_vi || 'Chưa cập nhật',
-        templateId: item.block_id?.toString(),
-        templateCode: item.ProgramBlock?.code || '—',
-        templateTitle: item.ProgramBlock?.title || 'Chưa cập nhật',
-        blockType: item.ProgramBlock?.block_type || 'unknown',
-        blockTypeLabel: getBlockTypeLabel(item.ProgramBlock?.block_type || 'unknown'),
-        displayOrder: item.ProgramBlock?.display_order || 1,
-        isRequired: Boolean(item.is_required),
-        isActive: true, // Default to true since we're showing active assignments
-        customTitle: null,
-        customDescription: null,
-        assignedAt: new Date().toISOString(),
-        courses: []
-      };
+      const total = await db.programBlock.count({
+        where: whereClause
+      });
+
+      // Serialize BigInt values
+      const serializedBlocks = JSON.parse(JSON.stringify(blocks, (key, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      ));
+
+      return NextResponse.json({
+        success: true,
+        data: serializedBlocks,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
     }
-    acc[key].courses.push(item.Course);
-    return acc;
-  }, {});
+  } catch (error) {
+    console.error('Error in blocks API:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to quản lý khối học phần chương trình',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
 
-  const formattedBlocks = Object.values(groupedBlocks);
-
-  return {
-    success: true,
-    data: formattedBlocks,
-    pagination: {
-      page,
-      limit,
-      total: formattedBlocks.length,
-      totalPages: Math.ceil(formattedBlocks.length / limit),
-    },
-  };
-}, CONTEXT);
-
-// POST /api/tms/programs/blocks - Tạo khối học phần mới
+// POST /api/tms/programs/blocks - Tạo khối học phần hoặc nhóm khối mới
 export const POST = withBody(async (body: unknown) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -185,60 +149,90 @@ export const POST = withBody(async (body: unknown) => {
 
   const userId = BigInt(session.user.id);
   const data = body as {
-    program_id: number;
-    template_id: number;
+    type: 'block' | 'group';
+    code: string;
+    title: string;
+    block_type?: string;
+    group_type?: string;
     display_order?: number;
-    is_required?: boolean;
-    is_active?: boolean;
-    custom_title?: string;
-    custom_description?: string;
+    description?: string;
+    parent_id?: number;
   };
 
   // Validate required fields
-  if (!data.program_id || !data.template_id) {
-    throw new Error('Thiếu program_id hoặc template_id');
+  if (!data.code || !data.title) {
+    throw new Error('Thiếu mã hoặc tiêu đề');
   }
 
-  const programId = BigInt(data.program_id);
-  const templateId = BigInt(data.template_id);
+  if (data.type === 'group') {
+    // Create program block group
+    const group = await db.programBlockGroup.create({
+      data: {
+        code: data.code,
+        title: data.title,
+        group_type: data.group_type || 'GENERAL',
+        display_order: data.display_order || 1,
+        description: data.description,
+        parent_id: data.parent_id ? BigInt(data.parent_id) : null,
+      },
+      include: {
+        parent: {
+          select: {
+            id: true,
+            code: true,
+            title: true
+          }
+        },
+        children: {
+          select: {
+            id: true,
+            code: true,
+            title: true,
+            group_type: true,
+            display_order: true
+          },
+          orderBy: { display_order: 'asc' }
+        },
+        _count: {
+          select: {
+            ProgramCourseMap: true,
+            children: true
+          }
+        }
+      }
+    });
 
-  // Check if program exists
-  const program = await db.program.findUnique({
-    where: { id: programId },
-    select: { id: true, code: true, name_vi: true }
-  });
-  if (!program) {
-    throw new Error('Không tìm thấy chương trình đào tạo');
+    // Serialize BigInt values
+    const serializedGroup = JSON.parse(JSON.stringify(group, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+
+    return serializedGroup;
+  } else {
+    // Create program block
+    const block = await db.programBlock.create({
+      data: {
+        code: data.code,
+        title: data.title,
+        block_type: data.block_type || 'GENERAL',
+        display_order: data.display_order || 1,
+      },
+      include: {
+        _count: {
+          select: {
+            ProgramCourseMap: true
+          }
+        }
+      }
+    });
+
+    // Serialize BigInt values
+    const serializedBlock = JSON.parse(JSON.stringify(block, (key, value) =>
+      typeof value === 'bigint' ? value.toString() : value
+    ));
+
+    return serializedBlock;
   }
-
-  // Check if template exists
-  const template = await db.programBlock.findUnique({
-    where: { id: templateId },
-    select: { id: true, code: true, title: true, block_type: true }
-  });
-  if (!template) {
-    throw new Error('Không tìm thấy template khối học phần');
-  }
-
-  // For this schema, we don't create assignments directly
-  // Instead, we would create course mappings with block_id
-  // This is a simplified response for now
-  return {
-    success: true,
-    data: {
-      id: template.id.toString(),
-      programCode: program.code || '—',
-      programName: program.name_vi || 'Chưa cập nhật',
-      templateCode: template.code || '—',
-      templateTitle: template.title || 'Chưa cập nhật',
-      blockType: template.block_type || 'unknown',
-      displayOrder: data.display_order || 1,
-      isRequired: data.is_required ?? true,
-      isActive: data.is_active ?? true,
-      customTitle: data.custom_title,
-      customDescription: data.custom_description,
-    }
-  };
 }, CONTEXT);
 
 function getBlockTypeLabel(blockType: string): string {

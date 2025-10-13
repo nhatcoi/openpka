@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: trasy_app
+    container_name: openpka_app
     environment:
       NODE_ENV: production
       DATABASE_URL:
@@ -14,24 +14,24 @@ services:
 # services:
 #   # db:
 #   #   image: postgres:15-alpine
-#   #   container_name: trasy_db
+#   #   container_name: openpka_db
 #   #   environment:
-#   #     POSTGRES_USER: trasy
-#   #     POSTGRES_PASSWORD: trasy
-#   #     POSTGRES_DB: trasy
+#   #     POSTGRES_USER: openpka
+#   #     POSTGRES_PASSWORD: openpka
+#   #     POSTGRES_DB: openpka
 #   #   volumes:
 #   #     - pg_data:/var/lib/postgresql/data
 #   #   ports:
 #   #     - "5432:5432"
 #   #   healthcheck:
-#   #     test: ["CMD-SHELL", "pg_isready -U trasy"]
+#   #     test: ["CMD-SHELL", "pg_isready -U openpka"]
 #   #     interval: 5s
 #   #     timeout: 3s
 #   #     retries: 10
 
 #   app:
 #     build: .
-#     container_name: trasy_app
+#     container_name: openpka_app
 #     depends_on:
 #       db:
 #         condition: service_healthy
