@@ -16,9 +16,16 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Add as AddIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -108,6 +115,7 @@ export default function MajorsPage() {
     open: false,
     major: null
   });
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
 
   // Fetch majors data
@@ -131,7 +139,7 @@ export default function MajorsPage() {
       const data = await response.json();
 
       if (data.success) {
-        setMajors(data.data?.data || []);
+        setMajors(data.data?.items || []);
         setTotalPages(data.data?.pagination?.pages || 1);
       } else {
         setError(data.error || 'Failed to fetch majors');
@@ -191,14 +199,35 @@ export default function MajorsPage() {
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Stack spacing={3}>
         {/* Header */}
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Quản lý Ngành học
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Quản lý thông tin các ngành học trong hệ thống
-          </Typography>
-        </Box>
+        <Paper 
+          sx={{ 
+            p: 4, 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Box>
+              <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+                Quản lý Ngành học
+              </Typography>
+              <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                Quản lý thông tin các ngành học trong hệ thống
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => setHelpDialogOpen(true)}
+              color="inherit"
+              sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
+            >
+              Hướng dẫn
+            </Button>
+          </Stack>
+        </Paper>
 
         {/* Add Button */}
         <Paper sx={{ p: 3 }}>
@@ -260,6 +289,149 @@ export default function MajorsPage() {
               onClick={() => deleteDialog.major && handleDelete(deleteDialog.major)}
             >
               Xóa
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Help Dialog */}
+        <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoIcon />
+            Hướng dẫn quản lý Ngành học
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 3 }}>
+            <Stack spacing={3}>
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  1. Tạo Ngành học mới
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Khoa hoặc phòng ban được ủy quyền có thể tạo ngành học mới bằng cách nhập các thông tin cơ bản như mã ngành, tên tiếng Việt, tên tiếng Anh, bậc đào tạo, và các thông tin liên quan khác.
+                </Typography>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  <strong>Lưu ý:</strong> Mã ngành phải là duy nhất trong đơn vị tổ chức. Khuyến khích sử dụng mã ngành theo tiêu chuẩn của Bộ Giáo dục.
+                </Alert>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  2. Quản lý thông tin Ngành học
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Mỗi ngành học có thể bao gồm nhiều thông tin quan trọng:
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Chương trình đào tạo (CTĐT)" 
+                      secondary="Các chương trình đào tạo thuộc ngành, bao gồm các phiên bản khác nhau"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Chuẩn đầu ra (CĐR)" 
+                      secondary="Các chuẩn đầu ra của ngành học theo từng phiên bản"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Chỉ tiêu tuyển sinh" 
+                      secondary="Chỉ tiêu tuyển sinh theo từng năm học"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Học phí" 
+                      secondary="Mức học phí theo năm và nhóm học phí"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  3. Trạng thái Ngành học
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Ngành học có các trạng thái khác nhau trong vòng đời:
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon sx={{ color: 'grey.500' }} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Draft (Bản nháp)" 
+                      secondary="Ngành học đang được soạn thảo, chưa đưa vào sử dụng"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon sx={{ color: 'warning.main' }} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Proposed (Đề xuất)" 
+                      secondary="Ngành học đã được đề xuất, đang chờ phê duyệt"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Active (Đang hoạt động)" 
+                      secondary="Ngành học đang được sử dụng để đào tạo"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon sx={{ color: 'error.main' }} />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Suspended/Closed (Tạm ngưng/Đóng)" 
+                      secondary="Ngành học tạm ngưng hoặc không còn đào tạo"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  4. Liên kết với Chương trình đào tạo
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Sau khi tạo ngành học, bạn có thể tạo các chương trình đào tạo cho ngành. Mỗi ngành có thể có nhiều phiên bản CTĐT khác nhau phục vụ cho các khóa học khác nhau.
+                </Typography>
+                <Alert severity="success" sx={{ mt: 1 }}>
+                  <strong>Mẹo:</strong> Nên hoàn thiện đầy đủ thông tin ngành học trước khi tạo chương trình đào tạo.
+                </Alert>
+              </Box>
+
+              <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  Quy trình tổng quan:
+                </Typography>
+                <Typography variant="body2" component="div">
+                  Tạo Ngành học → Cập nhật thông tin cơ bản → Tạo CTĐT → Quản lý CĐR, chỉ tiêu, học phí → Theo dõi & cập nhật
+                </Typography>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setHelpDialogOpen(false)} variant="contained">
+              Đã hiểu
             </Button>
           </DialogActions>
         </Dialog>
