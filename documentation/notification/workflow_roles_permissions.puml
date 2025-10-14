@@ -1,0 +1,244 @@
+@startuml Workflow Roles and Permissions
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam actor {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontSize 10
+}
+skinparam note {
+    BackgroundColor #FFF3E0
+    BorderColor #FF9800
+    FontSize 9
+}
+
+title Workflow Roles and Permissions\nTraining Management System
+
+' =============================================
+' ROLE HIERARCHY
+' =============================================
+package "Role Hierarchy" {
+    actor "UNIVERSITY_COUNCIL" as UC
+    actor "BOARD_DIRECTOR" as BD
+    actor "DIRECTOR" as DIR
+    actor "DEAN" as DEAN
+    actor "ACADEMIC_BOARD" as AB
+    actor "ACADEMIC_OFFICE" as AO
+    actor "HR_MANAGER" as HRM
+    actor "FINANCE_MANAGER" as FM
+    actor "ORG_MANAGER" as OM
+    actor "FACULTY_HEAD" as FH
+    actor "DEPARTMENT_HEAD" as DH
+    actor "SUPERVISOR" as SUP
+    actor "INTERVIEW_PANEL" as IP
+    actor "MOET_APPROVAL" as MOET
+    
+    UC --> BD
+    BD --> DIR
+    DIR --> DEAN
+    DEAN --> FH
+    DIR --> HRM
+    DIR --> FM
+    DIR --> OM
+    DIR --> AO
+    AO --> AB
+    FH --> DH
+    DH --> SUP
+    HRM --> IP
+}
+
+' =============================================
+' PERMISSION GROUPS
+' =============================================
+package "Permission Groups" {
+    
+    rectangle "TMS Permissions" as TMS {
+        [tms.course.approve]
+        [tms.course.review]
+        [tms.course.publish]
+        [tms.program.approve]
+        [tms.program.review]
+        [tms.program.publish]
+        [tms.major.approve]
+        [tms.major.review]
+        [tms.major.publish]
+        [tms.curriculum.approve]
+        [tms.curriculum.review]
+        [tms.curriculum.publish]
+    }
+    
+    rectangle "HR Permissions" as HR {
+        [hr.leave.approve]
+        [hr.leave.confirm]
+        [hr.employee.review]
+        [hr.employee.approve]
+        [hr.employee.interview]
+        [hr.employee.hire]
+        [hr.performance.review]
+        [hr.performance.confirm]
+        [hr.performance.approve]
+        [hr.training.approve]
+        [hr.training.confirm]
+        [hr.training.budget]
+        [hr.evaluation.setup]
+        [hr.evaluation.approve]
+        [hr.evaluation.notify]
+    }
+    
+    rectangle "ORG Permissions" as ORG {
+        [org.structure.review]
+        [org.structure.approve]
+        [org.structure.publish]
+    }
+    
+    rectangle "Finance Permissions" as FIN {
+        [finance.request.approve]
+        [finance.request.review]
+        [finance.request.budget]
+    }
+    
+    rectangle "Student Permissions" as STD {
+        [student.enrollment.review]
+        [student.enrollment.payment]
+        [student.enrollment.complete]
+    }
+}
+
+' =============================================
+' WORKFLOW MAPPING
+' =============================================
+package "Workflow to Role Mapping" {
+    
+    note top of TMS
+      Course/Program/Major/Curriculum Workflows
+      - Multi-level approval from Faculty to University
+      - Academic Board involvement for major decisions
+      - Final approval by Dean or Board Director
+    end note
+    
+    note top of HR
+      Human Resources Workflows
+      - Supervisor level for routine approvals
+      - HR Manager for policy compliance
+      - Director level for budget decisions
+    end note
+    
+    note top of ORG
+      Organization Structure Workflows
+      - High-level approval required
+      - University Council for major changes
+      - Board Director for strategic decisions
+    end note
+    
+    note top of FIN
+      Financial Approval Workflows
+      - Department level for routine expenses
+      - Finance Manager for budget review
+      - Director for major financial decisions
+    end note
+    
+    note top of STD
+      Student Enrollment Workflows
+      - Academic Office for eligibility
+      - Finance Office for payment
+      - Admin Office for completion
+    end note
+}
+
+' =============================================
+' ESCALATION RULES
+' =============================================
+package "Escalation Rules" {
+    
+    rectangle "Timeout Escalation" as TO {
+        [1-2 days: Supervisor Level]
+        [3-5 days: Manager Level]
+        [7-10 days: Director Level]
+        [14+ days: Board Level]
+    }
+    
+    rectangle "Priority Escalation" as PE {
+        [Low: Normal Workflow]
+        [Medium: Manager Review]
+        [High: Director Approval]
+        [Urgent: Board Decision]
+    }
+    
+    rectangle "Amount Escalation" as AE {
+        [< 1M VND: Department Head]
+        [1-10M VND: Manager Level]
+        [10-50M VND: Director Level]
+        [> 50M VND: Board Level]
+    }
+    
+    TO --> PE
+    PE --> AE
+}
+
+' =============================================
+' NOTIFICATION TRIGGERS
+' =============================================
+package "Notification Triggers" {
+    
+    rectangle "Approval Request" as AR {
+        [New workflow initiated]
+        [Step completion]
+        [Approval required]
+    }
+    
+    rectangle "Status Updates" as SU {
+        [Workflow started]
+        [Step completed]
+        [Workflow completed]
+        [Workflow rejected]
+    }
+    
+    rectangle "Reminders" as REM {
+        [Daily reminder for pending]
+        [Overdue notifications]
+        [Escalation alerts]
+    }
+    
+    rectangle "System Notifications" as SN {
+        [Workflow timeout]
+        [System maintenance]
+        [Policy updates]
+    }
+    
+    AR --> SU
+    SU --> REM
+    REM --> SN
+}
+
+' =============================================
+' WORKFLOW STATUSES
+' =============================================
+package "Workflow Statuses" {
+    
+    rectangle "Active Statuses" as AS {
+        [DRAFT]
+        [PENDING]
+        [IN_REVIEW]
+        [IN_APPROVAL]
+        [ACTIVE]
+    }
+    
+    rectangle "Completed Statuses" as CS {
+        [APPROVED]
+        [COMPLETED]
+        [PUBLISHED]
+        [ACTIVATED]
+    }
+    
+    rectangle "Rejected Statuses" as RS {
+        [REJECTED]
+        [CANCELLED]
+        [EXPIRED]
+        [WITHDRAWN]
+    }
+    
+    AS --> CS : "Success Path"
+    AS --> RS : "Failure Path"
+}
+
+@enduml

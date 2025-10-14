@@ -45,7 +45,9 @@ export interface ProgramApiResponseItem {
   } | null;
   major?: {
     id: string;
+    code: string;
     name_vi: string;
+    name_en?: string | null;
     degree_level?: string | null;
     duration_years?: number | null;
   } | null;
@@ -54,7 +56,6 @@ export interface ProgramApiResponseItem {
     block_count?: number;
     course_count?: number;
   };
-  ProgramBlock?: ProgramBlockApiItem[];
   ProgramCourseMap?: ProgramCourseMapApiItem[];
   plo?: unknown;
   unified_workflow?: unknown;
@@ -79,15 +80,24 @@ export interface ProgramListApiResponse {
 export interface ProgramCourseMapApiItem {
   id?: string | number | null;
   course_id?: string | number | null;
+  block_id?: string | number | null;
+  group_id?: string | number | null;
   is_required?: boolean | null;
   display_order?: number | null;
-  group_id?: string | number | null;
   Course?: {
     id?: string | number | null;
     code?: string | null;
     name_vi?: string | null;
     credits?: number | null;
   };
+  ProgramBlock?: {
+    id?: string | number | null;
+    code?: string | null;
+    title?: string | null;
+    block_type?: string | null;
+    display_order?: number | null;
+  };
+  ProgramBlockGroup?: ProgramBlockGroupApiRaw | null;
 }
 
 export interface ProgramBlockGroupRuleApiRaw {
@@ -104,7 +114,16 @@ export interface ProgramBlockGroupApiRaw {
   title: string;
   group_type: string;
   display_order?: number | null;
-  ProgramBlockGroupRule?: ProgramBlockGroupRuleApiRaw[];
+  description?: string | null;
+  parent_id?: string | number | null;
+  program_block_group_rules?: ProgramBlockGroupRuleApiRaw[];
+  parent?: {
+    id?: string | number | null;
+    code: string;
+    title: string;
+    group_type: string;
+  } | null;
+  children?: ProgramBlockGroupApiRaw[];
 }
 
 export interface ProgramBlockApiItem {
@@ -138,7 +157,9 @@ export interface ProgramListItem {
   } | null;
   major?: {
     id: string;
-    name: string;
+    code: string;
+    name_vi: string;
+    name_en?: string | null;
     degreeLevel?: string | null;
     durationYears?: number | null;
   } | null;
@@ -237,6 +258,8 @@ export interface ProgramFormState {
   outcomes: ProgramOutcomeFormItem[];
   blocks: ProgramBlockFormItem[];
   standaloneCourses: ProgramCourseFormItem[];
+  applyDefaultFramework?: boolean;
+  copyFromProgramId?: string;
 }
 
 const dateToInput = (value?: string | null): string => {
@@ -300,6 +323,7 @@ export const createDefaultProgramForm = (): ProgramFormState => ({
   outcomes: [],
   blocks: [],
   standaloneCourses: [],
+  applyDefaultFramework: false,
 });
 
 export const mapOrgUnitOptions = (items: OrgUnitApiItem[]): OrgUnitOption[] =>
@@ -311,33 +335,57 @@ export const mapOrgUnitOptions = (items: OrgUnitApiItem[]): OrgUnitOption[] =>
   }));
 
 export const mapPloToOutcomeItems = (plo: unknown): ProgramOutcomeFormItem[] => {
-  if (!Array.isArray(plo)) return [];
+  // Support shapes:
+  // 1) Array of {label, category}
+  // 2) Object { items: [...] }
+  // 3) Plain object map: { PLO1: "...", PLO2: "..." }
+  if (Array.isArray(plo)) {
+    return (
+      plo
+        .map((item: unknown) => {
+          if (item && typeof item === 'object') {
+            const record = item as Record<string, unknown>;
+            const label = String(record.label ?? '').trim();
+            const categoryValue = typeof record.category === 'string' ? record.category.toLowerCase() : 'general';
+            const category: ProgramOutcomeCategory = categoryValue === 'specific' ? 'specific' : 'general';
+            return {
+              id: safeId(record.id as string | number | null | undefined, 'outcome'),
+              label,
+              category,
+            };
+          }
+          if (typeof item === 'string') {
+            return {
+              id: safeId(item, 'outcome'),
+              label: item,
+              category: 'general' as ProgramOutcomeCategory,
+            };
+          }
+          return null;
+        })
+        .filter(Boolean) as ProgramOutcomeFormItem[]
+    );
+  }
 
-  return (
-    plo
-      .map((item) => {
-        if (item && typeof item === 'object') {
-          const record = item as Record<string, unknown>;
-          const label = String(record.label ?? '').trim();
-          const categoryValue = typeof record.category === 'string' ? record.category.toLowerCase() : 'general';
-          const category: ProgramOutcomeCategory = categoryValue === 'specific' ? 'specific' : 'general';
-          return {
-            id: safeId(record.id as string | number | null | undefined, 'outcome'),
-            label,
-            category,
-          };
-        }
-        if (typeof item === 'string') {
-          return {
-            id: safeId(item, 'outcome'),
-            label: item,
-            category: 'general' as ProgramOutcomeCategory,
-          };
-        }
-        return null;
+  if (plo && typeof plo === 'object') {
+    const asAny = plo as any;
+    if (Array.isArray(asAny.items)) {
+      return mapPloToOutcomeItems(asAny.items);
+    }
+    // Plain object map case
+    return Object.entries(plo as Record<string, unknown>)
+      .map(([key, value]) => {
+        const label = (value ?? '').toString().trim();
+        if (!label) return null;
+        return {
+          id: safeId(key, 'outcome'),
+          label,
+          category: 'general' as ProgramOutcomeCategory,
+        };
       })
-      .filter(Boolean) as ProgramOutcomeFormItem[]
-  );
+      .filter(Boolean) as ProgramOutcomeFormItem[];
+  }
+  return [];
 };
 
 export const mapProgramResponse = (program: ProgramApiResponseItem): ProgramListItem => ({
@@ -363,10 +411,12 @@ export const mapProgramResponse = (program: ProgramApiResponseItem): ProgramList
       }
     : null,
   // Similarly, handle `Major` vs `major` differences gracefully.
-  major: (program.major ?? (program as unknown as { Major?: { id?: string | number; name_vi: string; degree_level?: string | null; duration_years?: number | null } | null }).Major)
+  major: (program.major ?? (program as unknown as { Major?: { id?: string | number; code: string; name_vi: string; name_en?: string | null; degree_level?: string | null; duration_years?: number | null } | null }).Major)
     ? {
         id: (program.major ?? (program as unknown as { Major?: { id?: string | number } }).Major)?.id?.toString() ?? '',
-        name: (program.major ?? (program as unknown as { Major?: { name_vi: string } }).Major)!.name_vi,
+        code: (program.major ?? (program as unknown as { Major?: { code: string } }).Major)!.code,
+        name_vi: (program.major ?? (program as unknown as { Major?: { name_vi: string } }).Major)!.name_vi,
+        name_en: (program.major ?? (program as unknown as { Major?: { name_en?: string | null } }).Major)?.name_en ?? null,
         degreeLevel: (program.major ?? (program as unknown as { Major?: { degree_level?: string | null } }).Major)?.degree_level ?? null,
         durationYears: (program.major ?? (program as unknown as { Major?: { duration_years?: number | null } }).Major)?.duration_years ?? null,
       }
@@ -381,45 +431,46 @@ export const mapProgramResponse = (program: ProgramApiResponseItem): ProgramList
 export const mapProgramDetail = (data: ProgramApiResponseItem): ProgramDetail => {
   const summary = mapProgramResponse(data);
 
-  const blockItems = Array.isArray(data.ProgramBlock) ? data.ProgramBlock : [];
-  const blocks: ProgramBlockItem[] = blockItems.map((block, blockIndex) => {
-    const courseItems = Array.isArray(block.ProgramCourseMap) ? block.ProgramCourseMap : [];
-    const groupItems = Array.isArray(block.ProgramBlockGroup) ? block.ProgramBlockGroup : [];
-    return {
-      id: safeId(block.id, 'block'),
-      code: block.code,
-      title: block.title,
-      blockType: normalizeProgramBlockType(block.block_type),
-      displayOrder: block.display_order ?? blockIndex + 1,
-      courses: courseItems.map((courseMap, courseIndex) => ({
-        id: safeId(courseMap.Course?.id ?? courseMap.id, 'course'),
-        mapId: safeId(courseMap.id, 'map'),
-        code: courseMap.Course?.code ?? '—',
-        name: courseMap.Course?.name_vi ?? 'Chưa đặt tên',
-        credits: courseMap.Course?.credits ?? 0,
-        required: courseMap.is_required ?? true,
-        displayOrder: courseMap.display_order ?? courseIndex + 1,
-        courseId:
-          courseMap.course_id != null
-            ? courseMap.course_id.toString()
-            : courseMap.Course?.id != null
-            ? courseMap.Course.id.toString()
-            : '',
-        groupId:
-          courseMap.group_id != null
-            ? courseMap.group_id.toString()
-            : null,
-      })),
-      groups: groupItems.map((group, groupIndex) => {
-        const baseType = getProgramBlockGroupBaseType(group.group_type);
-        const rules = Array.isArray(group.ProgramBlockGroupRule) ? group.ProgramBlockGroupRule : [];
-        return {
+  // New structure: ProgramCourseMap contains the course mappings
+  const courseMapItems = Array.isArray(data.ProgramCourseMap) ? data.ProgramCourseMap : [];
+  
+  // Group courses by block_id to create blocks
+  const blockMap = new Map<string, ProgramBlockItem>();
+  
+  courseMapItems.forEach((courseMap, index) => {
+    const blockId = courseMap.block_id?.toString() ?? 'standalone';
+    const block = courseMap.ProgramBlock;
+    
+    if (!blockMap.has(blockId)) {
+      blockMap.set(blockId, {
+        id: safeId(block?.id ?? blockId, 'block'),
+        code: block?.code ?? 'STANDALONE',
+        title: block?.title ?? 'Môn học độc lập',
+        blockType: block ? normalizeProgramBlockType(block.block_type) : ProgramBlockType.CORE,
+        displayOrder: block?.display_order ?? index + 1,
+        courses: [],
+        groups: [],
+      });
+    }
+    
+    const blockItem = blockMap.get(blockId)!;
+    
+    // Add groups if available from ProgramBlockGroup
+    if (courseMap.ProgramBlockGroup) {
+      const group = courseMap.ProgramBlockGroup;
+      const baseType = getProgramBlockGroupBaseType(group.group_type);
+      const rules = Array.isArray(group.program_block_group_rules) ? group.program_block_group_rules : [];
+      
+      // Check if group already exists in block
+      const existingGroup = blockItem.groups.find(g => g.id === safeId(group.id, 'group'));
+      if (!existingGroup) {
+        blockItem.groups.push({
           id: safeId(group.id, 'group'),
           code: group.code,
           title: group.title,
           groupType: baseType,
           rawGroupType: (group.group_type ?? '').toString(),
-          displayOrder: group.display_order ?? groupIndex + 1,
+          displayOrder: group.display_order ?? 1,
           rules: rules.map((rule) => ({
             id: safeId(rule.id, 'rule'),
             minCredits: rule.min_credits != null ? Number(rule.min_credits) : null,
@@ -427,28 +478,36 @@ export const mapProgramDetail = (data: ProgramApiResponseItem): ProgramDetail =>
             minCourses: rule.min_courses ?? null,
             maxCourses: rule.max_courses ?? null,
           })),
-        };
-      }),
-    };
+        });
+      }
+    }
+    
+    // Add course to block (courses belong to groups within blocks)
+    if (courseMap.Course) {
+      blockItem.courses.push({
+        id: safeId(courseMap.Course.id, 'course'),
+        mapId: safeId(courseMap.id, 'map'),
+        code: courseMap.Course.code ?? '—',
+        name: courseMap.Course.name_vi ?? 'Chưa đặt tên',
+        credits: courseMap.Course.credits ?? 0,
+        required: courseMap.is_required ?? true,
+        displayOrder: courseMap.display_order ?? index + 1,
+        courseId: courseMap.course_id?.toString() ?? courseMap.Course.id?.toString() ?? '',
+        groupId: courseMap.group_id?.toString() ?? null,
+      });
+    }
   });
 
-  const standaloneItems = Array.isArray(data.ProgramCourseMap) ? data.ProgramCourseMap : [];
-  const standaloneCourses: ProgramCourseItem[] = standaloneItems.map((courseMap, index) => ({
-    id: safeId(courseMap.Course?.id ?? courseMap.id, 'course'),
-    mapId: safeId(courseMap.id, 'map'),
-    code: courseMap.Course?.code ?? '—',
-    name: courseMap.Course?.name_vi ?? 'Chưa đặt tên',
-    credits: courseMap.Course?.credits ?? 0,
-    required: courseMap.is_required ?? true,
-    displayOrder: courseMap.display_order ?? index + 1,
-    courseId:
-      courseMap.course_id != null
-        ? courseMap.course_id.toString()
-        : courseMap.Course?.id != null
-        ? courseMap.Course.id.toString()
-        : '',
-    groupId: null,
-  }));
+  // Sort blocks by display order
+  const blocks = Array.from(blockMap.values()).sort((a, b) => a.displayOrder - b.displayOrder);
+  
+  // Sort groups within each block
+  blocks.forEach(block => {
+    block.groups.sort((a, b) => a.displayOrder - b.displayOrder);
+    block.courses.sort((a, b) => a.displayOrder - b.displayOrder);
+  });
+
+  const standaloneCourses: ProgramCourseItem[] = [];
 
   return {
     ...summary,
@@ -500,7 +559,7 @@ export const mapProgramDetailToForm = (detail: ProgramDetail): ProgramFormState 
   })),
 });
 
-export const buildProgramPayloadFromForm = (form: ProgramFormState) => ({
+export const buildProgramPayloadFromForm = (form: ProgramFormState, includeBlocks: boolean = true) => ({
   code: form.code.trim(),
   name_vi: form.nameVi.trim(),
   name_en: form.nameEn.trim() || undefined,
@@ -512,41 +571,37 @@ export const buildProgramPayloadFromForm = (form: ProgramFormState) => ({
   major_id: form.majorId ? Number(form.majorId) : undefined,
   effective_from: form.effectiveFrom || undefined,
   effective_to: form.effectiveTo || undefined,
-  plo: form.outcomes.length
-    ? form.outcomes.map((outcome) => ({
-        id: outcome.id,
-        label: outcome.label.trim(),
-        category: outcome.category,
-      }))
-    : undefined,
-  blocks: form.blocks.map((block, index) => ({
-    code: block.code.trim(),
-    title: block.title.trim(),
-    block_type: normalizeProgramBlockType(block.blockType),
-    display_order: Math.max(1, block.displayOrder || index + 1),
-    groups: block.groups.map((group, groupIndex) => ({
-      code: group.code,
-      title: group.title,
-      group_type: group.rawGroupType || group.groupType,
-      display_order: Math.max(1, group.displayOrder || groupIndex + 1),
-      rules: group.rules.map((rule) => ({
-        min_credits: rule.minCredits,
-        max_credits: rule.maxCredits,
-        min_courses: rule.minCourses,
-        max_courses: rule.maxCourses,
-      })),
+  apply_default_framework: !!form.applyDefaultFramework,
+  copy_from_program_id: form.copyFromProgramId ? Number(form.copyFromProgramId) : undefined,
+  // Send as plain object map: { PLO1: "..", PLO2: ".." }
+  plo: (() => {
+    if (!form.outcomes.length) return undefined;
+    const map: Record<string, string> = {};
+    form.outcomes.forEach((outcome, idx) => {
+      const label = outcome.label.trim();
+      if (!label) return;
+      const key = `PLO${idx + 1}`;
+      map[key] = label;
+    });
+    return Object.keys(map).length ? map : undefined;
+  })(),
+  ...(includeBlocks && form.blocks.length > 0 && {
+    blocks: form.blocks.map((block, index) => ({
+      code: block.code.trim(),
+      title: block.title.trim(),
+      block_type: normalizeProgramBlockType(block.blockType),
+      display_order: Math.max(1, block.displayOrder || index + 1),
+      // simplified: no groups
+      courses: block.courses
+        .filter((course) => course.courseId)
+        .map((course, courseIndex) => ({
+          course_id: Number(course.courseId),
+          is_required: course.required,
+          display_order: Math.max(1, course.displayOrder || courseIndex + 1),
+          // simplified: ignore group mapping
+        })),
     })),
-    courses: block.courses
-      .filter((course) => course.courseId)
-      .map((course, courseIndex) => ({
-        course_id: Number(course.courseId),
-        is_required: course.required,
-        display_order: Math.max(1, course.displayOrder || courseIndex + 1),
-        // map course.groupId to the corresponding group's code for stable server mapping
-        group_code:
-          (block.groups.find((g) => g.id === course.groupId)?.code) || undefined,
-      })),
-  })),
+  }),
   standalone_courses: form.standaloneCourses
     .filter((course) => course.courseId)
     .map((course, index) => ({

@@ -1,195 +1,79 @@
-import { Prisma } from '@prisma/client';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
-import {
-  createErrorResponse,
-  withIdAndBody,
-  withIdParam,
-} from '@/lib/api/api-handler';
+import { withIdAndBody, withErrorHandling, createErrorResponse } from '@/lib/api/api-handler';
 import { UpdateProgramCourseMapInput } from '@/lib/api/schemas/program-course-map';
 
-const DETAIL_CONTEXT = 'fetch program course map detail';
-const UPDATE_CONTEXT = 'update program course map';
-const DELETE_CONTEXT = 'delete program course map';
+const UPDATE_CONTEXT = 'cập nhật bản đồ học phần của chương trình';
+const DELETE_CONTEXT = 'xóa bản đồ học phần của chương trình';
 
-const includeRelations = {
-  Course: {
-    select: {
-      id: true,
-      code: true,
-      name_vi: true,
-      name_en: true,
-      credits: true,
-      type: true,
-    },
-  },
-  ProgramBlock: {
-    select: {
-      id: true,
-      code: true,
-      title: true,
-    },
-  },
-} satisfies Prisma.ProgramCourseMapInclude;
-
-export const GET = withIdParam(async (id: string, request: Request) => {
+export const PUT = withIdAndBody(async (idParam: string, body: unknown) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
   }
 
-  void request;
+  const id = BigInt(idParam);
 
-  const mapIdNumber = Number(id);
-  if (Number.isNaN(mapIdNumber)) {
-    throw new Error('Invalid id');
+  const input = body as UpdateProgramCourseMapInput;
+
+  const data: any = {};
+  if (input.block_id !== undefined) {
+    data.block_id = input.block_id == null || input.block_id === 'null' ? null : BigInt(input.block_id as any);
   }
-
-  const mapping = await db.programCourseMap.findUnique({
-    where: { id: BigInt(mapIdNumber) },
-    include: includeRelations,
-  });
-
-  if (!mapping) {
-    throw new Error('Program course mapping not found');
+  if (input.is_required !== undefined) {
+    data.is_required = Boolean(input.is_required);
   }
-
-  return {
-    id: mapping.id,
-    programId: mapping.program_id,
-    blockId: mapping.block_id,
-    courseId: mapping.course_id,
-    isRequired: mapping.is_required ?? true,
-    displayOrder: mapping.display_order ?? 1,
-    course: mapping.Course
-      ? {
-          id: mapping.Course.id,
-          code: mapping.Course.code,
-          nameVi: mapping.Course.name_vi,
-          nameEn: mapping.Course.name_en,
-          credits: mapping.Course.credits,
-          type: mapping.Course.type,
-        }
-      : null,
-    block: mapping.ProgramBlock
-      ? {
-          id: mapping.ProgramBlock.id,
-          code: mapping.ProgramBlock.code,
-          title: mapping.ProgramBlock.title,
-        }
-      : null,
-  };
-}, DETAIL_CONTEXT);
-
-export const PUT = withIdAndBody(async (id: string, body: unknown, request: Request) => {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return createErrorResponse('Unauthorized', 'Authentication required', 401);
-  }
-
-  void request;
-
-  const mapIdNumber = Number(id);
-  if (Number.isNaN(mapIdNumber)) {
-    throw new Error('Invalid id');
-  }
-
-  const payload = body as UpdateProgramCourseMapInput;
-
-  const data: Prisma.ProgramCourseMapUpdateInput = {};
-
-  if (payload.block_id !== undefined) {
-    if (payload.block_id === null || payload.block_id === 'null') {
-      data.block_id = null;
-    } else {
-      const blockIdNumber = Number(payload.block_id);
-      if (Number.isNaN(blockIdNumber)) {
-        throw new Error('Invalid block_id');
-      }
-      data.block_id = BigInt(blockIdNumber);
-    }
-  }
-
-  if (payload.is_required !== undefined) {
-    data.is_required = payload.is_required;
-  }
-
-  if (payload.display_order !== undefined) {
-    const orderNumber = Number(payload.display_order);
-    if (Number.isNaN(orderNumber) || orderNumber <= 0) {
-      throw new Error('Invalid display_order');
-    }
-    data.display_order = orderNumber;
-  }
-
-  if (payload.program_id !== undefined) {
-    const programIdNumber = Number(payload.program_id);
-    if (Number.isNaN(programIdNumber)) {
-      throw new Error('Invalid program_id');
-    }
-    data.program_id = BigInt(programIdNumber);
-  }
-
-  if (payload.course_id !== undefined) {
-    const courseIdNumber = Number(payload.course_id);
-    if (Number.isNaN(courseIdNumber)) {
-      throw new Error('Invalid course_id');
-    }
-    data.course_id = BigInt(courseIdNumber);
-  }
-
-  if (Object.keys(data).length === 0) {
-    throw new Error('No fields to update');
+  if (input.display_order !== undefined && input.display_order !== null && input.display_order !== '') {
+    data.display_order = Number(input.display_order);
   }
 
   const updated = await db.programCourseMap.update({
-    where: { id: BigInt(mapIdNumber) },
+    where: { id },
     data,
-    include: includeRelations,
+    include: {
+      Course: { select: { id: true, code: true, name_vi: true, name_en: true, credits: true, type: true } },
+      ProgramBlock: { select: { id: true, code: true, title: true } },
+    },
   });
 
   return {
-    id: updated.id,
-    programId: updated.program_id,
-    blockId: updated.block_id,
-    courseId: updated.course_id,
-    isRequired: updated.is_required ?? true,
+    id: updated.id.toString(),
+    programId: updated.program_id.toString(),
+    courseId: updated.course_id.toString(),
+    blockId: updated.block_id != null ? updated.block_id.toString() : null,
+    isRequired: Boolean(updated.is_required),
     displayOrder: updated.display_order ?? 1,
     course: updated.Course
       ? {
-          id: updated.Course.id,
+          id: updated.Course.id.toString(),
           code: updated.Course.code,
-          nameVi: updated.Course.name_vi,
-          nameEn: updated.Course.name_en,
-          credits: updated.Course.credits,
-          type: updated.Course.type,
+          nameVi: updated.Course.name_vi || undefined,
+          nameEn: updated.Course.name_en || undefined,
+          credits: updated.Course.credits != null ? Number(updated.Course.credits) : undefined,
+          type: updated.Course.type || undefined,
         }
       : null,
     block: updated.ProgramBlock
-      ? {
-          id: updated.ProgramBlock.id,
-          code: updated.ProgramBlock.code,
-          title: updated.ProgramBlock.title,
-        }
+      ? { id: updated.ProgramBlock.id.toString(), code: updated.ProgramBlock.code, title: updated.ProgramBlock.title }
       : null,
   };
 }, UPDATE_CONTEXT);
 
-export const DELETE = withIdParam(async (id: string, request: Request) => {
+export const DELETE = withErrorHandling(async (_req: NextRequest, ctx?: { params?: Promise<{ id: string }> }) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
   }
 
-  void request;
+  const idParam = ctx?.params ? (await ctx.params).id : undefined;
+  if (!idParam) throw new Error('Thiếu id');
+  const id = BigInt(idParam);
 
-  const mapIdNumber = Number(id);
-  if (Number.isNaN(mapIdNumber)) {
-    throw new Error('Invalid id');
-  }
+  await db.programCourseMap.delete({ where: { id } });
 
-  await db.programCourseMap.delete({ where: { id: BigInt(mapIdNumber) } });
-
-  return { id: BigInt(mapIdNumber) };
+  return { id: id.toString() };
 }, DELETE_CONTEXT);
+
+

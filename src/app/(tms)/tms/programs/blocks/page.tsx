@@ -3,25 +3,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
-  CircularProgress,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  Grid,
   IconButton,
   InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
-  Pagination,
   Paper,
   Select,
-  SelectChangeEvent,
   Snackbar,
   Stack,
   Table,
@@ -31,864 +30,696 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
+  Breadcrumbs,
+  Link,
+  Tooltip,
+  Divider,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  Visibility as VisibilityIcon,
+  School as SchoolIcon,
+  FilterList as FilterIcon,
+  ViewList as ViewListIcon,
+  Apps as AppsIcon,
+  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
-import {
-  ProgramBlockType,
-  PROGRAM_BLOCK_TYPES,
-  getProgramBlockTypeLabel,
-} from '@/constants/programs';
+import { getProgramBlockTypeLabel } from '@/constants/programs';
 
-const DEFAULT_BLOCK_PAGE_SIZE = 10;
-
-interface ProgramOption {
+interface ProgramBlock {
   id: string;
-  code: string;
-  name: string;
-  label: string;
-}
-
-interface ProgramBlockListItem {
-  id: string;
-  programId: string;
-  program: ProgramOption | null;
   code: string;
   title: string;
-  blockType: ProgramBlockType;
-  displayOrder: number;
-  courseCount: number;
-  groupCount: number;
+  block_type: string;
+  display_order: number;
+  _count: {
+    ProgramCourseMap: number;
+  };
 }
 
-interface ProgramBlockCourseItem {
+interface ProgramBlockGroup {
   id: string;
-  mapId: string;
-  courseId: string;
-  code: string;
-  name: string;
-  credits: number;
-  required: boolean;
-  displayOrder: number;
-}
-
-interface ProgramBlockDetail extends ProgramBlockListItem {
-  courses: ProgramBlockCourseItem[];
-}
-
-interface ProgramListApiItem {
-  id?: string | number;
-  code?: string;
-  name_vi?: string;
-  name_en?: string;
-  label?: string;
-}
-
-interface ProgramListApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramListApiItem[];
-  };
-  error?: string;
-}
-
-interface ProgramBlockListApiItem {
-  id?: string | number;
-  programId?: string | number;
-  program?: {
-    id?: string | number;
-    code?: string;
-    name?: string;
-  } | null;
-  code?: string;
-  title?: string;
-  blockType?: ProgramBlockType | string;
-  displayOrder?: number;
-  courseCount?: number;
-  groupCount?: number;
-}
-
-interface ProgramBlockListApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramBlockListApiItem[];
-    pagination?: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  };
-  error?: string;
-}
-
-interface ProgramBlockCourseApiItem {
-  id?: string | number;
-  mapId?: string | number;
-  courseId?: string | number;
-  code?: string;
-  name?: string;
-  credits?: number;
-  required?: boolean;
-  displayOrder?: number;
-}
-
-interface ProgramBlockDetailApiItem extends ProgramBlockListApiItem {
-  courses?: ProgramBlockCourseApiItem[];
-}
-
-interface ProgramBlockDetailApiResponse {
-  success: boolean;
-  data?: ProgramBlockDetailApiItem;
-  error?: string;
-}
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
-
-type BlockFormMode = 'create' | 'edit';
-
-interface ProgramBlockFormState {
-  programId: string;
   code: string;
   title: string;
-  blockType: ProgramBlockType;
-  displayOrder: number | '';
-}
-
-const BLOCK_TYPE_CHIP_COLOR: Record<ProgramBlockType, 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'info' | 'error'> = {
-  [ProgramBlockType.GENERAL]: 'info',
-  [ProgramBlockType.FOUNDATION]: 'primary',
-  [ProgramBlockType.CORE]: 'secondary',
-  [ProgramBlockType.MAJOR]: 'success',
-  [ProgramBlockType.ELECTIVE]: 'default',
-  [ProgramBlockType.THESIS]: 'warning',
-  [ProgramBlockType.INTERNSHIP]: 'info',
-  [ProgramBlockType.OTHER]: 'default',
-};
-
-function getBlockTypeChipColor(type: ProgramBlockType) {
-  return BLOCK_TYPE_CHIP_COLOR[type] ?? 'default';
-}
-
-function createEmptyForm(): ProgramBlockFormState {
-  return {
-    programId: '',
-    code: '',
-    title: '',
-    blockType: ProgramBlockType.CORE,
-    displayOrder: '',
+  group_type: string;
+  display_order: number | null;
+  description: string | null;
+  parent_id: string | null;
+  parent?: {
+    id: string;
+    code: string;
+    title: string;
+  };
+  children: Array<{
+    id: string;
+    code: string;
+    title: string;
+    group_type: string;
+    display_order: number | null;
+  }>;
+  _count: {
+    ProgramCourseMap: number;
+    children: number;
   };
 }
+
+interface BlockFormState {
+  id: string | null;
+  type: 'block' | 'group';
+  code: string;
+  title: string;
+  block_type?: string;
+  group_type?: string;
+  display_order: number;
+  description?: string;
+  parent_id?: string;
+}
+
+const createEmptyFormState = (): BlockFormState => ({
+  id: null,
+  type: 'block',
+  code: '',
+  title: '',
+  block_type: '',
+  group_type: '',
+  display_order: 1,
+  description: '',
+  parent_id: '',
+});
+
+const formatDisplayOrder = (value: number | null) => (value == null ? '—' : value);
+
+type ViewMode = 'table' | 'grid';
 
 export default function ProgramBlocksPage(): JSX.Element {
-  const [blocks, setBlocks] = useState<ProgramBlockListItem[]>([]);
-  const [programs, setPrograms] = useState<ProgramOption[]>([]);
-  const [pagination, setPagination] = useState<PaginationState>({ page: 1, totalPages: 1, totalItems: 0 });
-  const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
-  const [selectedBlockType, setSelectedBlockType] = useState<ProgramBlockType | 'all'>('all');
-  const [searchValue, setSearchValue] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [blocks, setBlocks] = useState<ProgramBlock[]>([]);
+  const [groups, setGroups] = useState<ProgramBlockGroup[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
+  const [currentType, setCurrentType] = useState<'blocks' | 'groups'>('blocks');
+  const [searchValue, setSearchValue] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   const [formOpen, setFormOpen] = useState(false);
-  const [formMode, setFormMode] = useState<BlockFormMode>('create');
-  const [formState, setFormState] = useState<ProgramBlockFormState>(createEmptyForm);
-  const [formError, setFormError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
-  const [editingBlock, setEditingBlock] = useState<ProgramBlockListItem | null>(null);
-
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState<string | null>(null);
-  const [detailBlock, setDetailBlock] = useState<ProgramBlockDetail | null>(null);
-
-  const blockTypeOptions = useMemo(
-    () => PROGRAM_BLOCK_TYPES.map((type) => ({ value: type, label: getProgramBlockTypeLabel(type) })),
-    [],
+  const [formState, setFormState] = useState<BlockFormState>(createEmptyFormState);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleting, setConfirmDeleting] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>(
+    { open: false, message: '', severity: 'success' },
   );
 
-  const loadPrograms = useCallback(async () => {
-    try {
-      const response = await fetch('/api/tms/programs/list?limit=200');
-      const result: ProgramListApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải danh sách chương trình');
-      }
-
-      const rawItems = Array.isArray(result.data?.items) ? result.data?.items : [];
-
-      const items: ProgramOption[] = rawItems.map((item) => ({
-        id: item.id?.toString() ?? '',
-        code: item.code ?? '—',
-        name: item.name_vi ?? item.name_en ?? 'Không xác định',
-        label: item.label ?? `${item.code ?? ''} - ${item.name_vi ?? ''}`.trim(),
-      }));
-
-      setPrograms(items);
-    } catch (err) {
-      console.error('Failed to fetch programs list', err);
+  const filteredData = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (currentType === 'blocks') {
+      return blocks.filter((block) => {
+        const matchesSearch =
+          term === '' ||
+          block.code.toLowerCase().includes(term) ||
+          block.title.toLowerCase().includes(term) ||
+          block.block_type.toLowerCase().includes(term);
+        return matchesSearch;
+      });
+    } else {
+      return groups.filter((group) => {
+        const matchesSearch =
+          term === '' ||
+          group.code.toLowerCase().includes(term) ||
+          group.title.toLowerCase().includes(term) ||
+          group.group_type.toLowerCase().includes(term) ||
+          (group.description && group.description.toLowerCase().includes(term));
+        return matchesSearch;
+      });
     }
-  }, []);
+  }, [blocks, groups, searchTerm, currentType]);
 
-  const loadBlocks = useCallback(async () => {
+  const fetchData = useCallback(async (type?: 'blocks' | 'groups') => {
     try {
       setLoading(true);
       setError(null);
+      const fetchType = type || currentType;
+      const params = new URLSearchParams({ limit: '200' });
+      if (searchTerm.trim()) params.set('search', searchTerm.trim());
+      params.set('type', fetchType);
 
-      const params = new URLSearchParams({
-        page: pagination.page.toString(),
-        limit: String(DEFAULT_BLOCK_PAGE_SIZE),
-      });
-
-      if (selectedProgramId !== 'all') {
-        params.set('programId', selectedProgramId);
+      const res = await fetch(`/api/tms/programs/blocks?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || !json?.success || !Array.isArray(json.data)) {
+        throw new Error(json?.error || `Không thể tải danh sách ${fetchType === 'blocks' ? 'khối học phần' : 'nhóm khối'}`);
       }
-
-      if (selectedBlockType !== 'all') {
-        params.set('blockType', selectedBlockType);
+      
+      if (fetchType === 'blocks') {
+        setBlocks(json.data as ProgramBlock[]);
+      } else {
+        setGroups(json.data as ProgramBlockGroup[]);
       }
-
-      if (searchTerm) {
-        params.set('search', searchTerm);
-      }
-
-      const response = await fetch(`/api/tms/program-blocks?${params.toString()}`);
-      const result: ProgramBlockListApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải danh sách khối học phần');
-      }
-
-      const rawItems = Array.isArray(result.data?.items) ? result.data?.items : [];
-
-      const items: ProgramBlockListItem[] = rawItems.map((item) => {
-        const programOption = item.program
-          ? {
-              id: item.program.id?.toString() ?? '',
-              code: item.program.code ?? '—',
-              name: item.program.name ?? 'Không xác định',
-              label: `${item.program.code ?? '—'} - ${item.program.name ?? ''}`.trim(),
-            }
-          : null;
-
-        return {
-          id: item.id?.toString() ?? '',
-          programId: item.programId?.toString() ?? '',
-          program: programOption,
-          code: item.code ?? '',
-          title: item.title ?? '',
-          blockType: (item.blockType ?? ProgramBlockType.CORE) as ProgramBlockType,
-          displayOrder: item.displayOrder ?? 1,
-          courseCount: item.courseCount ?? 0,
-          groupCount: item.groupCount ?? 0,
-        };
-      });
-
-      setBlocks(items);
-      setPagination((prev) => ({
-        ...prev,
-        totalPages: result.data?.pagination?.totalPages ?? 1,
-        totalItems: result.data?.pagination?.total ?? items.length,
-      }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
-      setError(message);
+      console.error('Failed to fetch data', err);
+      setError(err instanceof Error ? err.message : `Không thể tải danh sách ${type === 'blocks' ? 'khối học phần' : 'nhóm khối'}`);
     } finally {
       setLoading(false);
     }
-  }, [pagination.page, searchTerm, selectedBlockType, selectedProgramId]);
+  }, [searchTerm, currentType]);
+
+  const fetchAllData = useCallback(async () => {
+    // Fetch both blocks and groups to have complete data for forms
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [blocksRes, groupsRes] = await Promise.all([
+        fetch('/api/tms/programs/blocks?type=blocks&limit=200'),
+        fetch('/api/tms/programs/blocks?type=groups&limit=200')
+      ]);
+
+      const [blocksJson, groupsJson] = await Promise.all([
+        blocksRes.json(),
+        groupsRes.json()
+      ]);
+
+      if (blocksRes.ok && blocksJson?.success && Array.isArray(blocksJson.data)) {
+        setBlocks(blocksJson.data as ProgramBlock[]);
+      }
+
+      if (groupsRes.ok && groupsJson?.success && Array.isArray(groupsJson.data)) {
+        setGroups(groupsJson.data as ProgramBlockGroup[]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch all data', err);
+      setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    loadPrograms();
-  }, [loadPrograms]);
+    fetchAllData();
+  }, [fetchAllData]);
 
   useEffect(() => {
-    loadBlocks();
-  }, [loadBlocks]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
-    setSearchTerm(searchValue.trim());
-  };
-
-  const handleResetFilters = () => {
-    setSelectedProgramId('all');
-    setSelectedBlockType('all');
-    setSearchValue('');
-    setSearchTerm('');
-    setPagination({ page: 1, totalItems: 0, totalPages: 1 });
-  };
-
-  const handleProgramFilterChange = (_event: React.SyntheticEvent, option: ProgramOption | null) => {
-    setSelectedProgramId(option?.id ?? 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  };
-
-  const handleBlockTypeFilterChange = (event: SelectChangeEvent<ProgramBlockType | 'all'>) => {
-    setSelectedBlockType(event.target.value as ProgramBlockType | 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
-  };
-
-  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
-  };
-
-  const handleOpenCreateForm = () => {
-    setFormMode('create');
-    setFormState({ ...createEmptyForm(), displayOrder: pagination.totalItems + 1 });
-    setEditingBlock(null);
-    setFormError(null);
+  const handleOpenCreate = () => {
+    // Calculate next display order (highest + 1)
+    const maxOrder = currentType === 'blocks' 
+      ? Math.max(0, ...blocks.map(b => b.display_order))
+      : Math.max(0, ...groups.map(g => g.display_order || 0));
+    
+    setFormState({
+      ...createEmptyFormState(),
+      type: currentType === 'blocks' ? 'block' : 'group',
+      display_order: maxOrder + 1,
+    });
     setFormOpen(true);
   };
 
-  const handleOpenEditForm = (block: ProgramBlockListItem) => {
-    setFormMode('edit');
-    setEditingBlock(block);
-    setFormState({
-      programId: block.programId,
-      code: block.code,
-      title: block.title,
-      blockType: block.blockType,
-      displayOrder: block.displayOrder,
-    });
-    setFormError(null);
+  const handleOpenEdit = (item: ProgramBlock | ProgramBlockGroup) => {
+    if ('block_type' in item) {
+      // It's a ProgramBlock
+      const block = item as ProgramBlock;
+      setFormState({
+        id: block.id,
+        type: 'block',
+        code: block.code,
+        title: block.title,
+        block_type: block.block_type,
+        display_order: block.display_order,
+      });
+    } else {
+      // It's a ProgramBlockGroup
+      const group = item as ProgramBlockGroup;
+      setFormState({
+        id: group.id,
+        type: 'group',
+        code: group.code,
+        title: group.title,
+        group_type: group.group_type,
+        display_order: group.display_order || 1,
+        description: group.description || '',
+        parent_id: group.parent_id || '',
+      });
+    }
     setFormOpen(true);
   };
 
   const handleCloseForm = () => {
     if (formSubmitting) return;
     setFormOpen(false);
-    setEditingBlock(null);
-    setFormState(createEmptyForm());
-    setFormError(null);
   };
 
-  const selectedProgramOption = useMemo(
-    () => programs.find((item) => item.id === formState.programId) ?? null,
-    [formState.programId, programs],
-  );
+  const handleFormChange = <K extends keyof BlockFormState>(key: K, value: BlockFormState[K]) => {
+    setFormState((prev) => ({ ...prev, [key]: value }));
+  };
 
-  const isFormValid = useMemo(() => {
-    return Boolean(
-      formState.programId &&
-        formState.code.trim() &&
-        formState.title.trim() &&
-        (formState.displayOrder === '' || Number(formState.displayOrder) > 0),
-    );
-  }, [formState.code, formState.displayOrder, formState.programId, formState.title]);
-
-  const handleFormSubmit = async () => {
-    if (!isFormValid) {
-      setFormError('Vui lòng điền đầy đủ thông tin bắt buộc.');
+  const handleSubmitForm = async () => {
+    if (!formState.code || !formState.title) {
+      setSnackbar({ open: true, message: 'Vui lòng nhập mã và tiêu đề', severity: 'error' });
       return;
     }
 
-    setFormSubmitting(true);
-    setFormError(null);
-
-    const payload = {
-      program_id: formState.programId,
+    const payload: any = {
+      type: formState.type,
       code: formState.code.trim(),
       title: formState.title.trim(),
-      block_type: formState.blockType,
-      display_order:
-        formState.displayOrder === '' ? undefined : Number(formState.displayOrder),
+      display_order: formState.display_order,
     };
 
+    if (formState.type === 'block') {
+      payload.block_type = formState.block_type?.trim() || 'GENERAL';
+    } else {
+      payload.group_type = formState.group_type?.trim() || 'GENERAL';
+      if (formState.description) payload.description = formState.description.trim();
+      if (formState.parent_id) payload.parent_id = Number(formState.parent_id);
+    }
+
     try {
-      const endpoint =
-        formMode === 'edit' && editingBlock
-          ? `/api/tms/program-blocks/${editingBlock.id}`
-          : '/api/tms/program-blocks';
-      const method = formMode === 'edit' ? 'PUT' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể lưu khối học phần');
+      setFormSubmitting(true);
+      if (formState.id) {
+        const res = await fetch(`/api/tms/programs/blocks/${formState.id}?type=${formState.type}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || `Không thể cập nhật ${formState.type === 'block' ? 'khối học phần' : 'nhóm khối'}`);
+        }
+      } else {
+        const res = await fetch('/api/tms/programs/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data?.error || `Không thể tạo ${formState.type === 'block' ? 'khối học phần' : 'nhóm khối'}`);
+        }
       }
 
       setSnackbar({
         open: true,
-        message: formMode === 'edit' ? 'Cập nhật khối học phần thành công' : 'Tạo khối học phần thành công',
+        message: formState.id 
+          ? `Cập nhật ${formState.type === 'block' ? 'khối học phần' : 'nhóm khối'} thành công`
+          : `Tạo ${formState.type === 'block' ? 'khối học phần' : 'nhóm khối'} thành công`,
         severity: 'success',
       });
       setFormOpen(false);
-      setEditingBlock(null);
-      setFormState(createEmptyForm());
-      loadBlocks();
+      fetchAllData(); // Reload all data to ensure parent options are updated
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể lưu khối học phần';
-      setFormError(message);
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : 'Có lỗi xảy ra khi xử lý yêu cầu',
+        severity: 'error',
+      });
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  const handleDeleteBlock = async (block: ProgramBlockListItem) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa khối học phần "${block.title}"?`);
-    if (!confirmed) return;
-
+  const handleDelete = async () => {
+    if (!confirmDeleteId) return;
     try {
-      const response = await fetch(`/api/tms/program-blocks/${block.id}`, { method: 'DELETE' });
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể xóa khối học phần');
-      }
-
-      setSnackbar({ open: true, message: 'Đã xóa khối học phần', severity: 'success' });
-      loadBlocks();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể xóa khối học phần';
-      setSnackbar({ open: true, message, severity: 'error' });
-    }
-  };
-
-  const handleViewDetails = async (block: ProgramBlockListItem) => {
-    setDetailOpen(true);
-    setDetailLoading(true);
-    setDetailError(null);
-    setDetailBlock(null);
-
-    try {
-      const response = await fetch(`/api/tms/program-blocks/${block.id}`);
-      const result: ProgramBlockDetailApiResponse = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải thông tin khối học phần');
-      }
-
-      const detailData = result.data;
-      if (!detailData) {
-        throw new Error('Không tìm thấy dữ liệu khối học phần');
-      }
-
-      const program = detailData.program
-        ? {
-            id: detailData.program.id?.toString() ?? block.programId,
-            code: detailData.program.code ?? block.program?.code ?? '—',
-            name: detailData.program.name ?? block.program?.name ?? 'Không xác định',
-            label:
-              `${detailData.program.code ?? '—'} - ${detailData.program.name ?? ''}`.trim() ||
-              block.program?.label ||
-              '—',
-          }
-        : block.program;
-
-      const courses: ProgramBlockCourseItem[] = Array.isArray(detailData.courses)
-        ? detailData.courses.map((course) => ({
-            id: course.id?.toString() ?? course.courseId?.toString() ?? '',
-            mapId: course.mapId?.toString() ?? '',
-            courseId: course.courseId?.toString() ?? '',
-            code: course.code ?? '—',
-            name: course.name ?? 'Chưa đặt tên',
-            credits: course.credits ?? 0,
-            required: course.required ?? true,
-            displayOrder: course.displayOrder ?? 1,
-          }))
-        : [];
-
-      setDetailBlock({
-        id: detailData.id?.toString() ?? block.id,
-        programId: detailData.programId?.toString() ?? block.programId,
-        program,
-        code: detailData.code ?? block.code,
-        title: detailData.title ?? block.title,
-        blockType: (detailData.blockType ?? block.blockType) as ProgramBlockType,
-        displayOrder: detailData.displayOrder ?? block.displayOrder,
-        courseCount: detailData.courseCount ?? courses.length,
-        groupCount: detailData.groupCount ?? block.groupCount,
-        courses,
+      setConfirmDeleting(true);
+      const res = await fetch(`/api/tms/programs/blocks/${confirmDeleteId}?type=${currentType}`, {
+        method: 'DELETE',
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Không thể xoá ${currentType === 'blocks' ? 'khối học phần' : 'nhóm khối'}`);
+      }
+      setSnackbar({ 
+        open: true, 
+        message: `Xoá ${currentType === 'blocks' ? 'khối học phần' : 'nhóm khối'} thành công`, 
+        severity: 'success' 
+      });
+      setConfirmDeleteId(null);
+      fetchAllData(); // Reload all data to ensure parent options are updated
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể tải thông tin khối học phần';
-      setDetailError(message);
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : `Có lỗi xảy ra khi xoá ${currentType === 'blocks' ? 'khối học phần' : 'nhóm khối'}`,
+        severity: 'error',
+      });
     } finally {
-      setDetailLoading(false);
+      setConfirmDeleting(false);
     }
   };
+
+  const currentTypeLabel = useMemo(() => {
+    return currentType === 'blocks' ? 'Khối học phần' : 'Nhóm khối học phần';
+  }, [currentType]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" gutterBottom>
-            Quản lý khối học phần
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Theo dõi, tạo mới và cập nhật các khối học phần thuộc chương trình đào tạo.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Làm mới">
-            <span>
-              <IconButton onClick={loadBlocks} disabled={loading}>
-                <RefreshIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreateForm}>
-            Thêm khối học phần
-          </Button>
-        </Stack>
-      </Stack>
+    <Box sx={{ backgroundColor: 'background.default', minHeight: '100vh' }}>
+      {/* Breadcrumbs */}
+      <Breadcrumbs sx={{ py: 2, px: 2 }}>
+        <Link href="/tms" color="inherit" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ArrowBackIcon fontSize="small" />
+          TMS
+        </Link>
+        <Typography color="text.primary">Quản lý {currentTypeLabel}</Typography>
+      </Breadcrumbs>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack spacing={2}>
-          <Stack
-            direction={{ xs: 'column', md: 'row' }}
-            spacing={2}
-            alignItems={{ xs: 'stretch', md: 'center' }}
-          >
-            <Autocomplete
-              options={programs}
-              value={selectedProgramId === 'all' ? null : programs.find((item) => item.id === selectedProgramId) ?? null}
-              onChange={handleProgramFilterChange}
-              getOptionLabel={(option) => option.label}
-              renderInput={(params) => <TextField {...params} label="Chương trình" placeholder="Tất cả chương trình" />}
-              sx={{ minWidth: { sm: 240 } }}
-            />
-
-            <FormControl sx={{ minWidth: { sm: 200 } }}>
-              <InputLabel id="program-block-type-filter-label">Loại khối</InputLabel>
-              <Select
-                labelId="program-block-type-filter-label"
-                label="Loại khối"
-                value={selectedBlockType}
-                onChange={handleBlockTypeFilterChange}
-              >
-                <MenuItem value="all">Tất cả</MenuItem>
-                {blockTypeOptions.map((type) => (
-                  <MenuItem key={type.value} value={type.value}>
-                    {type.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <Box sx={{ flexGrow: 1 }}>
-              <TextField
-                fullWidth
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') handleSearch();
-                }}
-                label="Tìm kiếm"
-                placeholder="Tìm theo mã hoặc tên khối học phần"
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton onClick={handleSearch}>
-                        <SearchIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-
-            <Button variant="outlined" onClick={handleResetFilters}>
-              Đặt lại
+      <Box sx={{ p: 2 }}>
+        {/* Header */}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography variant="h5" component="h1">
+              Quản lý {currentTypeLabel}
+            </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreate}
+              disabled={loading}
+            >
+              Thêm {currentType === 'blocks' ? 'Khối' : 'Nhóm'}
             </Button>
           </Stack>
+        </Paper>
 
-          {error && (
-            <Alert severity="error">{error}</Alert>
-          )}
-        </Stack>
-      </Paper>
+        {/* Tabs */}
+        <Paper sx={{ mb: 2 }}>
+          <Tabs
+            value={currentType}
+            onChange={(_, value) => setCurrentType(value)}
+            variant="fullWidth"
+          >
+            <Tab label="Khối học phần" value="blocks" />
+            <Tab label="Nhóm khối học phần" value="groups" />
+          </Tabs>
+        </Paper>
 
-      <Paper>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Chương trình</TableCell>
-                <TableCell>Mã khối</TableCell>
-                <TableCell>Tên khối</TableCell>
-                <TableCell align="center">Loại</TableCell>
-                <TableCell align="center">Thứ tự</TableCell>
-                <TableCell align="center">Số học phần</TableCell>
-                <TableCell align="center">Nhóm</TableCell>
-                <TableCell align="right">Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
+        {/* Search and Filters */}
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
+            <TextField
+              fullWidth
+              placeholder={`Tìm kiếm ${currentTypeLabel.toLowerCase()}...`}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  setSearchTerm(searchValue);
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                onClick={() => setSearchTerm(searchValue)}
+                disabled={loading}
+              >
+                Tìm kiếm
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={() => fetchData()}
+                disabled={loading}
+              >
+                Làm mới
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )}
+
+        {/* Loading */}
+        {loading && <LinearProgress sx={{ mb: 2 }} />}
+
+        {/* Data Table */}
+        <Paper>
+          <TableContainer>
+            <Table>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Box sx={{ py: 6 }}>
-                      <CircularProgress size={32} />
-                    </Box>
-                  </TableCell>
+                  <TableCell>Mã</TableCell>
+                  <TableCell>Tiêu đề</TableCell>
+                  <TableCell>Loại</TableCell>
+                  <TableCell>Thứ tự</TableCell>
+                  {currentType === 'groups' && <TableCell>Khối cha</TableCell>}
+                  {currentType === 'groups' && <TableCell>Mô tả</TableCell>}
+                  <TableCell>Khóa học</TableCell>
+                  <TableCell align="right">Thao tác</TableCell>
                 </TableRow>
-              ) : blocks.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    <Box sx={{ py: 6 }}>
-                      <Typography>Không có khối học phần nào.</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Thử thay đổi bộ lọc hoặc thêm mới khối học phần.
+              </TableHead>
+              <TableBody>
+                {filteredData.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={currentType === 'groups' ? 8 : 6} align="center">
+                      <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+                        Không có dữ liệu
                       </Typography>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                blocks.map((block) => (
-                  <TableRow key={block.id} hover>
-                    <TableCell>
-                      <Stack spacing={0.5}>
-                        <Typography fontWeight={600}>{block.program?.code ?? '—'}</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {block.program?.name ?? 'Chưa cập nhật'}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>{block.code}</TableCell>
-                    <TableCell>{block.title}</TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        size="small"
-                        label={getProgramBlockTypeLabel(block.blockType)}
-                        color={getBlockTypeChipColor(block.blockType)}
-                        variant={block.blockType === ProgramBlockType.ELECTIVE || block.blockType === ProgramBlockType.OTHER ? 'outlined' : 'filled'}
-                      />
-                    </TableCell>
-                    <TableCell align="center">{block.displayOrder}</TableCell>
-                    <TableCell align="center">{block.courseCount}</TableCell>
-                    <TableCell align="center">{block.groupCount}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Chi tiết">
-                        <IconButton onClick={() => handleViewDetails(block)}>
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Chỉnh sửa">
-                        <IconButton onClick={() => handleOpenEditForm(block)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Xóa">
-                        <IconButton onClick={() => handleDeleteBlock(block)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ px: 3, py: 2 }}>
-          <Pagination
-            page={pagination.page}
-            count={pagination.totalPages}
-            color="primary"
-            onChange={handlePageChange}
-            shape="rounded"
-          />
-        </Stack>
-      </Paper>
-
-      <Dialog open={formOpen} onClose={handleCloseForm} fullWidth maxWidth="sm">
-        <DialogTitle>{formMode === 'edit' ? 'Cập nhật khối học phần' : 'Thêm khối học phần'}</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <Autocomplete
-              options={programs}
-              value={selectedProgramOption}
-              onChange={(_event, option) => {
-                setFormState((prev) => ({ ...prev, programId: option?.id ?? '' }));
-              }}
-              getOptionLabel={(option) => option.label}
-              renderInput={(params) => <TextField {...params} label="Chương trình" required />}
-            />
-
-            <TextField
-              label="Mã khối"
-              value={formState.code}
-              onChange={(event) => setFormState((prev) => ({ ...prev, code: event.target.value }))}
-              required
-            />
-
-            <TextField
-              label="Tên khối"
-              value={formState.title}
-              onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
-              required
-            />
-
-            <FormControl>
-              <InputLabel id="program-block-type-label">Loại khối</InputLabel>
-              <Select
-                labelId="program-block-type-label"
-                label="Loại khối"
-                value={formState.blockType}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, blockType: event.target.value as ProgramBlockType }))
-                }
-              >
-                {blockTypeOptions.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Thứ tự hiển thị"
-              type="number"
-              value={formState.displayOrder}
-              onChange={(event) => {
-                const value = event.target.value;
-                setFormState((prev) => ({ ...prev, displayOrder: value === '' ? '' : Number(value) }));
-              }}
-              inputProps={{ min: 1 }}
-            />
-
-            {formError && (
-              <Alert severity="error">{formError}</Alert>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseForm} disabled={formSubmitting}>
-            Hủy
-          </Button>
-          <Button onClick={handleFormSubmit} variant="contained" disabled={formSubmitting || !isFormValid}>
-            {formSubmitting ? 'Đang lưu...' : 'Lưu'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={detailOpen} onClose={() => setDetailOpen(false)} fullWidth maxWidth="md">
-        <DialogTitle>Chi tiết khối học phần</DialogTitle>
-        <DialogContent dividers>
-          {detailLoading ? (
-            <Box sx={{ py: 4, textAlign: 'center' }}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : detailError ? (
-            <Alert severity="error">{detailError}</Alert>
-          ) : detailBlock ? (
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  {detailBlock.title}
-                </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Chương trình
-                    </Typography>
-                    <Typography fontWeight={600}>
-                      {detailBlock.program?.code ?? '—'} • {detailBlock.program?.name ?? 'Chưa cập nhật'}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Loại khối
-                    </Typography>
-                    <Chip
-                      size="small"
-                      color={getBlockTypeChipColor(detailBlock.blockType)}
-                      label={getProgramBlockTypeLabel(detailBlock.blockType)}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Thứ tự hiển thị
-                    </Typography>
-                    <Typography fontWeight={600}>{detailBlock.displayOrder}</Typography>
-                  </Box>
-                </Stack>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle1" gutterBottom>
-                  Danh sách học phần ({detailBlock.courses.length})
-                </Typography>
-                {detailBlock.courses.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Chưa có học phần nào trong khối này.
-                  </Typography>
                 ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Mã học phần</TableCell>
-                        <TableCell>Tên học phần</TableCell>
-                        <TableCell align="center">Số tín chỉ</TableCell>
-                        <TableCell align="center">Bắt buộc</TableCell>
-                        <TableCell align="center">Thứ tự</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {detailBlock.courses.map((course) => (
-                        <TableRow key={course.mapId}>
-                          <TableCell>{course.code}</TableCell>
-                          <TableCell>{course.name}</TableCell>
-                          <TableCell align="center">{course.credits}</TableCell>
-                          <TableCell align="center">{course.required ? 'Có' : 'Không'}</TableCell>
-                          <TableCell align="center">{course.displayOrder}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  filteredData.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {item.code}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{item.title}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={currentType === 'blocks' ? getProgramBlockTypeLabel((item as ProgramBlock).block_type) : (item as ProgramBlockGroup).group_type}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>{formatDisplayOrder(item.display_order)}</TableCell>
+                      {currentType === 'groups' && (
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {(item as ProgramBlockGroup).parent ? 
+                              `${(item as ProgramBlockGroup).parent!.code} - ${(item as ProgramBlockGroup).parent!.title}` : 
+                              'Khối gốc'
+                            }
+                          </Typography>
+                        </TableCell>
+                      )}
+                      {currentType === 'groups' && (
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">
+                            {(item as ProgramBlockGroup).description || '—'}
+                          </Typography>
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <Chip
+                          label={`${currentType === 'blocks' ? (item as ProgramBlock)._count.ProgramCourseMap : (item as ProgramBlockGroup)._count.ProgramCourseMap} khóa học`}
+                          size="small"
+                          color="secondary"
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Tooltip title="Chỉnh sửa">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenEdit(item)}
+                              disabled={loading}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Xóa">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setConfirmDeleteId(item.id)}
+                              disabled={loading}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
-              </Box>
-            </Stack>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDetailOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+        {/* Create/Edit Form Dialog */}
+        <Dialog open={formOpen} onClose={handleCloseForm} maxWidth="md" fullWidth>
+          <DialogTitle>
+            {formState.id ? 'Chỉnh sửa' : 'Thêm mới'} {formState.type === 'block' ? 'Khối học phần' : 'Nhóm khối học phần'}
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Mã"
+                  value={formState.code}
+                  onChange={(e) => handleFormChange('code', e.target.value)}
+                  required
+                />
+                <TextField
+                  fullWidth
+                  label="Tiêu đề"
+                  value={formState.title}
+                  onChange={(e) => handleFormChange('title', e.target.value)}
+                  required
+                />
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  fullWidth
+                  label="Thứ tự hiển thị"
+                  type="number"
+                  value={formState.display_order}
+                  onChange={(e) => handleFormChange('display_order', parseInt(e.target.value) || 1)}
+                />
+                <TextField
+                  fullWidth
+                  label="Loại"
+                  value={formState.type === 'block' ? formState.block_type || '' : formState.group_type || ''}
+                  onChange={(e) => {
+                    if (formState.type === 'block') {
+                      handleFormChange('block_type', e.target.value);
+                    } else {
+                      handleFormChange('group_type', e.target.value);
+                    }
+                  }}
+                  placeholder="Nhập loại (ví dụ: GENERAL, CORE, MAJOR...)"
+                  helperText={
+                    <Box>
+                      <Typography variant="caption" display="block">
+                        <strong>Các loại phổ biến:</strong>
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {['GENERAL', 'CORE', 'MAJOR', 'ELECTIVE', 'FOUNDATION', 'SUPPORT'].map((type) => (
+                          <Chip
+                            key={type}
+                            label={type}
+                            size="small"
+                            variant="outlined"
+                            onClick={() => {
+                              if (formState.type === 'block') {
+                                handleFormChange('block_type', type);
+                              } else {
+                                handleFormChange('group_type', type);
+                              }
+                            }}
+                            sx={{ cursor: 'pointer', mb: 0.5 }}
+                          />
+                        ))}
+                      </Stack>
+                    </Box>
+                  }
+                />
+              </Stack>
+              {formState.type === 'group' && (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel>Nhóm khối cha</InputLabel>
+                    <Select
+                      value={formState.parent_id || ''}
+                      onChange={(e) => handleFormChange('parent_id', e.target.value)}
+                      label="Gán vào khối"
+                      displayEmpty
+                    >
+                      <MenuItem value="">
+                        <em>Không gán vào khối nào (Khối gốc)</em>
+                      </MenuItem>
+                      {groups
+                        .filter(group => group.id !== formState.id) // Exclude self to prevent circular reference
+                        .map((group) => (
+                          <MenuItem key={group.id} value={group.id}>
+                            {group.code} - {group.title}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    fullWidth
+                    label="Mô tả"
+                    multiline
+                    rows={3}
+                    value={formState.description || ''}
+                    onChange={(e) => handleFormChange('description', e.target.value)}
+                  />
+                </>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseForm} disabled={formSubmitting}>
+              Hủy
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmitForm}
+              disabled={formSubmitting}
+            >
+              {formSubmitting ? 'Đang xử lý...' : (formState.id ? 'Cập nhật' : 'Tạo mới')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!confirmDeleteId} onClose={() => setConfirmDeleteId(null)}>
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Bạn có chắc chắn muốn xóa {currentTypeLabel.toLowerCase()} này không? Hành động này không thể hoàn tác.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDeleteId(null)} disabled={confirmDeleting}>
+              Hủy
+            </Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={handleDelete}
+              disabled={confirmDeleting}
+            >
+              {confirmDeleting ? 'Đang xóa...' : 'Xóa'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Snackbar */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          message={snackbar.message}
+        />
+      </Box>
+    </Box>
   );
 }

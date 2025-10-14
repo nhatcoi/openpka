@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import MajorCard from '@/components/MajorCard';
+import MajorCard from '@/components/cards/MajorCard';
 import {
   Box,
   Container,

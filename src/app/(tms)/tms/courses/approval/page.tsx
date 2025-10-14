@@ -8,6 +8,7 @@ import {
   Box,
   Container,
   Typography,
+  Grid,
   Paper,
   Card,
   CardContent,
@@ -65,7 +66,8 @@ import {
   Schedule as ScheduleIcon,
   Domain as DomainIcon,
   Science as ScienceIcon,
-  Description as DescriptionIcon
+  Description as DescriptionIcon,
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -573,7 +575,7 @@ useEffect(() => {
 
   return (
     <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE, COURSE_PERMISSIONS.REJECT, COURSE_PERMISSIONS.PUBLISH]}>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1, py: 4 }}>
         <Box sx={{ mb: 4 }}>
           <Typography variant="h4" component="h1" gutterBottom>
             <AssessmentIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
@@ -594,135 +596,133 @@ useEffect(() => {
           </Box>
 
           <Collapse in={showGuide} timeout="auto" unmountOnExit>
-            <Paper variant="outlined" sx={{ p: 2, mt: 2, bgcolor: 'background.paper' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                {showGuide ? <ExpandLessIcon sx={{ mr: 1 }} /> : <ExpandMoreIcon sx={{ mr: 1 }} />}
-                <Typography variant="h6">Hướng dẫn quy trình phê duyệt học phần</Typography>
-              </Box>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                Quy trình phê duyệt học phần gồm 3 bước chính: Đơn vị cấp Khoa khởi tạo → Phòng đào tạo xem xét và phê duyệt → Hội đồng khoa học công bố.
-              </Typography>
+            <Card sx={{ mb: 3, border: '1px solid', borderColor: 'primary.light' }}>
+              <CardHeader
+                avatar={<SecurityIcon color="primary" />}
+                title="Hướng dẫn phê duyệt học phần"
+                subheader="Quy trình và phân quyền theo từng cấp"
+              />
+              <CardContent>
+                <Grid container spacing={3}>
+                  {/* Quy trình */}
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom color="primary">
+                      Quy trình phê duyệt
+                    </Typography>
+                    <Stepper orientation="vertical" sx={{ mt: 1 }}>
+                      <Step>
+                        <StepLabel>
+                          <Typography variant="body2" fontWeight="bold">Bước 1: Khoa khởi tạo</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Tạo và hoàn thiện thông tin học phần
+                          </Typography>
+                        </StepLabel>
+                      </Step>
+                      <Step>
+                        <StepLabel>
+                          <Typography variant="body2" fontWeight="bold">Bước 2: Phòng Đào tạo xem xét</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Phòng Đào tạo xem xét và phê duyệt
+                          </Typography>
+                        </StepLabel>
+                      </Step>
+                      <Step>
+                        <StepLabel>
+                          <Typography variant="body2" fontWeight="bold">Bước 3: Hội đồng khoa học công bố</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Hội đồng khoa học công bố học phần
+                          </Typography>
+                        </StepLabel>
+                      </Step>
+                    </Stepper>
+                  </Grid>
 
-              {/* Quy trình tổng quan */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
-                  Quy trình tổng quan
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  Học phần sẽ trải qua các bước: <strong>Khởi tạo → Xem xét & Phê duyệt → Công bố</strong>
-                </Typography>
-              </Box>
+                  {/* Phân quyền */}
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="h6" gutterBottom color="primary">
+                      Phân quyền theo Role
+                    </Typography>
+                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Role</TableCell>
+                            <TableCell align="center">Submit</TableCell>
+                            <TableCell align="center">Approve</TableCell>
+                            <TableCell align="center">Reject</TableCell>
+                            <TableCell align="center">Request Edit</TableCell>
+                            <TableCell align="center">Publish</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          <TableRow>
+                            <TableCell><Chip label="Khoa" size="small" variant="outlined" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell><Chip label="Phòng Đào tạo" size="small" variant="outlined" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell><Chip label="Hội đồng KH" size="small" variant="outlined" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CancelIcon color="error" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell><Chip label="Admin" size="small" color="primary" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                            <TableCell align="center"><CheckCircleIcon color="success" fontSize="small" /></TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                </Grid>
 
-              {/* Các bước chi tiết */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
-                  1. Bước 1: Đơn vị cấp Khoa khởi tạo
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Người thực hiện:</strong> Đơn vị cấp Khoa
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Trạng thái đầu:</strong> Bản nháp (DRAFT)
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Nhiệm vụ:</strong>
-                </Typography>
-                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
-                  <li>Tạo và hoàn thiện thông tin học phần</li>
-                  <li>Kiểm tra tính đầy đủ và chính xác của dữ liệu</li>
-                  <li>Gửi học phần sang Phòng đào tạo để xem xét</li>
-                </Box>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Kết quả:</strong> Học phần được chuyển sang trạng thái "Đang xem xét" tại Phòng đào tạo
-                </Typography>
-              </Box>
+                <Divider sx={{ my: 2 }} />
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
-                  2. Bước 2: Phòng đào tạo xem xét và phê duyệt
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Người thực hiện:</strong> Phòng đào tạo (cấp Phòng)
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Trạng thái đầu:</strong> Đang xem xét tại Phòng đào tạo
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Các hành động có thể thực hiện:</strong>
-                </Typography>
-                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
-                  <li><strong>Xem xét:</strong> Kiểm tra nội dung, yêu cầu và quy định</li>
-                  <li><strong>Phê duyệt:</strong> Chấp nhận và chuyển học phần lên Hội đồng khoa học</li>
-                  <li><strong>Từ chối:</strong> Từ chối học phần nếu không đạt yêu cầu</li>
-                  <li><strong>Trả về:</strong> Yêu cầu Đơn vị cấp Khoa chỉnh sửa và bổ sung</li>
-                </Box>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Kết quả:</strong> Nếu phê duyệt → học phần được chuyển sang Hội đồng khoa học để công bố
-                </Typography>
-              </Box>
-
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: 'primary.main' }}>
-                  3. Bước 3: Hội đồng khoa học công bố
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Người thực hiện:</strong> Hội đồng khoa học (cấp Trường)
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Trạng thái đầu:</strong> Đang xem xét tại Hội đồng khoa học
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Các hành động có thể thực hiện:</strong>
-                </Typography>
-                <Box component="ul" sx={{ pl: 3, mb: 1 }}>
-                  <li><strong>Công bố:</strong> Phê duyệt cuối và xuất bản học phần chính thức</li>
-                  <li><strong>Từ chối:</strong> Từ chối học phần ở giai đoạn cuối</li>
-                  <li><strong>Yêu cầu chỉnh sửa:</strong> Trả về để bổ sung hoặc chỉnh sửa</li>
-                </Box>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Kết quả:</strong> Nếu công bố → học phần được xuất bản chính thức (PUBLISHED) và có thể sử dụng
-                </Typography>
-              </Box>
-
-              {/* Thời gian xử lý */}
-              <Alert severity="info" sx={{ mt: 2, mb: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Thời gian xử lý quy định (SLA):
-                </Typography>
-                <Box component="ul" sx={{ mb: 1, pl: 2 }}>
-                  <li>Đơn vị cấp Khoa: 5 ngày làm việc (để hoàn thiện và gửi)</li>
-                  <li>Phòng đào tạo: 7 ngày làm việc (để xem xét và phê duyệt)</li>
-                  <li>Hội đồng khoa học: 3 ngày làm việc (để công bố)</li>
-                </Box>
-                <Typography variant="body2">
-                  Hệ thống sẽ hiển thị cảnh báo khi quá thời gian quy định.
-                </Typography>
-              </Alert>
-
-              <Divider sx={{ my: 2 }} />
-              
-             
-
-              <Divider sx={{ my: 2 }} />
-              
-              {/* Lưu ý quan trọng */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ color: 'warning.main' }}>
+                <Typography variant="h6" gutterBottom color="primary">
                   Lưu ý quan trọng
                 </Typography>
-                <Box component="ul" sx={{ pl: 3 }}>
-                  <li>Quy trình gồm 3 bước chính: Khởi tạo → Xem xét & Phê duyệt → Công bố</li>
-                  <li>Mỗi bước có quyền hạn và trách nhiệm riêng, không thể bỏ qua</li>
-                  <li>Đơn vị cấp Khoa chịu trách nhiệm khởi tạo và hoàn thiện thông tin học phần</li>
-                  <li>Phòng đào tạo có quyền xem xét, phê duyệt hoặc từ chối học phần</li>
-                  <li>Chỉ có Hội đồng khoa học mới có quyền công bố học phần chính thức</li>
-                  <li>Học phần có thể bị trả về để chỉnh sửa ở bất kỳ giai đoạn nào</li>
-                  <li>Hệ thống sẽ gửi thông báo khi có học phần cần xử lý</li>
-                  <li>Thời gian xử lý được tính theo ngày làm việc (không bao gồm cuối tuần và ngày lễ)</li>
-                </Box>
-              </Box>
-            </Paper>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
+                    <ListItemText 
+                      primary="Quy trình 3 bước: Khoa → Phòng ĐT → Hội đồng KH" 
+                      secondary="Mỗi bước có quyền hạn riêng, không thể bỏ qua" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
+                    <ListItemText 
+                      primary="Thời gian xử lý quy định" 
+                      secondary="Khoa: 5 ngày, Phòng ĐT: 7 ngày, HĐKH: 3 ngày làm việc" 
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
+                    <ListItemText 
+                      primary="Chỉ Hội đồng khoa học mới có quyền công bố" 
+                      secondary="Đảm bảo chất lượng học phần trước khi xuất bản chính thức" 
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
           </Collapse>
         </Box>
 

@@ -21,30 +21,22 @@ export const selectProgramDetail = {
       name: true,
     },
   },
-  ProgramBlock: {
+  ProgramCourseMap: {
     select: {
       id: true,
-      code: true,
-      title: true,
-      block_type: true,
+      course_id: true,
+      block_id: true,
+      group_id: true,
+      is_required: true,
       display_order: true,
-      ProgramCourseMap: {
+      ProgramBlock: {
         select: {
           id: true,
-          course_id: true,
-          is_required: true,
+          code: true,
+          title: true,
+          block_type: true,
           display_order: true,
-          group_id: true,
-          Course: {
-            select: {
-              id: true,
-              code: true,
-              name_vi: true,
-              credits: true,
-            },
-          },
         },
-        orderBy: { display_order: 'asc' },
       },
       ProgramBlockGroup: {
         select: {
@@ -53,36 +45,59 @@ export const selectProgramDetail = {
           title: true,
           group_type: true,
           display_order: true,
-          ProgramBlockGroupRule: {
+          description: true,
+          parent_id: true,
+          program_block_group_rules: {
             select: {
               id: true,
               min_credits: true,
               max_credits: true,
               min_courses: true,
               max_courses: true,
+              rule_type: true,
             },
             orderBy: { id: 'asc' },
           },
+          parent: {
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              group_type: true,
+            },
+          },
+          children: {
+            select: {
+              id: true,
+              code: true,
+              title: true,
+              group_type: true,
+              display_order: true,
+            },
+            orderBy: { display_order: 'asc' },
+          },
         },
-        orderBy: { display_order: 'asc' },
       },
-    },
-    orderBy: { display_order: 'asc' },
-  },
-  ProgramCourseMap: {
-    where: { block_id: null },
-    select: {
-      id: true,
-      course_id: true,
-      is_required: true,
-      display_order: true,
-      group_id: true,
       Course: {
         select: {
           id: true,
           code: true,
           name_vi: true,
           credits: true,
+          theory_credit: true,
+          practical_credit: true,
+          prerequisites: {
+            select: {
+              prerequisite_type: true,
+              prerequisite_course: {
+                select: {
+                  id: true,
+                  code: true,
+                  name_vi: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -91,8 +106,8 @@ export const selectProgramDetail = {
   _count: {
     select: {
       StudentAcademicProgress: true,
-      ProgramBlock: true,
       ProgramCourseMap: true,
     },
   },
 } as const;
+

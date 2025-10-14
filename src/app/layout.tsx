@@ -16,8 +16,8 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "Trasy App",
-  description: "Ứng dụng Trasy",
+  title: "OpenPKA",
+  description: "Ứng dụng OpenPKA",
 };
 
 export default function RootLayout({

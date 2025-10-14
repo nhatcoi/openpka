@@ -36,6 +36,12 @@ import {
     SupervisorAccount as SupervisorAccountIcon,
     EventNote as EventNoteIcon,
     Edit as EditIcon,
+    MenuBook as MenuBookIcon,
+    Class as ClassIcon,
+    BookmarkBorder as BookmarkBorderIcon,
+    ViewList as ViewListIcon,
+    PlaylistAddCheck as PlaylistAddCheckIcon,
+    AssignmentTurnedIn as AssignmentTurnedInIcon,
 } from '@mui/icons-material';
 
 interface MenuItem {
@@ -154,6 +160,49 @@ const menuItems: MenuItem[] = [
                 permission: 'user.read', // Liên quan đến user
             },
         ],
+    },
+    {
+        key: 'tms',
+        label: 'Quản lý Chương trình Đào tạo',
+        icon: <MenuBookIcon />,
+        permission: 'program.read',
+        children: [
+            {
+                key: 'programs',
+                label: 'Chương trình',
+                icon: <ClassIcon />,
+                href: '/tms/programs',
+                permission: 'program.read',
+            },
+            {
+                key: 'program-blocks',
+                label: 'Khối học phần',
+                icon: <BookmarkBorderIcon />,
+                href: '/tms/programs/program-blocks',
+                permission: 'program.read',
+            },
+            {
+                key: 'courses',
+                label: 'Học phần',
+                icon: <ViewListIcon />,
+                href: '/tms/courses',
+                permission: 'course.read',
+            },
+            {
+                key: 'majors',
+                label: 'Ngành đào tạo',
+                icon: <PlaylistAddCheckIcon />,
+                href: '/tms/majors',
+                permission: 'major.read',
+            },
+            {
+                key: 'framework',
+                label: 'Khung chương trình',
+                icon: <AssignmentTurnedInIcon />,
+                href: '/tms/programs/framework',
+                permission: 'program.read',
+            },
+        ],
     }
 ];
 
@@ -173,6 +222,7 @@ export function NewSidebar() {
         'hr-management': true,
         'rbac': false,
         'org-management': false,
+        'tms': true,
     });
 
     // Function to check if user has permission

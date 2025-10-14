@@ -1909,9 +1909,9 @@ export default function CourseDetailPage() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {/* Phòng Đào Tạo - Quyền quản lý workflow */}
                   <PermissionGuard requiredPermissions={['tms.course.manage']}>
-                    <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
+                    {/* <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
                       Phòng Đào Tạo
-                    </Typography>
+                    </Typography> */}
                     
                     <Button
                       variant="contained"

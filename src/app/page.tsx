@@ -22,7 +22,7 @@ import {
   Security as SecurityIcon,
   Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 import { useRouter } from 'next/navigation';
 
 const moduleCards = [
@@ -105,7 +105,7 @@ export default function Home() {
       <AppBar position="static" sx={{ backgroundColor: '#2e4c92' }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, color: 'white' }}>
-            Trasy - Hệ thống quản lý đào tạo
+            OpenPKA - Hệ thống quản lý đào tạo
           </Typography>
           <ThemeToggle />
         </Toolbar>

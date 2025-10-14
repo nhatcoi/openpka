@@ -49,8 +49,8 @@ import {
   AttachFile as AttachFileIcon,
 } from '@mui/icons-material';
 import { AlertMessage, createSuccessAlert, createErrorAlert, closeAlert } from '@/utils/alert-utils';
-import { PayloadKeyValueDisplay } from '@/components/PayloadKeyValueDisplay';
-import { AttachmentList } from '@/components/AttachmentList';
+import { PayloadKeyValueDisplay } from '@/components/misc/PayloadKeyValueDisplay';
+import { AttachmentList } from '@/components/misc/AttachmentList';
 
 interface OrgStructureRequest {
   id: string;

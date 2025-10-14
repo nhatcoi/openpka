@@ -48,7 +48,7 @@ import {
   AssignmentInd as AssignmentIndIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 
 const drawerWidth = 240;
 
@@ -486,7 +486,7 @@ export default function OrgLayout({
           </IconButton>
           
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Trasy App - Quản lý Tổ chức
+            OpenPKA - Quản lý Tổ chức
           </Typography>
           
           {/* Loading state */}

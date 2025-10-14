@@ -111,8 +111,47 @@ const getCourseById = async (id: string, request: Request) => {
 
 
 
-  // Fetch unified workflow data separately
-  const workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
+  // Fetch unified workflow data separately; lazily create if missing and definition exists
+  let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
+  if (!workflowInstance) {
+    try {
+      const session = await getServerSession(authOptions);
+      const definition = await db.workflowDefinition.findFirst({ where: { entity_type: 'COURSE', is_active: true } });
+      if (definition) {
+        const initiatedBy = BigInt(session?.user?.id || 1);
+        await academicWorkflowEngine.createWorkflow({
+          entityType: 'COURSE',
+          entityId: BigInt(courseId),
+          initiatedBy,
+          metadata: { auto_initialized: true, course_id: courseId }
+        });
+        workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
+      }
+    } catch (e) {
+      // Non-fatal: keep unified_workflow as null if creation fails
+    }
+  }
+
+  // Enrich approval records with approver details (UI expects approver.full_name)
+  const workflowInstanceAny = (workflowInstance as any) || null;
+  let enrichedApprovalRecords: any[] | null = null;
+  if (workflowInstanceAny?.approval_records && workflowInstanceAny.approval_records.length > 0) {
+    const records = workflowInstanceAny.approval_records as Array<{ approver_id: bigint } & Record<string, unknown>>;
+    const approverIds = Array.from(new Set(records.map(r => String(r.approver_id))));
+    try {
+      const users = await db.user.findMany({
+        where: { id: { in: approverIds.map(id => BigInt(id)) } },
+        select: { id: true, full_name: true, email: true }
+      });
+      const idToUser = new Map(users.map(u => [String(u.id), u]));
+      enrichedApprovalRecords = records.map(r => ({
+        ...r,
+        approver: idToUser.get(String(r.approver_id)) || { id: r.approver_id, full_name: '—', email: null },
+      }));
+    } catch (_) {
+      enrichedApprovalRecords = workflowInstanceAny.approval_records;
+    }
+  }
 
   // Transform Decimal fields to numbers for JSON serialization
   const transformedCourse = {
@@ -120,14 +159,14 @@ const getCourseById = async (id: string, request: Request) => {
     theory_credit: course.theory_credit ? Number(course.theory_credit) : null,
     practical_credit: course.practical_credit ? Number(course.practical_credit) : null,
     // Add unified workflow data
-    unified_workflow: workflowInstance ? {
-      id: workflowInstance.id,
-      status: workflowInstance.status,
-      current_step: workflowInstance.current_step,
-      initiated_at: workflowInstance.initiated_at,
-      completed_at: workflowInstance.completed_at,
-      workflow: workflowInstance.workflow,
-      approval_records: workflowInstance.approval_records
+    unified_workflow: workflowInstanceAny ? {
+      id: workflowInstanceAny.id,
+      status: workflowInstanceAny.status,
+      current_step: workflowInstanceAny.current_step,
+      initiated_at: workflowInstanceAny.initiated_at,
+      completed_at: workflowInstanceAny.completed_at,
+      workflow: workflowInstanceAny.workflow,
+      approval_records: enrichedApprovalRecords ?? workflowInstanceAny.approval_records
     } : null
   };
 

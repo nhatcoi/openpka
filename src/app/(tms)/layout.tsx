@@ -55,7 +55,7 @@ import {
   SchoolOutlined as SchoolOutlinedIcon,
   ViewModule as ViewModuleIcon,
 } from '@mui/icons-material';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 
 const drawerWidth = 240;
 
@@ -83,6 +83,7 @@ export default function TmsLayout({
   useEffect(() => {
     if (status === 'loading') return; // Still loading
     
+    // Temporarily disable authentication for testing
     if (!session) {
       // Not authenticated, redirect to login without auto signIn
       router.push(`/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`);
@@ -122,25 +123,26 @@ export default function TmsLayout({
   };
 
   // Show loading state while checking authentication
-  if (status === 'loading') {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-          flexDirection: 'column',
-          gap: 2,
-        }}
-      >
-        <CircularProgress size={60} />
-        <Typography variant="h6" color="text.secondary">
-          Đang kiểm tra quyền truy cập...
-        </Typography>
-      </Box>
-    );
-  }
+  // Temporarily disable loading check for testing
+  // if (status === 'loading') {
+  //   return (
+  //     <Box
+  //       sx={{
+  //         display: 'flex',
+  //         justifyContent: 'center',
+  //         alignItems: 'center',
+  //         minHeight: '100vh',
+  //         flexDirection: 'column',
+  //         gap: 2,
+  //       }}
+  //     >
+  //       <CircularProgress size={60} />
+  //       <Typography variant="h6" color="text.secondary">
+  //         Đang kiểm tra quyền truy cập...
+  //       </Typography>
+  //     </Box>
+  //   );
+  // }
 
   // User menu handlers
   const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -216,12 +218,6 @@ export default function TmsLayout({
           key: '/tms/programs/blocks',
           icon: <ViewModuleIcon />,
           label: 'Quản lý khối học phần',
-          permissions: ['tms.program.read'],
-        },
-        {
-          key: '/tms/programs/block-groups',
-          icon: <AccountTreeIcon />,
-          label: 'Quản lý nhóm khối học phần',
           permissions: ['tms.program.read'],
         },
         {
@@ -530,7 +526,7 @@ export default function TmsLayout({
           </IconButton>
           
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Trasy App - Hệ thống quản lý đào tạo (TMS)
+            OpenPKA - Hệ thống quản lý đào tạo (TMS)
           </Typography>
           
           {/* Loading state */}
@@ -541,6 +537,10 @@ export default function TmsLayout({
           {/* User info */}
           {session && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1" sx={{ color: 'white' }}>
+                Xin chào {(session.user as { full_name?: string }).full_name || session.user.username}
+              </Typography>
+              
               <Chip
                 label={`${session.user.permissions?.length || 0} quyền`}
                 size="small"
@@ -656,7 +656,7 @@ export default function TmsLayout({
         }}
       >
         <Toolbar />
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: 2 }}>
           {children}
         </Box>
       </Box>

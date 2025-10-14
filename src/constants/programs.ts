@@ -34,6 +34,31 @@ export enum ProgramBlockType {
   OTHER = 'other',
 }
 
+// NEW: Template-based block types
+export enum ProgramBlockTemplateType {
+  REQUIRED = 'REQUIRED',
+  ELECTIVE = 'ELECTIVE',
+  THESIS = 'THESIS',
+  INTERNSHIP = 'INTERNSHIP',
+  GENERAL = 'GENERAL',
+  FOUNDATION = 'FOUNDATION',
+  MAJOR = 'MAJOR',
+}
+
+export enum ProgramBlockTemplateGroupType {
+  MANDATORY = 'MANDATORY',
+  OPTIONAL = 'OPTIONAL',
+  CHOOSE_N_FROM = 'CHOOSE_N_FROM',
+}
+
+export enum BlockTemplateCategoryCode {
+  GENERAL = 'GENERAL',
+  FOUNDATION = 'FOUNDATION',
+  MAJOR = 'MAJOR',
+  THESIS = 'THESIS',
+  ELECTIVE = 'ELECTIVE',
+}
+
 export const PROGRAM_BLOCK_GROUP_TYPES = ['required', 'elective', 'core', 'other'] as const;
 export type ProgramBlockGroupType = (typeof PROGRAM_BLOCK_GROUP_TYPES)[number];
 
@@ -70,14 +95,17 @@ export const PROGRAM_WORKFLOW_STAGES: ProgramWorkflowStage[] = [
 ];
 
 export const PROGRAM_PERMISSIONS = {
-  VIEW: 'tms.program.read',
+  VIEW: 'tms.program.view',
   CREATE: 'tms.program.create',
   UPDATE: 'tms.program.update',
   DELETE: 'tms.program.delete',
+  SUBMIT: 'tms.program.submit',
   REVIEW: 'tms.program.review',
   APPROVE: 'tms.program.approve',
   REJECT: 'tms.program.reject',
   PUBLISH: 'tms.program.publish',
+  REQUEST_EDIT: 'tms.program.request_edit',
+  SCIENCE_COUNCIL_PUBLISH: 'tms.program.science_council_publish',
   MANAGE: 'tms.program.manage',
 } as const;
 
@@ -295,3 +323,118 @@ export function normalizeProgramBlockTypeForDb(type?: string | null): string {
 }
 
 export const DEFAULT_PROGRAM_PAGE_SIZE = 10;
+
+// Program Review Constants
+export interface ProgramStatsSummary {
+  pending: number;
+  reviewing: number;
+  approved: number;
+  rejected: number;
+  total: number;
+}
+
+export const DEFAULT_PROGRAM_STATS: ProgramStatsSummary = {
+  pending: 0,
+  reviewing: 0,
+  approved: 0,
+  rejected: 0,
+  total: 0,
+};
+
+export const PROGRAM_STAGE_CHIP_COLORS: Record<ProgramWorkflowStage, 'default' | 'info' | 'success' | 'warning'> = {
+  [ProgramWorkflowStage.DRAFT]: 'default',
+  [ProgramWorkflowStage.REVIEWING]: 'info',
+  [ProgramWorkflowStage.APPROVED]: 'success',
+  [ProgramWorkflowStage.PUBLISHED]: 'success',
+};
+
+export enum ProgramWorkflowAction {
+  SUBMIT = 'submit',
+  REVIEW = 'review',
+  APPROVE = 'approve',
+  REJECT = 'reject',
+  PUBLISH = 'publish',
+  DELETE = 'delete',
+  REQUEST_EDIT = 'request_edit',
+  SCIENCE_COUNCIL_PUBLISH = 'science_council_publish',
+}
+
+export interface ProgramActionCopy {
+  title: string;
+  description: string;
+  success?: string;
+}
+
+export const PROGRAM_ACTION_COPY: Record<ProgramWorkflowAction, ProgramActionCopy> = {
+  [ProgramWorkflowAction.SUBMIT]: {
+    title: 'Gửi phê duyệt',
+    description: 'Bạn muốn gửi chương trình đào tạo này vào quy trình phê duyệt?',
+    success: 'Đã gửi chương trình vào quy trình phê duyệt.',
+  },
+  [ProgramWorkflowAction.REVIEW]: {
+    title: 'Tiếp nhận chương trình',
+    description: 'Bạn xác nhận tiếp nhận và chuyển chương trình sang trạng thái Đang xem xét?',
+    success: 'Đã chuyển sang trạng thái Đang xem xét.',
+  },
+  [ProgramWorkflowAction.APPROVE]: {
+    title: 'Phê duyệt chương trình',
+    description: 'Bạn muốn phê duyệt chương trình đào tạo này?',
+    success: 'Chương trình đã được phê duyệt.',
+  },
+  [ProgramWorkflowAction.REJECT]: {
+    title: 'Từ chối chương trình',
+    description: 'Bạn muốn từ chối chương trình đào tạo này?',
+    success: 'Đã từ chối chương trình.',
+  },
+  [ProgramWorkflowAction.PUBLISH]: {
+    title: 'Xuất bản chương trình',
+    description: 'Bạn muốn xuất bản chương trình đào tạo này?',
+    success: 'Chương trình đã được xuất bản.',
+  },
+  [ProgramWorkflowAction.DELETE]: {
+    title: 'Xóa chương trình',
+    description: 'Bạn có chắc chắn muốn xóa chương trình đào tạo này? Hành động này không thể hoàn tác.',
+    success: 'Chương trình đã được xóa.',
+  },
+  [ProgramWorkflowAction.REQUEST_EDIT]: {
+    title: 'Yêu cầu chỉnh sửa',
+    description: 'Bạn muốn yêu cầu chỉnh sửa chương trình đào tạo này?',
+    success: 'Đã gửi yêu cầu chỉnh sửa.',
+  },
+  [ProgramWorkflowAction.SCIENCE_COUNCIL_PUBLISH]: {
+    title: 'Hội đồng khoa học công bố',
+    description: 'Bạn muốn Hội đồng khoa học công bố chương trình đào tạo này?',
+    success: 'Chương trình đã được Hội đồng khoa học công bố.',
+  },
+};
+
+// Program Process Stages
+export interface ProgramProcessStage {
+  stage: ProgramWorkflowStage;
+  label: string;
+  Icon: React.ComponentType<any>;
+}
+
+// Utility functions for program review
+export function getProgramStageChipColor(stage: ProgramWorkflowStage): 'default' | 'info' | 'success' | 'warning' {
+  return PROGRAM_STAGE_CHIP_COLORS[stage];
+}
+
+export function getProgramActionCopy(action: ProgramWorkflowAction): ProgramActionCopy {
+  return PROGRAM_ACTION_COPY[action];
+}
+
+export function formatProgramDateTime(value?: string | null): string {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString('vi-VN');
+  } catch {
+    return value;
+  }
+}
+
+export function computeProgramStepIndex(status: ProgramStatus): number {
+  const stage = getProgramStageFromStatus(status);
+  const index = PROGRAM_WORKFLOW_STAGES.indexOf(stage);
+  return index >= 0 ? index : 0;
+}

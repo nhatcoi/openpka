@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["academic", "auth", "finance", "hr", "org", "public", "report", "schedule", "student", "notification"]
+  schemas  = ["academic", "auth", "finance", "hr", "notification", "org", "public", "report", "schedule", "student"]
 }
 
 model Employee {
@@ -259,27 +259,29 @@ model Training {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
 model User {
-  id                                     BigInt               @id(map: "user_pkey") @default(autoincrement())
-  username                               String               @unique(map: "user_username_key") @db.VarChar(64)
-  email                                  String?              @unique(map: "user_email_key") @db.VarChar(255)
-  password_hash                          String
-  status                                 String?              @default("ACTIVE") @db.VarChar(16)
-  last_login_at                          DateTime?            @db.Timestamptz(6)
-  created_at                             DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at                             DateTime?            @default(now()) @db.Timestamptz(6)
-  full_name                              String               @db.VarChar(255)
-  dob                                    DateTime?            @db.Date
-  gender                                 String?              @db.VarChar(16)
-  phone                                  String?              @db.VarChar(32)
-  address                                String?
-  AuditLog                               AuditLog[]
-  RolePermission                         RolePermission[]
-  user_role_user_role_assigned_byTousers UserRole[]           @relation("user_role_assigned_byTousers")
-  user_role_user_role_user_idTousers     UserRole[]           @relation("user_role_user_idTousers")
-  EmployeeLog                            EmployeeLog[]
-  Employee                               Employee[]
-  org_unit_attachments                   OrgUnitAttachments[]
-  ApprovalRecord                        ApprovalRecord[]
+  id                                              BigInt                    @id(map: "user_pkey") @default(autoincrement())
+  username                                        String                    @unique(map: "user_username_key") @db.VarChar(64)
+  email                                           String?                   @unique(map: "user_email_key") @db.VarChar(255)
+  password_hash                                   String
+  status                                          String?                   @default("ACTIVE") @db.VarChar(16)
+  last_login_at                                   DateTime?                 @db.Timestamptz(6)
+  created_at                                      DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at                                      DateTime?                 @default(now()) @db.Timestamptz(6)
+  full_name                                       String                    @db.VarChar(255)
+  dob                                             DateTime?                 @db.Date
+  gender                                          String?                   @db.VarChar(16)
+  phone                                           String?                   @db.VarChar(32)
+  address                                         String?
+  AuditLog                                        AuditLog[]
+  RolePermission                                  RolePermission[]
+  user_role_user_role_assigned_byTousers          UserRole[]                @relation("user_role_assigned_byTousers")
+  user_role_user_role_user_idTousers              UserRole[]                @relation("user_role_user_idTousers")
+  EmployeeLog                                     EmployeeLog[]
+  Employee                                        Employee[]
+  notification_preferences                        notification_preferences?
+  notifications_notifications_recipient_idTousers notifications[]           @relation("notifications_recipient_idTousers")
+  notifications_notifications_sender_idTousers    notifications[]           @relation("notifications_sender_idTousers")
+  org_unit_attachments                            OrgUnitAttachments[]
 
   @@index([full_name], map: "idx_user_full_name")
   @@index([phone], map: "idx_user_phone")
@@ -390,8 +392,9 @@ model OrgUnit {
   campus_id                  BigInt?
   planned_establishment_date DateTime?             @db.Date
   Course                     Course[]
+  major_owner_history        major_owner_history[]
   Major                      Major[]
-  Program                    Program[]
+  Program                    Program[]             @relation("OrgUnitPrograms")
   OrgAssignment              OrgAssignment[]
   org_structure_request      OrgStructureRequest[]
   org_unit_attachments       OrgUnitAttachments[]
@@ -412,28 +415,28 @@ model OrgUnit {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Campus {
-  id             BigInt        @id(map: "campus_pkey") @default(autoincrement())
-  code           String        @unique(map: "campus_code_key") @db.VarChar(32)
-  name_vi        String        @db.VarChar(255)
-  name_en        String?       @db.VarChar(255)
-  short_name     String?       @db.VarChar(100)
-  slug           String?       @db.VarChar(255)
+  id             BigInt    @id(map: "campus_pkey") @default(autoincrement())
+  code           String    @unique(map: "campus_code_key") @db.VarChar(32)
+  name_vi        String    @db.VarChar(255)
+  name_en        String?   @db.VarChar(255)
+  short_name     String?   @db.VarChar(100)
+  slug           String?   @db.VarChar(255)
   address        String?
-  district       String?       @db.VarChar(128)
-  province       String?       @db.VarChar(128)
-  country        String?       @default("Việt Nam") @db.VarChar(128)
-  postal_code    String?       @db.VarChar(20)
-  latitude       Decimal?      @db.Decimal(10, 6)
-  longitude      Decimal?      @db.Decimal(10, 6)
-  campus_type    String?       @default("main") @db.VarChar(32)
-  established_at DateTime?     @db.Date
-  closed_at      DateTime?     @db.Date
-  is_active      Boolean?      @default(true)
+  district       String?   @db.VarChar(128)
+  province       String?   @db.VarChar(128)
+  country        String?   @default("Việt Nam") @db.VarChar(128)
+  postal_code    String?   @db.VarChar(20)
+  latitude       Decimal?  @db.Decimal(10, 6)
+  longitude      Decimal?  @db.Decimal(10, 6)
+  campus_type    String?   @default("main") @db.VarChar(32)
+  established_at DateTime? @db.Date
+  closed_at      DateTime? @db.Date
+  is_active      Boolean?  @default(true)
   note           String?
   created_by     BigInt?
   updated_by     BigInt?
-  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
 
   @@index([is_active], map: "idx_campus_is_active")
   @@index([name_vi], map: "idx_campus_name")
@@ -480,7 +483,6 @@ model Course {
   status                    String                     @default("DRAFT") @db.VarChar(32)
   theory_credit             Decimal?                   @db.Decimal(4, 1)
   practical_credit          Decimal?                   @db.Decimal(4, 1)
-  // Legacy workflow relations removed - using unified workflow system
   audits                    CourseAudit[]
   contents                  CourseContent[]
   prerequisites             CoursePrerequisites[]      @relation("CoursePrerequisites")
@@ -498,7 +500,6 @@ model Course {
   @@schema("academic")
 }
 
-
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model MajorOutcome {
   id        BigInt   @id @default(autoincrement())
@@ -513,7 +514,6 @@ model MajorOutcome {
   @@map("major_outcome")
   @@schema("academic")
 }
-
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -548,52 +548,49 @@ model MajorTuition {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-/// 
+///
 /// OPTIMIZED: Removed unused JSON fields (campuses, languages, modalities, accreditations, aliases, documents)
 /// - Reduced from 35 to 29 fields (17% reduction)
 /// - Removed 6 unused JSON columns that were not being utilized
 /// - Improved performance and reduced complexity
 model Major {
-  id                   BigInt               @id(map: "major_pkey") @default(autoincrement())
-  code                 String               @db.VarChar(32)
-  name_vi              String               @db.VarChar(255)
-  name_en              String?              @db.VarChar(255)
-  short_name           String?              @db.VarChar(100)
-  slug                 String?              @db.VarChar(255)
-  national_code        String?              @db.VarChar(32)
-  is_moet_standard     Boolean?             @default(false)
-  degree_level         String               @db.VarChar(32)
-  field_cluster        String?              @db.VarChar(64)
-  specialization_model String?              @default("none") @db.VarChar(32)
+  id                   BigInt                @id(map: "major_pkey") @default(autoincrement())
+  code                 String                @db.VarChar(32)
+  name_vi              String                @db.VarChar(255)
+  name_en              String?               @db.VarChar(255)
+  short_name           String?               @db.VarChar(100)
+  slug                 String?               @db.VarChar(255)
+  national_code        String?               @db.VarChar(32)
+  is_moet_standard     Boolean?              @default(false)
+  degree_level         String                @db.VarChar(32)
+  field_cluster        String?               @db.VarChar(64)
+  specialization_model String?               @default("none") @db.VarChar(32)
   org_unit_id          BigInt
   parent_major_id      BigInt?
-  duration_years       Decimal?             @default(4.0) @db.Decimal(3, 1)
-  total_credits_min    Int?                 @db.SmallInt
-  total_credits_max    Int?                 @db.SmallInt
-  semesters_per_year   Int?                 @default(2) @db.SmallInt
-  start_terms          String?              @default("Fall") @db.VarChar(64)
+  duration_years       Decimal?              @default(4.0) @db.Decimal(3, 1)
+  total_credits_min    Int?                  @db.SmallInt
+  total_credits_max    Int?                  @db.SmallInt
+  semesters_per_year   Int?                  @default(2) @db.SmallInt
+  start_terms          String?               @default("Fall") @db.VarChar(64)
   default_quota        Int?
-  status               String               @default("active") @db.VarChar(32)
-  established_at       DateTime?            @db.Date
-  closed_at            DateTime?            @db.Date
+  tuition_group        String?               @db.VarChar(64)
+  status               String                @default("active") @db.VarChar(32)
+  established_at       DateTime?             @db.Date
+  closed_at            DateTime?             @db.Date
   description          String?
   notes                String?
-  
-  // JSON fields removed - not used in current implementation
-  
   created_by           BigInt?
   updated_by           BigInt?
-  created_at           DateTime?            @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime?            @default(now()) @db.Timestamptz(6)
-  
-  // Relations - only keep essential ones
+  created_at           DateTime?             @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
   MajorOutcome         MajorOutcome[]
+  major_owner_history  major_owner_history[]
   MajorQuotaYear       MajorQuotaYear[]
   MajorTuition         MajorTuition[]
-  OrgUnit              OrgUnit              @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_owner")
-  Major                Major?               @relation("majorsTomajors", fields: [parent_major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_parent")
-  other_majors         Major[]              @relation("majorsTomajors")
-  Program              Program[]
+  OrgUnit              OrgUnit               @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_owner")
+  Major                Major?                @relation("majorsTomajors", fields: [parent_major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_parent")
+  other_majors         Major[]               @relation("majorsTomajors")
+  Program              Program[]             @relation("MajorPrograms")
 
   @@unique([org_unit_id, code], map: "uq_major_code_per_owner")
   @@index([degree_level], map: "idx_major_degree_level")
@@ -604,55 +601,51 @@ model Major {
   @@schema("academic")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model ProgramBlockGroupRule {
-  id                BigInt            @id @default(autoincrement())
-  group_id          BigInt
-  min_credits       Decimal?          @db.Decimal(5, 1)
-  max_credits       Decimal?          @db.Decimal(5, 1)
-  min_courses       Int?              @db.SmallInt
-  max_courses       Int?              @db.SmallInt
-  ProgramBlockGroup ProgramBlockGroup @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+/// Bảng danh mục template
+model BlockTemplateCategory {
+  id          BigInt    @id @default(autoincrement())
+  code        String    @unique @db.VarChar(32)
+  name        String    @db.VarChar(255)
+  description String?
+  is_active   Boolean?  @default(true)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
 
-  @@index([group_id], map: "idx_program_block_group_rule_group")
-  @@map("program_block_group_rule")
+  @@index([is_active], map: "idx_block_template_category_active")
+  @@map("block_template_categories")
   @@schema("academic")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model ProgramBlockGroup {
-  id                    BigInt                  @id(map: "program_block_group_pkey") @default(autoincrement())
-  block_id              BigInt
-  code                  String                  @db.VarChar(32)
-  title                 String                  @db.VarChar(255)
-  group_type            String                  @db.VarChar(32)
-  display_order         Int                     @default(1) @db.SmallInt
-  ProgramBlockGroupRule ProgramBlockGroupRule[]
-  ProgramBlock          ProgramBlock            @relation(fields: [block_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "program_block_group_block_id_fkey")
-  ProgramCourseMap      ProgramCourseMap[]
-
-  @@unique([block_id, code], map: "program_block_group_block_id_code_key")
-  @@index([block_id], map: "idx_program_block_group_block")
-  @@map("program_block_groups")
-  @@schema("academic")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// Bảng khối học phần độc lập (template)
 model ProgramBlock {
-  id                BigInt              @id(map: "program_block_pkey") @default(autoincrement())
-  program_id        BigInt
+  id                BigInt              @id @default(autoincrement())
   code              String              @db.VarChar(32)
   title             String              @db.VarChar(255)
   block_type        String              @db.VarChar(32)
   display_order     Int                 @default(1) @db.SmallInt
-  ProgramBlockGroup ProgramBlockGroup[]
-  Program           Program             @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "program_block_program_id_fkey")
   ProgramCourseMap  ProgramCourseMap[]
 
-  @@unique([program_id, code], map: "program_block_program_id_code_key")
-  @@index([program_id], map: "idx_program_block_program")
   @@map("program_blocks")
+  @@schema("academic")
+}
+
+/// Map course vào template
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ProgramBlockGroup {
+  id                        BigInt                      @id @default(autoincrement())
+  code                      String                      @db.VarChar(32)
+  title                     String                      @db.VarChar(255)
+  group_type                String                      @db.VarChar(32)
+  display_order             Int?                        @default(1) @db.SmallInt
+  description               String?
+  parent_id                 BigInt?
+  program_block_group_rules program_block_group_rules[]
+  ProgramCourseMap          ProgramCourseMap[]
+  parent                    ProgramBlockGroup?          @relation("ProgramBlockGroupHierarchy", fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  children                  ProgramBlockGroup[]         @relation("ProgramBlockGroupHierarchy")
+
+  @@unique([code], map: "program_block_group_code_key")
+  @@index([parent_id], map: "idx_program_block_groups_parent_id")
+  @@map("program_block_groups")
   @@schema("academic")
 }
 
@@ -670,7 +663,7 @@ model ProgramCourseMap {
   ProgramBlockGroup ProgramBlockGroup? @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   Program           Program            @relation(fields: [program_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([program_id, course_id])
+  @@unique([program_id, course_id], map: "uq_program_course_map")
   @@index([course_id], map: "idx_program_course_map_course")
   @@index([program_id], map: "idx_program_course_map_program")
   @@map("program_course_map")
@@ -698,10 +691,9 @@ model Program {
   name_en                 String?                   @db.VarChar(255)
   description             String?
   curriculum_versions     CurriculumVersion[]
-  ProgramBlock            ProgramBlock[]
   ProgramCourseMap        ProgramCourseMap[]
-  Major                   Major?                    @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_major_id_fkey")
-  OrgUnit                 OrgUnit?                  @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_org_unit_id_fkey")
+  Major                   Major?                    @relation("MajorPrograms", fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_major_id_fkey")
+  OrgUnit                 OrgUnit?                  @relation("OrgUnitPrograms", fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_org_unit_id_fkey")
   StudentAcademicProgress StudentAcademicProgress[]
 
   @@unique([major_id, version], map: "uq_program_major_version")
@@ -1089,8 +1081,6 @@ model OrgUnitStatus {
   @@schema("org")
 }
 
-// Legacy CourseApprovalHistory model removed - data migrated to unified workflow system
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model CoursePrerequisites {
   id                     BigInt    @id @default(autoincrement())
@@ -1269,7 +1259,257 @@ model CourseContent {
   @@schema("academic")
 }
 
-// Legacy CourseWorkflow model removed - data migrated to unified workflow system
+model WorkflowDefinition {
+  id                      BigInt             @id @default(autoincrement())
+  entity_type             String             @db.VarChar(50)
+  workflow_name           String             @db.VarChar(100)
+  description             String?
+  is_active               Boolean?           @default(true)
+  auto_approval_threshold Int?               @default(7)
+  escalation_enabled      Boolean?           @default(true)
+  created_at              DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at              DateTime?          @default(now()) @db.Timestamp(6)
+  instances               WorkflowInstance[]
+  steps                   WorkflowStep[]
+
+  @@map("workflow_definitions")
+  @@schema("academic")
+}
+
+model WorkflowStep {
+  id                 BigInt              @id @default(autoincrement())
+  workflow_id        BigInt?
+  step_order         Int
+  step_name          String              @db.VarChar(100)
+  approver_role      String?             @db.VarChar(50)
+  approver_org_level String?             @db.VarChar(50)
+  timeout_days       Int?                @default(3)
+  escalation_enabled Boolean?            @default(true)
+  created_at         DateTime?           @default(now()) @db.Timestamp(6)
+  approval_records   ApprovalRecord[]
+  workflow           WorkflowDefinition? @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@map("workflow_steps")
+  @@schema("academic")
+}
+
+model WorkflowInstance {
+  id               BigInt              @id @default(autoincrement())
+  workflow_id      BigInt?
+  entity_type      String              @db.VarChar(50)
+  entity_id        BigInt
+  current_step     Int?                @default(1)
+  status           String?             @default("PENDING") @db.VarChar(50)
+  initiated_by     BigInt
+  initiated_at     DateTime?           @default(now()) @db.Timestamp(6)
+  completed_at     DateTime?           @db.Timestamp(6)
+  metadata         Json?
+  created_at       DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?           @default(now()) @db.Timestamp(6)
+  approval_records ApprovalRecord[]
+  workflow         WorkflowDefinition? @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([entity_type, entity_id], map: "idx_academic_workflow_instances_entity")
+  @@index([initiated_by], map: "idx_academic_workflow_instances_initiated_by")
+  @@index([status], map: "idx_academic_workflow_instances_status")
+  @@map("workflow_instances")
+  @@schema("academic")
+}
+
+model ApprovalRecord {
+  id                   BigInt            @id @default(autoincrement())
+  workflow_instance_id BigInt?
+  step_id              BigInt?
+  approver_id          BigInt
+  action               String            @db.VarChar(50)
+  comments             String?
+  attachments          Json?
+  approved_at          DateTime?         @db.Timestamp(6)
+  due_date             DateTime?         @db.Timestamp(6)
+  is_escalated         Boolean?          @default(false)
+  created_at           DateTime?         @default(now()) @db.Timestamp(6)
+  step                 WorkflowStep?     @relation(fields: [step_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  workflow_instance    WorkflowInstance? @relation(fields: [workflow_instance_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([approver_id], map: "idx_academic_approval_records_approver")
+  @@index([workflow_instance_id], map: "idx_academic_approval_records_workflow")
+  @@map("approval_records")
+  @@schema("academic")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model major_owner_history {
+  id          BigInt    @id @default(autoincrement())
+  major_id    BigInt
+  org_unit_id BigInt
+  start_date  DateTime  @db.Date
+  end_date    DateTime? @db.Date
+  majors      Major     @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  org_units   OrgUnit   @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([major_id], map: "idx_moh_major")
+  @@schema("academic")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model majors_backup_json {
+  id                   BigInt?
+  code                 String?   @db.VarChar(32)
+  name_vi              String?   @db.VarChar(255)
+  name_en              String?   @db.VarChar(255)
+  short_name           String?   @db.VarChar(100)
+  slug                 String?   @db.VarChar(255)
+  national_code        String?   @db.VarChar(32)
+  is_moet_standard     Boolean?
+  degree_level         String?   @db.VarChar(32)
+  field_cluster        String?   @db.VarChar(64)
+  specialization_model String?   @db.VarChar(32)
+  org_unit_id          BigInt?
+  parent_major_id      BigInt?
+  duration_years       Decimal?  @db.Decimal(3, 1)
+  total_credits_min    Int?      @db.SmallInt
+  total_credits_max    Int?      @db.SmallInt
+  semesters_per_year   Int?      @db.SmallInt
+  start_terms          String?   @db.VarChar(64)
+  default_quota        Int?
+  tuition_group        String?   @db.VarChar(64)
+  status               String?   @db.VarChar(32)
+  established_at       DateTime? @db.Date
+  closed_at            DateTime? @db.Date
+  description          String?
+  notes                String?
+  created_by           BigInt?
+  updated_by           BigInt?
+  created_at           DateTime? @db.Timestamptz(6)
+  updated_at           DateTime? @db.Timestamptz(6)
+
+  @@ignore
+  @@schema("academic")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_deliveries {
+  id              BigInt        @id @default(autoincrement())
+  notification_id BigInt
+  channel         String        @db.VarChar(20)
+  status          String?       @default("pending") @db.VarChar(20)
+  sent_at         DateTime?     @db.Timestamptz(6)
+  delivered_at    DateTime?     @db.Timestamptz(6)
+  error_message   String?
+  retry_count     Int?          @default(0)
+  max_retries     Int?          @default(3)
+  created_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  notifications   notifications @relation(fields: [notification_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_deliveries_notification")
+
+  @@index([channel], map: "idx_notification_deliveries_channel")
+  @@index([notification_id], map: "idx_notification_deliveries_notification")
+  @@index([sent_at], map: "idx_notification_deliveries_sent_at")
+  @@index([status], map: "idx_notification_deliveries_status")
+  @@schema("notification")
+}
+
+model notification_preferences {
+  id                BigInt    @id @default(autoincrement())
+  user_id           BigInt    @unique(map: "idx_notification_preferences_user")
+  email_enabled     Boolean?  @default(true)
+  sms_enabled       Boolean?  @default(false)
+  push_enabled      Boolean?  @default(true)
+  in_app_enabled    Boolean?  @default(true)
+  quiet_hours_start String?   @db.VarChar(5)
+  quiet_hours_end   String?   @db.VarChar(5)
+  timezone          String?   @default("Asia/Ho_Chi_Minh") @db.VarChar(50)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  users             User      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_preferences_user")
+
+  @@index([email_enabled], map: "idx_notification_preferences_email")
+  @@index([push_enabled], map: "idx_notification_preferences_push")
+  @@schema("notification")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notification_queue {
+  id              BigInt        @id @default(autoincrement())
+  notification_id BigInt
+  scheduled_at    DateTime      @default(now()) @db.Timestamptz(6)
+  priority        Int?          @default(5)
+  attempts        Int?          @default(0)
+  max_attempts    Int?          @default(3)
+  status          String?       @default("pending") @db.VarChar(20)
+  error_message   String?
+  processed_at    DateTime?     @db.Timestamptz(6)
+  created_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  notifications   notifications @relation(fields: [notification_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notification_queue_notification")
+
+  @@index([priority], map: "idx_notification_queue_priority")
+  @@index([scheduled_at], map: "idx_notification_queue_scheduled")
+  @@index([status], map: "idx_notification_queue_status")
+  @@schema("notification")
+}
+
+model notification_templates {
+  id                BigInt    @id @default(autoincrement())
+  template_key      String    @unique @db.VarChar(100)
+  title_template    String    @db.VarChar(255)
+  message_template  String
+  notification_type String    @db.VarChar(50)
+  language          String?   @default("vi") @db.VarChar(10)
+  is_active         Boolean?  @default(true)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active], map: "idx_notification_template_active")
+  @@index([template_key], map: "idx_notification_template_key")
+  @@index([notification_type], map: "idx_notification_template_type")
+  @@schema("notification")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model notifications {
+  id                                      BigInt                    @id @default(autoincrement())
+  recipient_id                            BigInt
+  sender_id                               BigInt?
+  notification_type                       String                    @db.VarChar(50)
+  entity_type                             String                    @db.VarChar(50)
+  entity_id                               BigInt
+  title                                   String                    @db.VarChar(255)
+  message                                 String?
+  priority                                String?                   @default("medium") @db.VarChar(20)
+  status                                  String?                   @default("unread") @db.VarChar(20)
+  read_at                                 DateTime?                 @db.Timestamptz(6)
+  expires_at                              DateTime?                 @db.Timestamptz(6)
+  metadata                                Json?                     @default("{}")
+  created_at                              DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at                              DateTime?                 @default(now()) @db.Timestamptz(6)
+  notification_deliveries                 notification_deliveries[]
+  notification_queue                      notification_queue[]
+  users_notifications_recipient_idTousers User                      @relation("notifications_recipient_idTousers", fields: [recipient_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_recipient")
+  users_notifications_sender_idTousers    User?                     @relation("notifications_sender_idTousers", fields: [sender_id], references: [id], onUpdate: NoAction, map: "fk_notifications_sender")
+
+  @@index([created_at], map: "idx_notifications_created_at")
+  @@index([entity_type, entity_id], map: "idx_notifications_entity")
+  @@index([expires_at], map: "idx_notifications_expires_at")
+  @@index([metadata], map: "idx_notifications_metadata", type: Gin)
+  @@index([priority], map: "idx_notifications_priority")
+  @@index([recipient_id], map: "idx_notifications_recipient")
+  @@index([status], map: "idx_notifications_status")
+  @@index([notification_type], map: "idx_notifications_type")
+  @@schema("notification")
+}
+
+model program_block_group_rules {
+  id                   BigInt            @id @default(autoincrement())
+  group_id             BigInt
+  min_credits          Decimal?          @db.Decimal(5, 1)
+  max_credits          Decimal?          @db.Decimal(5, 1)
+  min_courses          Int?              @db.SmallInt
+  max_courses          Int?              @db.SmallInt
+  rule_type            String?           @default("CREDIT_BASED") @db.VarChar(32)
+  program_block_groups ProgramBlockGroup @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "program_block_group_rules_group_fkey")
+
+  @@index([group_id], map: "idx_program_block_group_rules_group")
+  @@schema("academic")
+}
 
 enum OrgRelationType {
   direct
@@ -1280,88 +1520,3 @@ enum OrgRelationType {
   @@map("org_relation_type")
   @@schema("public")
 }
-
-// Academic Workflow Models
-model WorkflowDefinition {
-  id                      BigInt            @id @default(autoincrement())
-  entity_type             String            @db.VarChar(50)
-  workflow_name           String            @db.VarChar(100)
-  description             String?
-  is_active               Boolean           @default(true)
-  auto_approval_threshold Int?              @default(7)
-  escalation_enabled      Boolean           @default(true)
-  created_at              DateTime?         @default(now()) @db.Timestamptz(6)
-  updated_at              DateTime?         @default(now()) @db.Timestamptz(6)
-  
-  steps                   WorkflowStep[]
-  instances               WorkflowInstance[]
-
-  @@map("workflow_definitions")
-  @@schema("academic")
-}
-
-model WorkflowStep {
-  id                  BigInt            @id @default(autoincrement())
-  workflow_id         BigInt
-  step_order          Int
-  step_name           String            @db.VarChar(100)
-  approver_role       String?           @db.VarChar(50)
-  approver_org_level  String?           @db.VarChar(50)
-  timeout_days        Int?              @default(3)
-  escalation_enabled  Boolean           @default(true)
-  created_at          DateTime?         @default(now()) @db.Timestamptz(6)
-  
-  workflow            WorkflowDefinition @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  approval_records    ApprovalRecord[]
-
-  @@map("workflow_steps")
-  @@schema("academic")
-}
-
-model WorkflowInstance {
-  id            BigInt            @id @default(autoincrement())
-  workflow_id   BigInt
-  entity_type   String            @db.VarChar(50)
-  entity_id     BigInt
-  current_step  Int?              @default(1)
-  status        String?           @default("PENDING") @db.VarChar(50)
-  initiated_by  BigInt
-  initiated_at  DateTime?         @default(now()) @db.Timestamptz(6)
-  completed_at  DateTime?         @db.Timestamptz(6)
-  metadata      Json?
-  created_at    DateTime?         @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime?         @default(now()) @db.Timestamptz(6)
-  
-  workflow      WorkflowDefinition @relation(fields: [workflow_id], references: [id], onDelete: Cascade)
-  approval_records ApprovalRecord[]
-
-  @@index([entity_type, entity_id], map: "idx_workflow_instances_entity")
-  @@index([status], map: "idx_workflow_instances_status")
-  @@index([initiated_by], map: "idx_workflow_instances_initiated_by")
-  @@map("workflow_instances")
-  @@schema("academic")
-}
-
-model ApprovalRecord {
-  id                    BigInt            @id @default(autoincrement())
-  workflow_instance_id  BigInt
-  step_id               BigInt
-  approver_id           BigInt
-  action                String            @db.VarChar(50)
-  comments              String?
-  attachments           Json?
-  approved_at           DateTime?         @db.Timestamptz(6)
-  due_date              DateTime?         @db.Timestamptz(6)
-  is_escalated          Boolean           @default(false)
-  created_at            DateTime?         @default(now()) @db.Timestamptz(6)
-  
-  workflow_instance     WorkflowInstance  @relation(fields: [workflow_instance_id], references: [id], onDelete: Cascade)
-  step                  WorkflowStep      @relation(fields: [step_id], references: [id], onDelete: Cascade)
-  approver              User              @relation(fields: [approver_id], references: [id], onDelete: NoAction)
-
-  @@index([workflow_instance_id], map: "idx_approval_records_workflow")
-  @@index([approver_id], map: "idx_approval_records_approver")
-  @@map("approval_records")
-  @@schema("academic")
-}
-

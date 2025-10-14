@@ -138,121 +138,117 @@ const AcademicApprovalsPage: React.FC = () => {
 
       {/* Dashboard Cards */}
       {dashboard && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <PendingIcon color="primary" />
-                  <Box>
-                    <Typography variant="h6">{dashboard.total}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Tổng số
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <ScheduleIcon color="warning" />
-                  <Box>
-                    <Typography variant="h6">{dashboard.pending}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Chờ xử lý
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <CheckCircleIcon color="success" />
-                  <Box>
-                    <Typography variant="h6">{dashboard.completed}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Hoàn thành
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <SchoolIcon color="info" />
-                  <Box>
-                    <Typography variant="h6">{dashboard.byEntity.COURSE}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Khóa học
-                    </Typography>
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, 
+          gap: 3, 
+          mb: 4 
+        }}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <PendingIcon color="primary" />
+                <Box>
+                  <Typography variant="h6">{dashboard.total}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Tổng số
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <ScheduleIcon color="warning" />
+                <Box>
+                  <Typography variant="h6">{dashboard.pending}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Chờ xử lý
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <CheckCircleIcon color="success" />
+                <Box>
+                  <Typography variant="h6">{dashboard.completed}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Hoàn thành
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <SchoolIcon color="info" />
+                <Box>
+                  <Typography variant="h6">{dashboard.byEntity.COURSE}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Khóa học
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Box>
       )}
 
       {/* Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              placeholder="Tìm kiếm workflow..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <FormControl fullWidth>
-              <InputLabel>Loại thực thể</InputLabel>
-              <Select
-                value={entityType}
-                onChange={(e) => setEntityType(e.target.value as any)}
-                label="Loại thực thể"
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                <MenuItem value="COURSE">Khóa học</MenuItem>
-                <MenuItem value="PROGRAM">Chương trình</MenuItem>
-                <MenuItem value="MAJOR">Ngành học</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <FormControl fullWidth>
-              <InputLabel>Trạng thái</InputLabel>
-              <Select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                label="Trạng thái"
-              >
-                <MenuItem value="">Tất cả</MenuItem>
-                <MenuItem value="PENDING">Chờ xử lý</MenuItem>
-                <MenuItem value="IN_PROGRESS">Đang xử lý</MenuItem>
-                <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
-                <MenuItem value="REJECTED">Đã từ chối</MenuItem>
-                <MenuItem value="COMPLETED">Hoàn thành</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1fr' }, 
+          gap: 2,
+          alignItems: 'center'
+        }}>
+          <TextField
+            fullWidth
+            placeholder="Tìm kiếm workflow..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          <FormControl fullWidth>
+            <InputLabel>Loại thực thể</InputLabel>
+            <Select
+              value={entityType}
+              onChange={(e) => setEntityType(e.target.value as any)}
+              label="Loại thực thể"
+            >
+              <MenuItem value="">Tất cả</MenuItem>
+              <MenuItem value="COURSE">Khóa học</MenuItem>
+              <MenuItem value="PROGRAM">Chương trình</MenuItem>
+              <MenuItem value="MAJOR">Ngành học</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth>
+            <InputLabel>Trạng thái</InputLabel>
+            <Select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              label="Trạng thái"
+            >
+              <MenuItem value="">Tất cả</MenuItem>
+              <MenuItem value="PENDING">Chờ xử lý</MenuItem>
+              <MenuItem value="IN_PROGRESS">Đang xử lý</MenuItem>
+              <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
+              <MenuItem value="REJECTED">Đã từ chối</MenuItem>
+              <MenuItem value="COMPLETED">Hoàn thành</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
       </Paper>
 
       {/* Workflows Table */}
@@ -292,8 +288,8 @@ const AcademicApprovalsPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        icon={getEntityIcon(workflow.entity_type)}
-                        label={workflow.entity_type}
+                        icon={getEntityIcon('COURSE')}
+                        label="COURSE"
                         size="small"
                       />
                     </TableCell>

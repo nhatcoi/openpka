@@ -19,7 +19,7 @@ import {
   Refresh as RefreshIcon,
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
-import { OrgTreeNode } from '@/components/OrgTreeNode';
+import { OrgTreeNode } from '@/components/tree/OrgTreeNode';
 import { buildTree } from '@/utils/tree-utils';
 import { API_ROUTES } from '@/constants/routes';
 import { buildUrl } from '@/lib/api/api-handler';

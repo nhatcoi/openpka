@@ -8,10 +8,18 @@ import {
   Chip,
   CircularProgress,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputAdornment,
   InputLabel,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   Pagination,
   Paper,
@@ -31,8 +39,11 @@ import {
 } from '@mui/material';
 import {
   Add as AddIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
@@ -43,8 +54,6 @@ import {
   PROGRAM_STATUSES,
   ProgramStatus,
   getProgramDegreeLabel,
-  getProgramPriorityColor,
-  getProgramPriorityLabel,
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
@@ -84,6 +93,7 @@ export default function ProgramsPage(): JSX.Element {
     message: '',
     severity: 'success',
   });
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   const fetchOrgUnits = useCallback(async () => {
     try {
@@ -207,7 +217,7 @@ export default function ProgramsPage(): JSX.Element {
 
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
-      <Container maxWidth="lg">
+      <Container maxWidth={false} sx={{ px: 2 }}>
         <Paper
           elevation={0}
           sx={{
@@ -228,6 +238,15 @@ export default function ProgramsPage(): JSX.Element {
               </Typography>
             </Box>
             <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                startIcon={<HelpOutlineIcon />}
+                onClick={() => setHelpDialogOpen(true)}
+                color="inherit"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
+              >
+                Hướng dẫn
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -311,26 +330,25 @@ export default function ProgramsPage(): JSX.Element {
         </Paper>
 
         <Paper sx={{ p: 0, overflow: 'hidden' }}>
-          <TableContainer>
-            <Table>
+          <TableContainer sx={{ width: '100%' }}>
+            <Table sx={{ width: '100%' }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 'bold' }}>Mã</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Tên chương trình</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>Đơn vị</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }}>Bậc đào tạo</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Ngành</TableCell>
+
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">
                     Tổng tín chỉ
                   </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Trạng thái
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Ưu tiên
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
-                    Thống kê
-                  </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                      Trạng thái
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                      Thống kê
+                    </TableCell>
+                  
                   <TableCell sx={{ fontWeight: 'bold' }} align="center">
                     Thao tác
                   </TableCell>
@@ -339,7 +357,7 @@ export default function ProgramsPage(): JSX.Element {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                       <CircularProgress size={28} />
                     </TableCell>
                   </TableRow>
@@ -347,7 +365,7 @@ export default function ProgramsPage(): JSX.Element {
 
                 {error && !loading && (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={8}>
                       <Alert severity="error" action={
                         <Button color="inherit" size="small" onClick={fetchPrograms}>
                           Thử lại
@@ -361,7 +379,7 @@ export default function ProgramsPage(): JSX.Element {
 
                 {isEmpty && (
                   <TableRow>
-                    <TableCell colSpan={9}>
+                    <TableCell colSpan={8}>
                       <Alert severity="info">Không tìm thấy chương trình phù hợp.</Alert>
                     </TableCell>
                   </TableRow>
@@ -400,10 +418,10 @@ export default function ProgramsPage(): JSX.Element {
                       {program.major ? (
                         <>
                           <Typography variant="body2" fontWeight="medium">
-                            {program.major.name}
+                            {program.major.name_vi}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {getProgramDegreeLabel(program.major.degreeLevel ?? '')}
+                            {program.major.code}
                           </Typography>
                         </>
                       ) : (
@@ -421,16 +439,8 @@ export default function ProgramsPage(): JSX.Element {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Chip
-                        label={getProgramPriorityLabel(program.priority)}
-                        color={getProgramPriorityColor(program.priority)}
-                        size="small"
-                        variant="outlined"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
                       <Typography variant="body2" color="text.secondary">
-                        {program.stats.studentCount} SV • {program.stats.courseCount} HP
+                        {program.stats.studentCount} SV • {program.stats.blockCount} khối • {program.stats.courseCount} HP
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
@@ -470,6 +480,83 @@ export default function ProgramsPage(): JSX.Element {
             />
           </Box>
         </Paper>
+
+        <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
+          <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <InfoIcon />
+            Hướng dẫn quy trình quản lý Chương trình đào tạo
+          </DialogTitle>
+          <DialogContent dividers sx={{ pt: 3 }}>
+            <Stack spacing={3}>
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  1. Tạo bản Draft CTĐT
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Khoa (hoặc người được ủy quyền) tạo bản draft CTĐT, tự do thêm/sửa/xóa các khối học phần (từ mẫu, tự do, hoặc sao chép từ CTĐT khác) và gán học phần (thủ công, hàng loạt, kéo thả, v.v.).
+                </Typography>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  <strong>Lưu ý:</strong> Khi ở trạng thái draft, Khoa có toàn quyền CRUD (Tạo, Đọc, Cập nhật, Xóa).
+                </Alert>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  2. Gửi lên Phòng Đào tạo xem xét
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Sau khi gửi lên PĐT xem xét, Khoa mất quyền chỉnh sửa. PĐT xem xét duyệt hoặc từ chối, có thể yêu cầu chỉnh sửa.
+                </Typography>
+                <List dense>
+                  <ListItem>
+                    <ListItemIcon>
+                      <CheckCircleIcon color="success" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Được duyệt" 
+                      secondary="CTĐT có hiệu lực sử dụng ngay tại cấp Khoa/Đơn vị"
+                    />
+                  </ListItem>
+                  <ListItem>
+                    <ListItemIcon>
+                      <InfoIcon color="warning" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary="Yêu cầu chỉnh sửa" 
+                      secondary="Khoa được quyền chỉnh sửa lại và gửi lại"
+                    />
+                  </ListItem>
+                </List>
+              </Box>
+
+              <Box>
+                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                  3. Phê duyệt cấp Hội đồng/BGH
+                </Typography>
+                <Typography variant="body1" paragraph>
+                  Hội đồng đào tạo hoặc BGH có quy trình tương tự PĐT, nhưng cấp độ duyệt công bố toàn hệ thống đại học.
+                </Typography>
+                <Alert severity="success" sx={{ mt: 1 }}>
+                  <strong>Sau khi được duyệt:</strong> CTĐT được công bố chính thức và áp dụng cho toàn hệ thống.
+                </Alert>
+              </Box>
+
+              <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                  Tóm tắt luồng phê duyệt:
+                </Typography>
+                <Typography variant="body2" component="div">
+                  Draft → PĐT xem xét → (Nếu duyệt) Hiệu lực tại Khoa → Hội đồng/BGH xem xét → (Nếu duyệt) Công bố toàn hệ thống
+                </Typography>
+              </Box>
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, py: 2 }}>
+            <Button onClick={() => setHelpDialogOpen(false)} variant="contained">
+              Đã hiểu
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         <Snackbar
           open={snackbar.open}
