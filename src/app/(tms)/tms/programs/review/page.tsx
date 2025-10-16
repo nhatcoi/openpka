@@ -131,7 +131,7 @@ interface ProgramStatsSummary {
 
 const processStages = [
   { stage: ProgramWorkflowStage.DRAFT, label: 'Giảng viên soạn thảo', Icon: DescriptionIcon },
-  { stage: ProgramWorkflowStage.REVIEWING, label: 'Khoa xem xét', Icon: SchoolIcon },
+  { stage: ProgramWorkflowStage.REVIEWING, label: 'Khoa gửi PĐT xem xét', Icon: SchoolIcon },
   { stage: ProgramWorkflowStage.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
   { stage: ProgramWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
 ];
@@ -173,6 +173,7 @@ export default function ProgramReviewPage(): JSX.Element {
   const [detail, setDetail] = useState<ProgramDetail | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmComment, setConfirmComment] = useState<string>('');
   const [pendingAction, setPendingAction] = useState<{ program: ProgramReviewItem; action: ProgramWorkflowAction } | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -182,7 +183,7 @@ export default function ProgramReviewPage(): JSX.Element {
   const [processIndex, setProcessIndex] = useState<number>(0);
   const [focusedStatus, setFocusedStatus] = useState<ProgramStatus>(ProgramStatus.DRAFT);
   const [focusedStage, setFocusedStage] = useState<ProgramWorkflowStage>(ProgramWorkflowStage.DRAFT);
-  const [historyDatasets, setHistoryDatasets] = useState<ApprovalHistoryDataset[]>([]);
+  // Removed sample datasets; we will fetch real history per program on demand
   const [historyEntries, setHistoryEntries] = useState<ApprovalHistoryEntry[]>([]);
   const [showGuide, setShowGuide] = useState(false);
 
@@ -199,12 +200,14 @@ export default function ProgramReviewPage(): JSX.Element {
     setFocusedStage(stage);
   };
 
-  const resolveHistoryEntries = (programId: string): ApprovalHistoryEntry[] => {
-    const entries =
-      historyDatasets.find((dataset) => dataset.programId.toString() === programId.toString())?.entries ?? [];
-    return [...entries]
-      .map((entry) => ({ ...entry }))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  const mapApprovalActionToStatus = (action?: string): ProgramStatus => {
+    const normalized = (action || '').toUpperCase();
+    if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return ProgramStatus.DRAFT;
+    if (normalized.includes('APPROVE')) return ProgramStatus.APPROVED;
+    if (normalized.includes('REJECT')) return ProgramStatus.REJECTED;
+    if (normalized.includes('PUBLISH')) return ProgramStatus.PUBLISHED;
+    if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return ProgramStatus.REVIEWING;
+    return ProgramStatus.DRAFT;
   };
 
   const fetchStats = async () => {
@@ -260,25 +263,9 @@ export default function ProgramReviewPage(): JSX.Element {
   useEffect(() => {
     fetchPrograms();
     fetchStats();
-    const loadHistorySamples = async () => {
-      try {
-        const response = await fetch('/review/data.json');
-        if (!response.ok) throw new Error('Failed to load approval history sample data');
-        const data = (await response.json()) as { histories?: ApprovalHistoryDataset[] };
-        setHistoryDatasets(data.histories ?? []);
-      } catch (err) {
-        console.error('Failed to load approval history samples', err);
-        setHistoryDatasets([]);
-      }
-    };
-    loadHistorySamples();
   }, []);
 
-  useEffect(() => {
-    if (detail) {
-      setHistoryEntries(resolveHistoryEntries(detail.id));
-    }
-  }, [historyDatasets, detail?.id]);
+  // No dependency on sample datasets anymore
 
   const filteredPrograms = useMemo(() => {
     return programs.filter((program) => {
@@ -311,6 +298,7 @@ export default function ProgramReviewPage(): JSX.Element {
   const closeActionConfirm = () => {
     setConfirmOpen(false);
     setPendingAction(null);
+    setConfirmComment('');
   };
 
   const performWorkflowAction = async () => {
@@ -318,12 +306,13 @@ export default function ProgramReviewPage(): JSX.Element {
 
     try {
       setConfirmLoading(true);
+      const nextStatus = mapApprovalActionToStatus(String(pendingAction.action));
       const response = await fetch(`/api/tms/programs/${pendingAction.program.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ workflow_action: pendingAction.action }),
+        body: JSON.stringify({ status: nextStatus, workflow_notes: confirmComment }),
       });
 
       const result = await response.json();
@@ -337,7 +326,31 @@ export default function ProgramReviewPage(): JSX.Element {
       fetchPrograms();
       fetchStats();
       if (detail) {
-        setHistoryEntries(resolveHistoryEntries(detail.id));
+        try {
+          const hRes = await fetch(`/api/tms/programs/${detail.id}/approval-history`);
+          const hJson = await hRes.json();
+          const items = hJson?.items ?? hJson?.data?.items ?? [];
+          if (hRes.ok && Array.isArray(items)) {
+            setHistoryEntries(
+              (items as Array<Record<string, unknown>>)
+                .map((r, idx) => {
+                  const id = String((r as any).id ?? idx);
+                  const approver = (r as any).approver as { full_name?: string; email?: string } | undefined;
+                  const actor = approver?.full_name || approver?.email || '—';
+                  const role = approver?.email || '';
+                  const action = String((r as any).action ?? '');
+                  const normalized = (action || '').toUpperCase();
+                  const status = mapApprovalActionToStatus(normalized);
+                  const timestamp = String((r as any).approved_at ?? (r as any).created_at ?? new Date().toISOString());
+                  const note = (r as any).comments as string | undefined;
+                  return { id, actor, role, action, status, timestamp, note } as ApprovalHistoryEntry;
+                })
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+            );
+          }
+        } catch (_) {
+          // ignore
+        }
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Không thể thực hiện thao tác';
@@ -360,7 +373,32 @@ export default function ProgramReviewPage(): JSX.Element {
 
       const detailData = mapProgramDetail(result.data as ProgramApiResponseItem);
       setDetail(detailData);
-      setHistoryEntries(resolveHistoryEntries(detailData.id));
+      // Fetch real approval history
+      try {
+        const hRes = await fetch(`/api/tms/programs/${programId}/approval-history`);
+        const hJson = await hRes.json();
+        const items = hJson?.items ?? hJson?.data?.items ?? [];
+        if (hRes.ok && Array.isArray(items)) {
+          setHistoryEntries(
+            (items as Array<Record<string, unknown>>).map((r, idx) => {
+              const id = String((r as any).id ?? idx);
+              const approver = (r as any).approver as { full_name?: string; email?: string } | undefined;
+              const actor = approver?.full_name || approver?.email || '—';
+              const role = approver?.email || '';
+              const action = String((r as any).action ?? '');
+              const normalized = (action || '').toUpperCase();
+              const status = mapApprovalActionToStatus(normalized);
+              const timestamp = String((r as any).approved_at ?? (r as any).created_at ?? new Date().toISOString());
+              const note = (r as any).comments as string | undefined;
+              return { id, actor, role, action, status, timestamp, note } as ApprovalHistoryEntry;
+            }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          );
+        } else {
+          setHistoryEntries([]);
+        }
+      } catch (_) {
+        setHistoryEntries([]);
+      }
       updateProcessContext({ status: detailData.status });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Không thể tải chi tiết chương trình';
@@ -406,26 +444,11 @@ export default function ProgramReviewPage(): JSX.Element {
           </Button>
         </Tooltip>,
       );
+      // Chỉ hiển thị nút xem ở bảng; các thao tác khác giữ trong modal chi tiết
+      return buttons;
     }
 
-    // Nút Xóa - hiển thị cho tất cả status
-    buttons.push(
-      <PermissionButton
-        key={`delete-${program.id}`}
-        requiredPermissions={[PROGRAM_PERMISSIONS.DELETE]}
-        size="small"
-        color="error"
-        variant="outlined"
-        startIcon={<DeleteIcon fontSize="small" />}
-        onClick={(event) => {
-          event.stopPropagation();
-          openActionConfirm(program, ProgramWorkflowAction.DELETE);
-        }}
-        noPermissionTooltip="Bạn không có quyền xóa chương trình này"
-      >
-        Xóa
-      </PermissionButton>,
-    );
+    // Nút Xóa và các thao tác chỉ hiển thị trong modal chi tiết
 
     // Logic theo từng status
     if (program.status === ProgramStatus.DRAFT) {
@@ -1118,7 +1141,6 @@ export default function ProgramReviewPage(): JSX.Element {
                   <TableCell>Khoa phụ trách</TableCell>
                   <TableCell align="center">Trạng thái</TableCell>
                   <TableCell align="center">Bước xử lý</TableCell>
-                  <TableCell align="center">Số tín chỉ</TableCell>
                   <TableCell align="center">Cập nhật</TableCell>
                   <TableCell align="center">Thao tác</TableCell>
                 </TableRow>
@@ -1126,7 +1148,7 @@ export default function ProgramReviewPage(): JSX.Element {
               <TableBody>
                 {filteredPrograms.length === 0 && !loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                       <Typography color="text.secondary">Không có chương trình nào phù hợp.</Typography>
                     </TableCell>
                   </TableRow>
@@ -1176,11 +1198,6 @@ export default function ProgramReviewPage(): JSX.Element {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {program.totalCredits}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
                         <Typography variant="body2" color="text.secondary">
                           {formatProgramDateTime(program.updatedAt)}
                         </Typography>
@@ -1208,6 +1225,17 @@ export default function ProgramReviewPage(): JSX.Element {
           <Typography variant="body2" color="text.secondary">
             {pendingAction ? getProgramActionCopy(pendingAction.action).description : 'Bạn có chắc muốn tiếp tục?'}
           </Typography>
+        <TextField
+          autoFocus
+          fullWidth
+          multiline
+          minRows={2}
+          sx={{ mt: 2 }}
+          label="Ghi chú (tùy chọn)"
+          placeholder="Nhập ghi chú phê duyệt/từ chối..."
+          value={confirmComment}
+          onChange={(e) => setConfirmComment(e.target.value)}
+        />
         </DialogContent>
         <DialogActions>
           <Button onClick={closeActionConfirm} disabled={confirmLoading}>
