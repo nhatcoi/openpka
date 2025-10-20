@@ -174,7 +174,7 @@ export default function OrgLayout({
     {
       key: '/org/dashboard',
       icon: <DashboardIcon />,
-      label: 'Dashboard',
+      label: 'Trang chủ',
       permissions: ['org_unit.read', 'org_unit.create', 'org_unit.update', 'org_unit.delete'],
     },
     {

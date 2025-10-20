@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
+    "build:skip-types": "SKIP_ENV_VALIDATION=true next build --turbopack",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",

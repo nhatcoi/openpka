@@ -273,33 +273,33 @@ export default function TmsLayout({
         },
       ],
     },
-    {
-      key: 'curriculum-management',
-      icon: <ScheduleIcon />,
-      label: 'Quản lý kế hoạch đào tạo',
-      hasSubmenu: true,
-      permissions: ['tms.curriculum.read'],
-      submenu: [
-        {
-          key: '/tms/curriculum/planning',
-          icon: <TimelineIcon />,
-          label: 'Lập kế hoạch đào tạo',
-          permissions: ['tms.curriculum.create'],
-        },
-        {
-          key: '/tms/curriculum/schedule',
-          icon: <ScheduleIcon />,
-          label: 'Thời khóa biểu',
-          permissions: ['tms.curriculum.read'],
-        },
-        {
-          key: '/tms/curriculum/classes',
-          icon: <ClassIcon />,
-          label: 'Quản lý lớp học',
-          permissions: ['tms.curriculum.read'],
-        },
-      ],
-    },
+    // {
+    //   key: 'curriculum-management',
+    //   icon: <ScheduleIcon />,
+    //   label: 'Quản lý kế hoạch đào tạo',
+    //   hasSubmenu: true,
+    //   permissions: ['tms.curriculum.read'],
+    //   submenu: [
+    //     {
+    //       key: '/tms/curriculum/planning',
+    //       icon: <TimelineIcon />,
+    //       label: 'Lập kế hoạch đào tạo',
+    //       permissions: ['tms.curriculum.create'],
+    //     },
+    //     {
+    //       key: '/tms/curriculum/schedule',
+    //       icon: <ScheduleIcon />,
+    //       label: 'Thời khóa biểu',
+    //       permissions: ['tms.curriculum.read'],
+    //     },
+    //     {
+    //       key: '/tms/curriculum/classes',
+    //       icon: <ClassIcon />,
+    //       label: 'Quản lý lớp học',
+    //       permissions: ['tms.curriculum.read'],
+    //     },
+    //   ],
+    // },
     {
       key: 'major-management',
       icon: <SchoolOutlinedIcon />,
@@ -372,12 +372,12 @@ export default function TmsLayout({
       label: 'Quản lý tài liệu',
       permissions: ['tms.read'],
     },
-    {
-      key: '/tms/config',
-      icon: <SettingsIcon />,
-      label: 'Cấu hình hệ thống',
-      permissions: ['tms.admin'],
-    },
+    // {
+    //   key: '/tms/config',
+    //   icon: <SettingsIcon />,
+    //   label: 'Cấu hình hệ thống',
+    //   permissions: ['tms.admin'],
+    // },
   ];
 
   // For now, show all menu items without permission filtering for testing
@@ -711,11 +711,11 @@ export default function TmsLayout({
           flexGrow: 1,
           width: { md: `calc(100% - ${collapsed ? 80 : drawerWidth}px)` },
           minHeight: '100vh',
-          backgroundColor: 'background.default',
+          backgroundColor: 'transparent',
         }}
       >
         <Toolbar />
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: 0 }}>
           {children}
         </Box>
       </Box>
