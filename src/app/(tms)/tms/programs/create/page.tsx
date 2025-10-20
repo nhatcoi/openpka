@@ -28,6 +28,8 @@ import {
   Typography,
   Checkbox,
   FormControlLabel,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -735,6 +737,24 @@ export default function CreateProgramPage(): JSX.Element {
 
   return (
     <Container maxWidth={false} sx={{ py: 4 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/tms"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          TMS
+        </Link>
+        <Link
+          color="inherit"
+          href="/tms/programs"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          Chương trình đào tạo
+        </Link>
+        <Typography color="text.primary">Tạo mới</Typography>
+      </Breadcrumbs>
+
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
         <Stack direction="row" alignItems="center" spacing={2}>
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>

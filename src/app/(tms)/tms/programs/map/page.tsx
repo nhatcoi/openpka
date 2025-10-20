@@ -40,6 +40,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -713,7 +715,25 @@ export default function ProgramCourseMapPage(): JSX.Element {
   };
 
   return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Link
+            color="inherit"
+            href="/tms/programs"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            Chương trình đào tạo
+          </Link>
+          <Typography color="text.primary">Bản đồ học phần</Typography>
+        </Breadcrumbs>
+
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom>

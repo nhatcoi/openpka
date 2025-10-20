@@ -54,6 +54,7 @@ import {
   Class as ClassIcon,
   SchoolOutlined as SchoolOutlinedIcon,
   ViewModule as ViewModuleIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { ThemeToggle } from '@/components/misc/theme-toggle';
 
@@ -72,6 +73,7 @@ export default function TmsLayout({
   const [subjectManagementOpen, setSubjectManagementOpen] = useState(false);
   const [curriculumManagementOpen, setCurriculumManagementOpen] = useState(false);
   const [majorManagementOpen, setMajorManagementOpen] = useState(false);
+  const [cohortManagementOpen, setCohortManagementOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   
@@ -180,6 +182,10 @@ export default function TmsLayout({
 
   const handleMajorManagementToggle = () => {
     setMajorManagementOpen(!majorManagementOpen);
+  };
+
+  const handleCohortManagementToggle = () => {
+    setCohortManagementOpen(!cohortManagementOpen);
   };
 
   const menuItems = [
@@ -313,10 +319,43 @@ export default function TmsLayout({
           label: 'Tạo ngành đào tạo mới',
           permissions: ['tms.major.create'],
         },
+        {
+          key: '/tms/majors/review',
+          icon: <VisibilityIcon />,
+          label: 'Phê duyệt ngành đào tạo',
+          permissions: ['tms.major.review'],
+        },
       ],
     },
     {
-      key: '/tms/curriculum/create/audit',
+      key: 'cohort-management',
+      icon: <ClassIcon />,
+      label: 'Quản lý khóa học',
+      hasSubmenu: true,
+      permissions: ['tms.cohort.read'],
+      submenu: [
+        {
+          key: '/tms/cohorts',
+          icon: <ListAltIcon />,
+          label: 'Danh sách khóa học',
+          permissions: ['tms.cohort.read'],
+        },
+        {
+          key: '/tms/cohorts/create',
+          icon: <AddIcon />,
+          label: 'Tạo khóa học mới',
+          permissions: ['tms.cohort.create'],
+        },
+        {
+          key: '/tms/cohorts/statistics',
+          icon: <TrendingUpIcon />,
+          label: 'Thống kê khóa học',
+          permissions: ['tms.cohort.read'],
+        },
+      ],
+    },
+    {
+      key: '/tms/history',
       icon: <HistoryIcon />,
       label: 'Lịch sử thay đổi',
       permissions: ['tms.read'],
@@ -325,6 +364,12 @@ export default function TmsLayout({
       key: '/tms/reports',
       icon: <AssessmentIcon />,
       label: 'Báo cáo đào tạo',
+      permissions: ['tms.read'],
+    },
+    {
+      key: '/tms/documents',
+      icon: <FolderIcon />,
+      label: 'Quản lý tài liệu',
       permissions: ['tms.read'],
     },
     {
@@ -355,6 +400,8 @@ export default function TmsLayout({
         handleCurriculumManagementToggle();
       } else if (item.key === 'major-management') {
         handleMajorManagementToggle();
+      } else if (item.key === 'cohort-management') {
+        handleCohortManagementToggle();
       }
     } else {
       handleMenuClick(item.key);
@@ -456,6 +503,17 @@ export default function TmsLayout({
                             transition: 'transform 0.2s ease-in-out'
                           }} />
                         )
+                      ) : item.key === 'cohort-management' ? (
+                        cohortManagementOpen ? (
+                          <ChevronRightIcon sx={{ 
+                            transform: 'rotate(90deg)',
+                            transition: 'transform 0.2s ease-in-out'
+                          }} />
+                        ) : (
+                          <ChevronRightIcon sx={{ 
+                            transition: 'transform 0.2s ease-in-out'
+                          }} />
+                        )
                       ) : (
                         <ChevronRightIcon />
                       )
@@ -471,7 +529,8 @@ export default function TmsLayout({
                 (item.key === 'program-management' && programManagementOpen) || 
                 (item.key === 'subject-management' && subjectManagementOpen) ||
                 (item.key === 'curriculum-management' && curriculumManagementOpen) ||
-                (item.key === 'major-management' && majorManagementOpen)
+                (item.key === 'major-management' && majorManagementOpen) ||
+                (item.key === 'cohort-management' && cohortManagementOpen)
               } timeout="auto" unmountOnExit>
                 <List component="div" disablePadding>
                   {item.submenu.map((subItem) => (

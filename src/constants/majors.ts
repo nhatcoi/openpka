@@ -1,12 +1,16 @@
 // Major-related enums and helpers
 
 export enum MajorStatus {
-  ACTIVE = 'active',
-  DRAFT = 'draft',
-  PROPOSED = 'proposed',
-  SUSPENDED = 'suspended',
-  CLOSED = 'closed',
-  ARCHIVED = 'archived',
+  ACTIVE = 'ACTIVE',
+  DRAFT = 'DRAFT',
+  PROPOSED = 'PROPOSED',
+  SUSPENDED = 'SUSPENDED',
+  CLOSED = 'CLOSED',
+  ARCHIVED = 'ARCHIVED',
+  REVIEWING = 'REVIEWING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  PUBLISHED = 'PUBLISHED',
 }
 
 export enum MajorDegreeLevel {
@@ -27,6 +31,8 @@ export enum MajorSpecializationModel {
 }
 
 export enum MajorFieldCluster {
+  CNTT = 'CNTT',
+  KINH_TE = 'Kinh tế',
   NATURAL_SCIENCES = 'Natural Sciences',
   ENGINEERING = 'Engineering',
   SOCIAL_SCIENCES = 'Social Sciences',
@@ -47,14 +53,6 @@ export enum MajorStartTerm {
   YEAR_ROUND = 'Year-round',
 }
 
-export const MAJOR_STATUSES: MajorStatus[] = [
-  MajorStatus.ACTIVE,
-  MajorStatus.DRAFT,
-  MajorStatus.PROPOSED,
-  MajorStatus.SUSPENDED,
-  MajorStatus.CLOSED,
-  MajorStatus.ARCHIVED,
-];
 
 export const MAJOR_DEGREE_LEVELS: MajorDegreeLevel[] = [
   MajorDegreeLevel.BACHELOR,
@@ -74,6 +72,8 @@ export const MAJOR_SPECIALIZATION_MODELS: MajorSpecializationModel[] = [
 ];
 
 export const MAJOR_FIELD_CLUSTERS: MajorFieldCluster[] = [
+  MajorFieldCluster.CNTT,
+  MajorFieldCluster.KINH_TE,
   MajorFieldCluster.NATURAL_SCIENCES,
   MajorFieldCluster.ENGINEERING,
   MajorFieldCluster.SOCIAL_SCIENCES,
@@ -102,22 +102,82 @@ export const MAJOR_PERMISSIONS = {
   MANAGE: 'tms.major.manage',
   APPROVE: 'tms.major.approve',
   PUBLISH: 'tms.major.publish',
+  REVIEW: 'tms.major.review',
+  REJECT: 'tms.major.reject',
+  REQUEST_EDIT: 'tms.major.request_edit',
+  SCIENCE_COUNCIL_PUBLISH: 'tms.major.science_council_publish',
 } as const;
+
+// Major workflow actions
+export enum MajorWorkflowAction {
+  SUBMIT = 'submit',
+  REVIEW = 'review',
+  APPROVE = 'approve',
+  REJECT = 'reject',
+  REQUEST_EDIT = 'request_edit',
+  PUBLISH = 'publish',
+  SCIENCE_COUNCIL_PUBLISH = 'science_council_publish',
+  DELETE = 'delete',
+}
+
+// Major workflow stages
+export enum MajorWorkflowStage {
+  DRAFT = 'DRAFT',
+  REVIEWING = 'reviewing',
+  APPROVED = 'approved',
+  PUBLISHED = 'published',
+}
+
+// Major status arrays
+export const MAJOR_STATUSES: MajorStatus[] = [
+  MajorStatus.DRAFT,
+  MajorStatus.REVIEWING,
+  MajorStatus.APPROVED,
+  MajorStatus.REJECTED,
+  MajorStatus.PUBLISHED,
+  MajorStatus.ACTIVE,
+  MajorStatus.SUSPENDED,
+  MajorStatus.CLOSED,
+  MajorStatus.ARCHIVED,
+];
+
+export const MAJOR_WORKFLOW_ACTIONS: MajorWorkflowAction[] = [
+  MajorWorkflowAction.SUBMIT,
+  MajorWorkflowAction.REVIEW,
+  MajorWorkflowAction.APPROVE,
+  MajorWorkflowAction.REJECT,
+  MajorWorkflowAction.REQUEST_EDIT,
+  MajorWorkflowAction.PUBLISH,
+  MajorWorkflowAction.SCIENCE_COUNCIL_PUBLISH,
+  MajorWorkflowAction.DELETE,
+];
+
+export const MAJOR_WORKFLOW_STAGES: MajorWorkflowStage[] = [
+  MajorWorkflowStage.DRAFT,
+  MajorWorkflowStage.REVIEWING,
+  MajorWorkflowStage.APPROVED,
+  MajorWorkflowStage.PUBLISHED,
+];
 
 // Helper functions for status
 export function getMajorStatusColor(status: MajorStatus | string): 'default' | 'info' | 'warning' | 'success' | 'error' {
   switch (status) {
     case MajorStatus.ACTIVE:
+    case MajorStatus.APPROVED:
       return 'success';
     case MajorStatus.DRAFT:
       return 'default';
     case MajorStatus.PROPOSED:
+    case MajorStatus.REVIEWING:
       return 'info';
     case MajorStatus.SUSPENDED:
       return 'warning';
     case MajorStatus.CLOSED:
     case MajorStatus.ARCHIVED:
+    case MajorStatus.REJECTED:
       return 'error';
+    case MajorStatus.PUBLISHED:
+      return 'success';
     default:
       return 'default';
   }
@@ -126,7 +186,7 @@ export function getMajorStatusColor(status: MajorStatus | string): 'default' | '
 export function getMajorStatusLabel(status: MajorStatus | string): string {
   switch (status) {
     case MajorStatus.ACTIVE:
-      return 'Hoạt động';
+      return 'Đang hoạt động';
     case MajorStatus.DRAFT:
       return 'Bản nháp';
     case MajorStatus.PROPOSED:
@@ -134,13 +194,146 @@ export function getMajorStatusLabel(status: MajorStatus | string): string {
     case MajorStatus.SUSPENDED:
       return 'Tạm dừng';
     case MajorStatus.CLOSED:
-      return 'Đóng';
+      return 'Đã đóng';
     case MajorStatus.ARCHIVED:
-      return 'Lưu trữ';
+      return 'Đã lưu trữ';
+    case MajorStatus.REVIEWING:
+      return 'Đang xem xét';
+    case MajorStatus.APPROVED:
+      return 'Đã phê duyệt';
+    case MajorStatus.REJECTED:
+      return 'Bị từ chối';
+    case MajorStatus.PUBLISHED:
+      return 'Đã công bố';
     default:
       return status;
   }
 }
+
+export function getMajorWorkflowStageLabel(stage: MajorWorkflowStage | string): string {
+  switch (stage) {
+    case MajorWorkflowStage.DRAFT:
+      return 'Giảng viên soạn thảo';
+    case MajorWorkflowStage.REVIEWING:
+      return 'Khoa gửi PĐT xem xét';
+    case MajorWorkflowStage.APPROVED:
+      return 'Phòng Đào Tạo phê duyệt';
+    case MajorWorkflowStage.PUBLISHED:
+      return 'Hội đồng khoa học công bố';
+    default:
+      return stage;
+  }
+}
+
+export function getMajorStageFromStatus(status: MajorStatus | string): MajorWorkflowStage {
+  switch (status) {
+    case MajorStatus.DRAFT:
+      return MajorWorkflowStage.DRAFT;
+    case MajorStatus.REVIEWING:
+      return MajorWorkflowStage.REVIEWING;
+    case MajorStatus.APPROVED:
+      return MajorWorkflowStage.APPROVED;
+    case MajorStatus.PUBLISHED:
+      return MajorWorkflowStage.PUBLISHED;
+    default:
+      return MajorWorkflowStage.DRAFT;
+  }
+}
+
+export function getMajorStageChipColor(stage: MajorWorkflowStage | string): 'default' | 'info' | 'warning' | 'success' | 'error' {
+  switch (stage) {
+    case MajorWorkflowStage.DRAFT:
+      return 'default';
+    case MajorWorkflowStage.REVIEWING:
+      return 'info';
+    case MajorWorkflowStage.APPROVED:
+      return 'success';
+    case MajorWorkflowStage.PUBLISHED:
+      return 'success';
+    default:
+      return 'default';
+  }
+}
+
+export function getMajorActionCopy(action: MajorWorkflowAction | string): { title: string; description: string; success: string } {
+  switch (action) {
+    case MajorWorkflowAction.SUBMIT:
+      return {
+        title: 'Gửi xem xét',
+        description: 'Gửi ngành đào tạo lên Phòng Đào tạo để xem xét phê duyệt.',
+        success: 'Đã gửi ngành đào tạo để xem xét.',
+      };
+    case MajorWorkflowAction.APPROVE:
+      return {
+        title: 'Phê duyệt',
+        description: 'Phê duyệt ngành đào tạo này.',
+        success: 'Đã phê duyệt ngành đào tạo.',
+      };
+    case MajorWorkflowAction.REJECT:
+      return {
+        title: 'Từ chối',
+        description: 'Từ chối ngành đào tạo này.',
+        success: 'Đã từ chối ngành đào tạo.',
+      };
+    case MajorWorkflowAction.REQUEST_EDIT:
+      return {
+        title: 'Yêu cầu chỉnh sửa',
+        description: 'Yêu cầu chỉnh sửa ngành đào tạo này.',
+        success: 'Đã yêu cầu chỉnh sửa ngành đào tạo.',
+      };
+    case MajorWorkflowAction.PUBLISH:
+      return {
+        title: 'Công bố',
+        description: 'Công bố ngành đào tạo này.',
+        success: 'Đã công bố ngành đào tạo.',
+      };
+    case MajorWorkflowAction.SCIENCE_COUNCIL_PUBLISH:
+      return {
+        title: 'Hội đồng khoa học công bố',
+        description: 'Hội đồng khoa học công bố ngành đào tạo này.',
+        success: 'Đã công bố ngành đào tạo qua Hội đồng khoa học.',
+      };
+    case MajorWorkflowAction.DELETE:
+      return {
+        title: 'Xóa',
+        description: 'Xóa ngành đào tạo này.',
+        success: 'Đã xóa ngành đào tạo.',
+      };
+    default:
+      return {
+        title: 'Thao tác',
+        description: 'Thực hiện thao tác này.',
+        success: 'Thao tác thành công.',
+      };
+  }
+}
+
+export function formatMajorDateTime(date: string | Date): string {
+  const d = new Date(date);
+  return d.toLocaleString('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function computeMajorStepIndex(status: MajorStatus | string): number {
+  switch (status) {
+    case MajorStatus.DRAFT:
+      return 0;
+    case MajorStatus.REVIEWING:
+      return 1;
+    case MajorStatus.APPROVED:
+      return 2;
+    case MajorStatus.PUBLISHED:
+      return 3;
+    default:
+      return 0;
+  }
+}
+
 
 // Helper functions for degree level
 export function getMajorDegreeLevelLabel(level: MajorDegreeLevel | string): string {
@@ -202,6 +395,10 @@ export function getMajorSpecializationModelLabel(model: MajorSpecializationModel
 // Helper functions for field cluster
 export function getMajorFieldClusterLabel(cluster: MajorFieldCluster | string): string {
   switch (cluster) {
+    case MajorFieldCluster.CNTT:
+      return 'Công nghệ thông tin';
+    case MajorFieldCluster.KINH_TE:
+      return 'Kinh tế';
     case MajorFieldCluster.NATURAL_SCIENCES:
       return 'Khoa học tự nhiên';
     case MajorFieldCluster.ENGINEERING:
@@ -260,6 +457,14 @@ export function normalizeMajorStatus(status?: string | null): MajorStatus {
       return MajorStatus.CLOSED;
     case 'archived':
       return MajorStatus.ARCHIVED;
+    case 'reviewing':
+      return MajorStatus.REVIEWING;
+    case 'approved':
+      return MajorStatus.APPROVED;
+    case 'rejected':
+      return MajorStatus.REJECTED;
+    case 'published':
+      return MajorStatus.PUBLISHED;
     default:
       return MajorStatus.ACTIVE;
   }

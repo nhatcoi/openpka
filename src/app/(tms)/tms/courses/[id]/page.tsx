@@ -42,7 +42,9 @@ import {
   Tabs,
   Tab,
   Avatar,
-  Collapse
+  Collapse,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
@@ -770,7 +772,7 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <Typography>Đang tải thông tin học phần...</Typography>
         </Box>
@@ -780,7 +782,7 @@ export default function CourseDetailPage() {
 
   if (error || !courseDetail) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
         <Alert severity="error" sx={{ mb: 3 }}>
           {error || 'Không tìm thấy thông tin học phần'}
         </Alert>
@@ -1005,7 +1007,7 @@ export default function CourseDetailPage() {
   // --
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
       {/* Toast */}
       <Snackbar
         open={toast.open}
@@ -1017,6 +1019,27 @@ export default function CourseDetailPage() {
           {toast.message}
         </Alert>
       </Snackbar>
+
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/tms"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          TMS
+        </Link>
+        <Link
+          color="inherit"
+          href="/tms/courses"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          Học phần
+        </Link>
+        <Typography color="text.primary">
+          {courseDetail?.code || 'Chi tiết học phần'}
+        </Typography>
+      </Breadcrumbs>
+
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

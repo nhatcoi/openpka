@@ -202,6 +202,13 @@ const menuItems: MenuItem[] = [
                 href: '/tms/programs/framework',
                 permission: 'program.read',
             },
+            {
+                key: 'academic-history',
+                label: 'Lịch sử học vụ',
+                icon: <HistoryIcon />,
+                href: '/tms/history',
+                permission: 'academic_history.read',
+            },
         ],
     }
 ];

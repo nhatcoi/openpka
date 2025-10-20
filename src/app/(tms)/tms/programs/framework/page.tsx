@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Autocomplete, Box, Container, Stack, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, Container, Stack, TextField, Typography, Breadcrumbs, Link } from '@mui/material';
 import { useRouter } from 'next/navigation';
 
 interface ProgramOption {
@@ -46,6 +46,24 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
       <Container maxWidth={false} sx={{ px: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Link
+            color="inherit"
+            href="/tms/programs"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            Chương trình đào tạo
+          </Link>
+          <Typography color="text.primary">Khung chương trình</Typography>
+        </Breadcrumbs>
+
         <Stack spacing={3}>
           <Typography variant="h4" component="h1" gutterBottom>
             Khung chương trình đào tạo

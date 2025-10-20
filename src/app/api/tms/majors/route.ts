@@ -3,7 +3,7 @@ import { db as prisma } from '@/lib/db';
 import { z } from 'zod';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse, validateSchema } from '@/lib/api/api-handler';
 
-// Simplified schema without removed JSON fields
+// Updated schema to match database structure
 const createMajorSchema = z.object({
   code: z.string().min(1).max(32),
   name_vi: z.string().min(1).max(255),
@@ -11,20 +11,20 @@ const createMajorSchema = z.object({
   short_name: z.string().max(100).optional(),
   slug: z.string().max(255).optional(),
   national_code: z.string().max(32).optional(),
-  is_moet_standard: z.boolean().optional(),
+  is_moet_standard: z.boolean().optional().default(false),
   degree_level: z.string().min(1).max(32),
   field_cluster: z.string().max(64).optional(),
-  specialization_model: z.string().max(32).optional(),
+  specialization_model: z.string().max(32).optional().default('none'),
   org_unit_id: z.number(),
-  parent_major_id: z.number().optional(),
-  duration_years: z.number().min(0.1).max(10).optional(),
+  parent_major_id: z.number().nullable().optional(),
+  duration_years: z.number().min(0.1).max(10).optional().default(4.0),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
-  semesters_per_year: z.number().min(1).max(4).optional(),
-  start_terms: z.string().max(64).optional(),
+  semesters_per_year: z.number().min(1).max(4).optional().default(2),
+  start_terms: z.string().max(64).optional().default('Fall'),
   default_quota: z.number().min(0).optional(),
   tuition_group: z.string().max(64).optional(),
-  status: z.enum(['draft', 'proposed', 'active', 'suspended', 'closed']).optional(),
+  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional().default('DRAFT'),
   established_at: z.string().optional(),
   closed_at: z.string().optional(),
   description: z.string().optional(),
@@ -189,7 +189,10 @@ export const POST = withBody(async (body: unknown) => {
   const major = await prisma.major.create({
     data: {
       ...validatedData,
-      status: validatedData.status || 'draft',
+      status: validatedData.status || 'DRAFT',
+      parent_major_id: validatedData.parent_major_id || null,
+      established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
+      closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
     },
     include: {
       OrgUnit: { select: { id: true, name: true, code: true } }

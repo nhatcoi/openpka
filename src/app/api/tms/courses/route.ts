@@ -124,7 +124,7 @@ export const POST = withBody(
     });
     const nextId = lastCourse ? lastCourse.id + BigInt(1) : BigInt(1);
 
-    const workflowPriorityValue = normalizeCoursePriority(courseData.workflow_priority).toLowerCase();
+    // workflow_priority removed - not needed
     const courseTypeValue = (Object.values(CourseType) as string[]).includes(courseData.type)
       ? (courseData.type as CourseType)
       : CourseType.THEORY;
@@ -138,9 +138,12 @@ export const POST = withBody(
           name_vi: courseData.name_vi,
           name_en: courseData.name_en || null,
           credits: courseData.credits,
+          theory_credit: courseData.theory_credit || null,
+          practical_credit: courseData.practical_credit || null,
           org_unit_id: BigInt(courseData.org_unit_id),
           type: courseTypeValue,
           description: courseData.description || null,
+          status: CourseStatus.DRAFT,
           created_at: new Date(),
           updated_at: new Date(),
         }
@@ -242,7 +245,6 @@ export const POST = withBody(
 
       return { 
         course, 
-        workflow, 
         content, 
         audit, 
         courseVersion, 

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/db';
 import { z } from 'zod';
-import { withErrorHandling, withIdParam, withIdAndBody, validateSchema } from '@/lib/api/api-handler';
+import { withErrorHandling, withIdParam, withIdAndBody, validateSchema, createErrorResponse } from '@/lib/api/api-handler';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { MajorStatus, MAJOR_PERMISSIONS } from '@/constants/majors';
+import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 
 // Simplified update schema without removed JSON fields
 const updateMajorSchema = z.object({
@@ -16,7 +20,7 @@ const updateMajorSchema = z.object({
   field_cluster: z.string().max(64).optional(),
   specialization_model: z.string().max(32).optional(),
   org_unit_id: z.number().optional(),
-  parent_major_id: z.number().optional(),
+  parent_major_id: z.number().nullable().optional(),
   duration_years: z.number().min(0.1).max(10).optional(),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
@@ -24,7 +28,8 @@ const updateMajorSchema = z.object({
   start_terms: z.string().max(64).optional(),
   default_quota: z.number().min(0).optional(),
   tuition_group: z.string().max(64).optional(),
-  status: z.enum(['draft', 'proposed', 'active', 'suspended', 'closed']).optional(),
+  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional(),
+  workflow_notes: z.string().optional(), // This will be mapped to notes field
   established_at: z.string().optional(),
   closed_at: z.string().optional(),
   description: z.string().optional(),
@@ -67,6 +72,11 @@ export const GET = withIdParam(async (id: string) => {
 
 // PUT /api/tms/majors/[id]
 export const PUT = withIdAndBody(async (id: string, body: unknown) => {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return createErrorResponse('Unauthorized', 'Authentication required', 401);
+  }
+
   const majorId = parseInt(id);
 
   if (isNaN(majorId)) {
@@ -74,6 +84,8 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
   }
 
   const validatedData = validateSchema(updateMajorSchema, body);
+  const numericUserId = Number(session.user.id);
+  const actorId = Number.isNaN(numericUserId) ? BigInt(1) : BigInt(numericUserId);
 
   // Check if major exists
   const existingMajor = await prisma.major.findUnique({
@@ -99,19 +111,72 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
     }
   }
 
-  // Update major
-  const updatedMajor = await prisma.major.update({
-    where: { id: majorId },
-    data: {
-      ...validatedData,
-      updated_at: new Date(),
-    },
-    include: {
-      OrgUnit: { select: { id: true, name: true, code: true } }
+  const result = await prisma.$transaction(async (tx) => {
+    const majorBigInt = BigInt(majorId);
+
+    // Update major
+    const { workflow_notes, ...updateData } = validatedData;
+    const updatedMajor = await tx.major.update({
+      where: { id: majorBigInt },
+      data: {
+        ...updateData,
+        notes: workflow_notes || updateData.notes, // Map workflow_notes to notes field
+        parent_major_id: validatedData.parent_major_id || null,
+        established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
+        closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
+        updated_at: new Date(),
+        updated_by: actorId,
+      },
+      include: {
+        OrgUnit: { select: { id: true, name: true, code: true } }
+      }
+    });
+
+    // If status was directly provided, persist an approval history entry
+    const directStatus = (validatedData as any).status as MajorStatus | undefined;
+    if (directStatus) {
+      // Ensure workflow instance exists
+      let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('MAJOR', majorBigInt);
+      if (!workflowInstance) {
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'MAJOR',
+          entityId: majorBigInt,
+          initiatedBy: actorId,
+          metadata: { major_id: majorId },
+        }) as any;
+      }
+
+      const mapStatusToAction = (s: MajorStatus): string => {
+        switch (s) {
+          case MajorStatus.REVIEWING:
+            return 'REVIEW';
+          case MajorStatus.APPROVED:
+            return 'APPROVE';
+          case MajorStatus.REJECTED:
+            return 'REJECT';
+          case MajorStatus.PUBLISHED:
+            return 'PUBLISH';
+          case MajorStatus.DRAFT:
+          default:
+            return 'RETURN';
+        }
+      };
+
+      await tx.approvalRecord.create({
+        data: {
+          workflow_instance_id: BigInt((workflowInstance as any).id),
+          approver_id: actorId,
+          action: mapStatusToAction(directStatus),
+          comments: (validatedData as any).workflow_notes || null,
+          approved_at: new Date(),
+        },
+      });
     }
+
+    return updatedMajor;
   });
 
-  return { data: updatedMajor, message: 'Major updated successfully' };
+  return { data: result, message: 'Major updated successfully' };
 }, 'update major');
 
 // DELETE /api/tms/majors/[id]

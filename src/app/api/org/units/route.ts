@@ -8,12 +8,6 @@ import { authOptions } from '@/lib/auth/auth';
 
 export const GET = withErrorHandling(
   async (request: NextRequest) => {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      throw new Error('Không có quyền');
-    }
-
     const { searchParams } = new URL(request.url);
     
     // Parse query parameters
@@ -30,16 +24,8 @@ export const GET = withErrorHandling(
     const include_employees = searchParams.get('include_employees') === 'true';
     const include_parent = searchParams.get('include_parent') === 'true';
     
-    // Lấy danh sách đơn vị user có quyền truy cập
-    const accessibleUnits = await getUserAccessibleUnits(session.user.id);
-    const accessibleUnitIds = accessibleUnits.map(unit => BigInt(unit.id));
-
-    
-    
-    // Build where clause với hierarchical permission
-    const where: Prisma.OrgUnitWhereInput = {
-      id: { in: accessibleUnitIds } // Chỉ lấy đơn vị user có quyền
-    };
+    // Build where clause
+    const where: Prisma.OrgUnitWhereInput = {};
     
     if (search) {
       where.OR = [

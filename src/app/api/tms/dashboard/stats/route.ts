@@ -39,7 +39,7 @@ export async function GET() {
       // Major statistics (active majors)
       db.major.count({
         where: {
-          status: 'active',
+          status: 'ACTIVE',
         },
       }),
 

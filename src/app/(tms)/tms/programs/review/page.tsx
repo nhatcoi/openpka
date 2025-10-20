@@ -46,6 +46,8 @@ import {
   Collapse,
   CardHeader,
   CardActions,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -622,6 +624,24 @@ export default function ProgramReviewPage(): JSX.Element {
     }>
       <Box sx={{ py: 4, backgroundColor: 'background.default', minHeight: '100vh' }}>
         <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1 }}>
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/tms"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              TMS
+            </Link>
+            <Link
+              color="inherit"
+              href="/tms/programs"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Chương trình đào tạo
+            </Link>
+            <Typography color="text.primary">Phê duyệt</Typography>
+          </Breadcrumbs>
+
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} spacing={3} mb={4}>
             <Stack spacing={1}>
               <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
@@ -1341,7 +1361,7 @@ export default function ProgramReviewPage(): JSX.Element {
                             <ListItemText
                               primary={
                                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }}>
-                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }} color="text.secondary">
                                     {entry.actor}
                                   </Typography>
                                   <Typography variant="body2" color="text.secondary">

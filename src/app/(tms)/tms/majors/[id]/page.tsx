@@ -200,10 +200,10 @@ export default function MajorDetailPage() {
   }, [majorId]);
 
   const getStatusConfig = (status: string) => {
-    const normalized = status.toLowerCase();
+    const normalized = status.toUpperCase();
 
     switch (normalized) {
-      case 'active':
+      case 'ACTIVE':
         return {
           color: 'success',
           label: 'Hoạt động',
@@ -211,7 +211,7 @@ export default function MajorDetailPage() {
           bgColor: 'rgba(76, 175, 80, 0.1)',
           textColor: '#2e7d32'
         };
-      case 'suspended':
+      case 'SUSPENDED':
         return {
           color: 'warning',
           label: 'Tạm dừng',
@@ -219,7 +219,7 @@ export default function MajorDetailPage() {
           bgColor: 'rgba(255, 152, 0, 0.1)',
           textColor: '#f57c00'
         };
-      case 'closed':
+      case 'CLOSED':
         return {
           color: 'error',
           label: 'Đã đóng',
@@ -227,7 +227,7 @@ export default function MajorDetailPage() {
           bgColor: 'rgba(244, 67, 54, 0.1)',
           textColor: '#d32f2f'
         };
-      case 'proposed':
+      case 'PROPOSED':
         return {
           color: 'info',
           label: 'Đề xuất',
@@ -235,7 +235,7 @@ export default function MajorDetailPage() {
           bgColor: 'rgba(33, 150, 243, 0.1)',
           textColor: '#1976d2'
         };
-      case 'draft':
+      case 'DRAFT':
       default:
         return {
           color: 'default',

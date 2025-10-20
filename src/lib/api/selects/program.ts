@@ -47,17 +47,7 @@ export const selectProgramDetail = {
           display_order: true,
           description: true,
           parent_id: true,
-          program_block_group_rules: {
-            select: {
-              id: true,
-              min_credits: true,
-              max_credits: true,
-              min_courses: true,
-              max_courses: true,
-              rule_type: true,
-            },
-            orderBy: { id: 'asc' },
-          },
+          // program_block_group_rules: removed - table doesn't exist
           parent: {
             select: {
               id: true,

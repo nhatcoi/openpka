@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import MajorCard from '@/components/cards/MajorCard';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -10,7 +9,6 @@ import {
   Stack,
   Button,
   Pagination,
-  Skeleton,
   Alert,
   Dialog,
   DialogTitle,
@@ -20,15 +18,46 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton,
+  Tooltip,
+  CircularProgress,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Snackbar,
+  Skeleton,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
   HelpOutline as HelpOutlineIcon,
   Info as InfoIcon,
   CheckCircle as CheckCircleIcon,
+  RateReview as RateReviewIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
+  Search as SearchIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import {
+  MajorStatus,
+  getMajorStatusColor,
+  getMajorStatusLabel,
+  getMajorDegreeLevelLabel,
+} from '@/constants/majors';
 
 interface Major {
   id: number;
@@ -107,61 +136,121 @@ export default function MajorsPage() {
   const [majors, setMajors] = useState<Major[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const loadingDelayRef = useRef<NodeJS.Timeout | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<MajorStatus | 'all'>('all');
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
+  const [orgUnits, setOrgUnits] = useState<Array<{id: number; name: string; code: string}>>([]);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; major: Major | null }>({
     open: false,
     major: null
   });
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
 
   // Fetch majors data
   const fetchMajors = useCallback(async () => {
     try {
-      // Cancel in-flight fetch
-      if (abortRef.current) abortRef.current.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      // Defer setting loading to avoid flicker on fast typings
-      if (loadingDelayRef.current) clearTimeout(loadingDelayRef.current);
-      loadingDelayRef.current = setTimeout(() => setLoading(true), 120);
+      setLoading(true);
 
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '10',
       });
 
-      const response = await fetch(`/api/tms/majors?${params}`, { signal: controller.signal });
+      if (searchTerm) {
+        params.append('search', searchTerm);
+      }
+      if (selectedStatus !== 'all') {
+        params.append('status', selectedStatus);
+      }
+      if (selectedOrgUnit !== 'all') {
+        params.append('org_unit_id', selectedOrgUnit);
+      }
+
+      const response = await fetch(`/api/tms/majors?${params}`);
       const data = await response.json();
 
       if (data.success) {
         setMajors(data.data?.items || []);
         setTotalPages(data.data?.pagination?.pages || 1);
+        setTotalItems(data.data?.pagination?.total || 0);
       } else {
         setError(data.error || 'Failed to fetch majors');
       }
     } catch (err: any) {
-      if (err?.name !== 'AbortError') setError('Failed to fetch majors');
+      setError('Failed to fetch majors');
     } finally {
-      if (loadingDelayRef.current) {
-        clearTimeout(loadingDelayRef.current);
-        loadingDelayRef.current = null;
-      }
       setLoading(false);
     }
-  }, [page]);
+  }, [page, searchTerm, selectedStatus, selectedOrgUnit]);
+
+  // Fetch org units for filter
+  const fetchOrgUnits = useCallback(async () => {
+    try {
+      const response = await fetch('/api/tms/majors/org-units');
+      const data = await response.json();
+      if (data.success) {
+        setOrgUnits(data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch org units:', err);
+    }
+  }, []);
 
   useEffect(() => {
     fetchMajors();
-    return () => {
-      if (abortRef.current) abortRef.current.abort();
-    };
   }, [fetchMajors]);
 
+  useEffect(() => {
+    fetchOrgUnits();
+  }, [fetchOrgUnits]);
+
+  // Handle search
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchValue(event.target.value);
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setSearchTerm(searchValue);
+    setPage(1);
+  };
+
+  const handleSearchClear = () => {
+    setSearchValue('');
+    setSearchTerm('');
+    setPage(1);
+  };
+
+  // Handle filter changes
+  const handleStatusChange = (event: any) => {
+    setSelectedStatus(event.target.value);
+    setPage(1);
+  };
+
+  const handleOrgUnitChange = (event: any) => {
+    setSelectedOrgUnit(event.target.value);
+    setPage(1);
+  };
+
+  // Handle page change
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setPage(value);
+  };
+
+  // Handle refresh
+  const handleRefresh = () => {
+    fetchMajors();
+  };
 
   // Handle delete
   const handleDelete = async (major: Major) => {
@@ -172,36 +261,60 @@ export default function MajorsPage() {
       const data = await response.json();
 
       if (data.success) {
+        setSnackbar({
+          open: true,
+          message: 'Xóa ngành học thành công!',
+          severity: 'success'
+        });
         fetchMajors();
         setDeleteDialog({ open: false, major: null });
       } else {
-        setError(data.error || 'Failed to delete major');
+        setSnackbar({
+          open: true,
+          message: data.error || 'Không thể xóa ngành học',
+          severity: 'error'
+        });
       }
     } catch (err) {
-      setError('Failed to delete major');
+      setSnackbar({
+        open: true,
+        message: 'Lỗi mạng khi xóa ngành học',
+        severity: 'error'
+      });
     }
   };
 
 
   if (loading) {
     return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Stack spacing={3}>
-          <Skeleton variant="rectangular" height={200} />
-          <Skeleton variant="rectangular" height={200} />
-          <Skeleton variant="rectangular" height={200} />
+      <Box sx={{ width: '100%', py: 2, px: 2 }}>
+        <Stack spacing={2}>
+          <Skeleton variant="rectangular" height={120} />
+          <Skeleton variant="rectangular" height={80} />
+          <Skeleton variant="rectangular" height={400} />
         </Stack>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Stack spacing={3}>
+    <Box sx={{ width: '100%', py: 2, px: 2 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/tms"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          TMS
+        </Link>
+        <Typography color="text.primary">Ngành đào tạo</Typography>
+      </Breadcrumbs>
+
+      <Stack spacing={2}>
         {/* Header */}
         <Paper 
           sx={{ 
-            p: 4, 
+            p: 2, 
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
             position: 'relative',
@@ -210,10 +323,10 @@ export default function MajorsPage() {
         >
           <Stack direction="row" justifyContent="space-between" alignItems="center">
             <Box>
-              <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
+              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
                 Quản lý Ngành học
               </Typography>
-              <Typography variant="body1" sx={{ opacity: 0.9 }}>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
                 Quản lý thông tin các ngành học trong hệ thống
               </Typography>
             </Box>
@@ -222,6 +335,7 @@ export default function MajorsPage() {
               startIcon={<HelpOutlineIcon />}
               onClick={() => setHelpDialogOpen(true)}
               color="inherit"
+              size="small"
               sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
             >
               Hướng dẫn
@@ -229,13 +343,23 @@ export default function MajorsPage() {
           </Stack>
         </Paper>
 
-        {/* Add Button */}
-        <Paper sx={{ p: 3 }}>
-          <Stack direction="row" justifyContent="flex-end">
+        {/* Action Buttons */}
+        <Paper sx={{ p: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Button
+              variant="outlined"
+              startIcon={<RateReviewIcon />}
+              onClick={() => router.push('/tms/majors/review')}
+              color="primary"
+              size="small"
+            >
+              Phê duyệt ngành đào tạo
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
               onClick={() => router.push('/tms/majors/create')}
+              size="small"
             >
               Thêm ngành
             </Button>
@@ -249,28 +373,207 @@ export default function MajorsPage() {
           </Alert>
         )}
 
-        {/* Majors List */}
-        <Stack spacing={3}>
-          {(majors || []).map((major) => (
-            <MajorCard
-              key={major.id}
-              major={major}
-              onDelete={(major) => setDeleteDialog({ open: true, major })}
-            />
-          ))}
-        </Stack>
+        {/* Search and Filters */}
+        <Paper sx={{ p: 2 }}>
+          <Stack spacing={2}>
+            {/* Search Bar */}
+            <Box component="form" onSubmit={handleSearchSubmit}>
+              <TextField
+                fullWidth
+                placeholder="Tìm kiếm theo mã, tên ngành..."
+                value={searchValue}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchValue && (
+                    <InputAdornment position="end">
+                      <IconButton onClick={handleSearchClear} size="small">
+                        ×
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Box display="flex" justifyContent="center">
+            {/* Filters */}
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <FormControl sx={{ minWidth: 200 }}>
+                <InputLabel>Trạng thái</InputLabel>
+                <Select
+                  value={selectedStatus}
+                  label="Trạng thái"
+                  onChange={handleStatusChange}
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  <MenuItem value="draft">Nháp</MenuItem>
+                  <MenuItem value="proposed">Đề xuất</MenuItem>
+                  <MenuItem value="reviewing">Đang xem xét</MenuItem>
+                  <MenuItem value="approved">Đã phê duyệt</MenuItem>
+                  <MenuItem value="rejected">Bị từ chối</MenuItem>
+                  <MenuItem value="published">Đã công bố</MenuItem>
+                  <MenuItem value="active">Hoạt động</MenuItem>
+                  <MenuItem value="suspended">Tạm dừng</MenuItem>
+                  <MenuItem value="closed">Đã đóng</MenuItem>
+                </Select>
+              </FormControl>
+
+              <FormControl sx={{ minWidth: 200 }}>
+                <InputLabel>Đơn vị</InputLabel>
+                <Select
+                  value={selectedOrgUnit}
+                  label="Đơn vị"
+                  onChange={handleOrgUnitChange}
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {orgUnits.map((unit) => (
+                    <MenuItem key={unit.id} value={unit.id.toString()}>
+                      {unit.name} ({unit.code})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Box sx={{ flex: 1 }} />
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={handleRefresh}
+                disabled={loading}
+              >
+                Làm mới
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* Majors Table */}
+        <Paper sx={{ p: 0, overflow: 'hidden', width: '100%' }}>
+          <TableContainer sx={{ width: '100%', maxHeight: 'calc(100vh - 300px)' }}>
+            <Table sx={{ width: '100%' }} stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Mã</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Tên ngành</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Đơn vị</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '12%' }}>Bằng cấp</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }} align="center">Thời gian</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '13%' }} align="center">Trạng thái</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }} align="center">Thao tác</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <CircularProgress />
+                    </TableCell>
+                  </TableRow>
+                ) : majors.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Không tìm thấy ngành học nào
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  majors.map((major) => (
+                    <TableRow key={major.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {major.code}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {major.name_vi}
+                          </Typography>
+                          {major.name_en && (
+                            <Typography variant="caption" color="text.secondary">
+                              {major.name_en}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {major.OrgUnit?.name || 'N/A'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {major.OrgUnit?.code || ''}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {getMajorDegreeLevelLabel(major.degree_level)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography variant="body2">
+                          {major.duration_years ? `${major.duration_years} năm` : 'N/A'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip
+                          label={getMajorStatusLabel(major.status)}
+                          color={getMajorStatusColor(major.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} justifyContent="center">
+                          <Tooltip title="Xem chi tiết">
+                            <IconButton
+                              size="small"
+                              onClick={() => router.push(`/tms/majors/${major.id}`)}
+                            >
+                              <VisibilityIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Chỉnh sửa">
+                            <IconButton
+                              size="small"
+                              onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Xóa">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setDeleteDialog({ open: true, major })}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Hiển thị {majors.length} / {totalItems} ngành học
+            </Typography>
             <Pagination
-              count={totalPages}
-              page={page}
-              onChange={(_, value) => setPage(value)}
               color="primary"
+              page={page}
+              count={Math.max(totalPages, 1)}
+              onChange={handlePageChange}
             />
           </Box>
-        )}
+        </Paper>
 
         {/* Delete Dialog */}
         <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, major: null })}>
@@ -435,7 +738,23 @@ export default function MajorsPage() {
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={() => setSnackbar({ ...snackbar, open: false })} 
+            severity={snackbar.severity} 
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Stack>
-    </Container>
+    </Box>
   );
 }

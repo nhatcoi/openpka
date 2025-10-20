@@ -17,17 +17,44 @@ import {
   Button,
   Paper,
   Stack,
+  Chip,
+  Snackbar,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Skeleton,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
+  HelpOutline as HelpOutlineIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
+import {
+  MajorDegreeLevel,
+  MajorSpecializationModel,
+  MajorFieldCluster,
+  MajorStartTerm,
+  MAJOR_DEGREE_LEVELS,
+  MAJOR_SPECIALIZATION_MODELS,
+  MAJOR_FIELD_CLUSTERS,
+  MAJOR_START_TERMS,
+  getMajorDegreeLevelLabel,
+  getMajorSpecializationModelLabel,
+  getMajorFieldClusterLabel,
+  getMajorStartTermLabel,
+  getMajorStatusLabel,
+  getMajorStatusColor
+} from '@/constants/majors';
 
 interface OrgUnit {
   id: number;
   name: string;
   code: string;
+  type: string;
+  parent_id?: number | null;
 }
 
 interface MajorData {
@@ -57,7 +84,33 @@ interface MajorData {
   notes: string;
 }
 
-export default function EditMajorPage() {
+interface MajorFormData {
+  code: string;
+  name_vi: string;
+  name_en: string;
+  short_name: string;
+  slug: string;
+  national_code: string;
+  is_moet_standard: boolean;
+  degree_level: MajorDegreeLevel;
+  field_cluster: MajorFieldCluster;
+  specialization_model: MajorSpecializationModel;
+  org_unit_id: number;
+  parent_major_id: number | null;
+  duration_years: number;
+  total_credits_min: number;
+  total_credits_max: number;
+  semesters_per_year: number;
+  start_terms: MajorStartTerm;
+  default_quota: number;
+  status: string;
+  established_at: string;
+  closed_at: string;
+  description: string;
+  notes: string;
+}
+
+export default function EditMajorPage(): JSX.Element {
   const router = useRouter();
   const params = useParams();
   const majorId = params.id as string;
@@ -68,9 +121,12 @@ export default function EditMajorPage() {
   const [error, setError] = useState<string | null>(null);
   const [majorData, setMajorData] = useState<MajorData | null>(null);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
+  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
 
   // Form data
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MajorFormData>({
     code: '',
     name_vi: '',
     name_en: '',
@@ -78,18 +134,18 @@ export default function EditMajorPage() {
     slug: '',
     national_code: '',
     is_moet_standard: false,
-    degree_level: 'bachelor',
-    field_cluster: '',
-    specialization_model: 'none',
+    degree_level: MajorDegreeLevel.BACHELOR,
+    field_cluster: MajorFieldCluster.CNTT,
+    specialization_model: MajorSpecializationModel.NONE,
     org_unit_id: 0,
-    parent_major_id: null as number | null,
-    duration_years: 4.0,
+    parent_major_id: null,
+    duration_years: 4,
     total_credits_min: 120,
     total_credits_max: 150,
     semesters_per_year: 2,
-    start_terms: 'Fall',
+    start_terms: MajorStartTerm.FALL,
     default_quota: 100,
-    status: 'draft',
+    status: 'DRAFT',
     established_at: '',
     closed_at: '',
     description: '',
@@ -111,7 +167,7 @@ export default function EditMajorPage() {
           throw new Error(majorResult.error || 'Failed to fetch major');
         }
 
-        const major = majorResult.data;
+        const major = majorResult.data.data;
         setMajorData(major);
 
         // Populate form with major data
@@ -123,18 +179,18 @@ export default function EditMajorPage() {
           slug: major.slug || '',
           national_code: major.national_code || '',
           is_moet_standard: major.is_moet_standard || false,
-          degree_level: major.degree_level || 'bachelor',
-          field_cluster: major.field_cluster || '',
-          specialization_model: major.specialization_model || 'none',
+          degree_level: major.degree_level || MajorDegreeLevel.BACHELOR,
+          field_cluster: major.field_cluster || MajorFieldCluster.CNTT,
+          specialization_model: major.specialization_model || MajorSpecializationModel.NONE,
           org_unit_id: Number(major.org_unit_id) || 0,
           parent_major_id: major.parent_major_id ? Number(major.parent_major_id) : null,
-          duration_years: Number(major.duration_years) || 4.0,
+          duration_years: Number(major.duration_years) || 4,
           total_credits_min: major.total_credits_min || 120,
           total_credits_max: major.total_credits_max || 150,
           semesters_per_year: major.semesters_per_year || 2,
-          start_terms: major.start_terms || 'Fall',
+          start_terms: major.start_terms || MajorStartTerm.FALL,
           default_quota: major.default_quota || 100,
-          status: major.status || 'draft',
+          status: major.status || 'DRAFT',
           established_at: major.established_at ? new Date(major.established_at).toISOString().split('T')[0] : '',
           closed_at: major.closed_at ? new Date(major.closed_at).toISOString().split('T')[0] : '',
           description: major.description || '',
@@ -144,9 +200,9 @@ export default function EditMajorPage() {
         // Fetch org units
         const orgResponse = await fetch('/api/tms/majors/org-units');
         const orgResult = await orgResponse.json();
-        
+
         if (orgResult.success) {
-          setOrgUnits(orgResult.data);
+          setOrgUnits(Array.isArray(orgResult.data) ? orgResult.data : []);
         }
 
       } catch (err) {
@@ -163,7 +219,7 @@ export default function EditMajorPage() {
   }, [majorId]);
 
   // Handle form input changes
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: keyof MajorFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -182,31 +238,30 @@ export default function EditMajorPage() {
         return;
       }
 
-      // Submit edit request
-      const response = await fetch(`/api/tms/majors/${majorId}/edit-request`, {
-        method: 'POST',
+      // Submit update request
+      const response = await fetch(`/api/tms/majors/${majorId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          changes: formData,
-          reason: 'Chỉnh sửa thông tin ngành đào tạo',
-          requested_by: 'current_user', // Should come from auth context
-        }),
+        body: JSON.stringify(formData),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        alert('Yêu cầu chỉnh sửa đã được gửi thành công!');
-        router.push(`/tms/majors/${majorId}`);
+        setSuccessMessage('Cập nhật ngành đào tạo thành công!');
+        setTimeout(() => {
+          setRedirecting(true);
+          router.push(`/tms/majors/${majorId}`);
+        }, 2000);
       } else {
-        setError(result.error || 'Không thể gửi yêu cầu chỉnh sửa');
+        setError(result.details || result.error || 'Không thể cập nhật ngành đào tạo');
       }
 
     } catch (err) {
       console.error('Error submitting form:', err);
-      setError('Lỗi mạng khi gửi yêu cầu');
+      setError('Lỗi mạng khi cập nhật');
     } finally {
       setSaving(false);
     }
@@ -215,330 +270,544 @@ export default function EditMajorPage() {
   // Loading state
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
-        <Container maxWidth="lg">
-          <Stack alignItems="center" justifyContent="center" sx={{ minHeight: 400 }}>
-            <CircularProgress size={60} />
-            <Typography variant="h6" sx={{ mt: 2 }}>
-              Đang tải thông tin ngành đào tạo...
-            </Typography>
+        <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 2, px: 2 }}>
+          <Stack spacing={2}>
+            <Skeleton variant="rectangular" height={120} />
+            <Skeleton variant="rectangular" height={80} />
+            <Skeleton variant="rectangular" height={400} />
           </Stack>
-        </Container>
-      </Box>
+        </Box>
     );
   }
 
   // Error state
   if (error && !majorData) {
     return (
-      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
-        <Container maxWidth="lg">
+        <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 2, px: 2 }}>
           <Alert severity="error" sx={{ mb: 3 }}>
             {error}
           </Alert>
           <Button
-            variant="contained"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.back()}
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => router.back()}
           >
             Quay lại
           </Button>
-        </Container>
-      </Box>
+        </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
-      <Container maxWidth="lg">
-        {/* Header */}
-        <Paper sx={{ p: 4, mb: 4, borderRadius: 3 }}>
-          <Stack direction="row" alignItems="center" spacing={2} mb={3}>
-            <Button
-              startIcon={<ArrowBackIcon />}
-              onClick={() => router.back()}
-            >
+      <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 2, px: 2 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={2}>
+            <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
               Quay lại
             </Button>
+            <Typography variant="h4" component="h1">
+              Chỉnh sửa ngành đào tạo
+            </Typography>
           </Stack>
-          
-          <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            Chỉnh sửa ngành đào tạo
-          </Typography>
-          
-          {majorData && (
-            <Typography variant="h6" color="text.secondary">
+          <Button
+              variant="outlined"
+              startIcon={<HelpOutlineIcon />}
+              onClick={() => setHelpDialogOpen(true)}
+          >
+            Hướng dẫn
+          </Button>
+        </Stack>
+
+        {majorData && (
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
               {majorData.name_vi} ({majorData.code})
             </Typography>
-          )}
-        </Paper>
+        )}
 
         {/* Error Alert */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
+            <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+              {error}
+            </Alert>
         )}
 
-        {/* Form */}
-        <Paper sx={{ p: 4, borderRadius: 3 }}>
-          <Typography variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
-            Thông tin cơ bản
-          </Typography>
-
-          <Stack spacing={3}>
+        <Stack direction={{ xs: 'column', lg: 'row' }} spacing={3}>
+          <Box sx={{ flex: 2 }}>
             {/* Basic Information */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Mã ngành *"
-                value={formData.code}
-                onChange={(e) => handleInputChange('code', e.target.value)}
-                placeholder="VD: CNTT"
-              />
-              
-              <TextField
-                fullWidth
-                label="Tên ngắn"
-                value={formData.short_name}
-                onChange={(e) => handleInputChange('short_name', e.target.value)}
-                placeholder="VD: CNTT"
-              />
-            </Stack>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Thông tin cơ bản
+              </Typography>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Mã ngành *"
+                      value={formData.code}
+                      onChange={(e) => handleInputChange('code', e.target.value)}
+                      placeholder="VD: CNTT"
+                      required
+                  />
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Tên tiếng Việt *"
-                value={formData.name_vi}
-                onChange={(e) => handleInputChange('name_vi', e.target.value)}
-                placeholder="VD: Công nghệ thông tin"
-              />
-              
-              <TextField
-                fullWidth
-                label="Tên tiếng Anh"
-                value={formData.name_en}
-                onChange={(e) => handleInputChange('name_en', e.target.value)}
-                placeholder="VD: Information Technology"
-              />
-            </Stack>
+                  <TextField
+                      fullWidth
+                      label="Tên ngắn"
+                      value={formData.short_name}
+                      onChange={(e) => handleInputChange('short_name', e.target.value)}
+                      placeholder="VD: CNTT"
+                  />
+                </Stack>
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <FormControl fullWidth>
-                <InputLabel>Đơn vị quản lý *</InputLabel>
-                <Select
-                  value={formData.org_unit_id}
-                  label="Đơn vị quản lý *"
-                  onChange={(e) => handleInputChange('org_unit_id', Number(e.target.value))}
-                >
-                  {orgUnits.map((unit) => (
-                    <MenuItem key={unit.id} value={unit.id}>
-                      {unit.name} ({unit.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              
-              <FormControl fullWidth>
-                <InputLabel>Bằng cấp *</InputLabel>
-                <Select
-                  value={formData.degree_level}
-                  label="Bằng cấp *"
-                  onChange={(e) => handleInputChange('degree_level', e.target.value)}
-                >
-                  <MenuItem value="associate">Cao đẳng</MenuItem>
-                  <MenuItem value="bachelor">Cử nhân</MenuItem>
-                  <MenuItem value="master">Thạc sĩ</MenuItem>
-                  <MenuItem value="doctor">Tiến sĩ</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Tên tiếng Việt *"
+                      value={formData.name_vi}
+                      onChange={(e) => handleInputChange('name_vi', e.target.value)}
+                      placeholder="VD: Công nghệ thông tin"
+                      required
+                  />
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Mã quốc gia"
-                value={formData.national_code}
-                onChange={(e) => handleInputChange('national_code', e.target.value)}
-                placeholder="VD: 7480101"
-              />
-              
-              <TextField
-                fullWidth
-                label="Slug"
-                value={formData.slug}
-                onChange={(e) => handleInputChange('slug', e.target.value)}
-                placeholder="VD: cong-nghe-thong-tin"
-              />
-            </Stack>
+                  <TextField
+                      fullWidth
+                      label="Tên tiếng Anh"
+                      value={formData.name_en}
+                      onChange={(e) => handleInputChange('name_en', e.target.value)}
+                      placeholder="VD: Information Technology"
+                  />
+                </Stack>
 
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.is_moet_standard}
-                  onChange={(e) => handleInputChange('is_moet_standard', e.target.checked)}
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Đơn vị quản lý *</InputLabel>
+                    <Select
+                        value={formData.org_unit_id}
+                        label="Đơn vị quản lý *"
+                        onChange={(e) => handleInputChange('org_unit_id', Number(e.target.value))}
+                        required
+                    >
+                      {Array.isArray(orgUnits) && orgUnits.length > 0 ? (
+                          orgUnits.map((unit) => (
+                              <MenuItem key={unit.id} value={unit.id}>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: '100%' }}>
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                      {unit.name}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {unit.code}
+                                    </Typography>
+                                  </Box>
+                                  <Chip
+                                      label={unit.type}
+                                      size="small"
+                                      color="primary"
+                                      variant="outlined"
+                                      sx={{ fontSize: '0.7rem', height: 20 }}
+                                  />
+                                </Stack>
+                              </MenuItem>
+                          ))
+                      ) : (
+                          <MenuItem disabled>
+                            {loading ? 'Đang tải...' : 'Không có đơn vị nào'}
+                          </MenuItem>
+                      )}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth>
+                    <InputLabel>Bằng cấp *</InputLabel>
+                    <Select
+                        value={formData.degree_level}
+                        label="Bằng cấp *"
+                        onChange={(e) => handleInputChange('degree_level', e.target.value)}
+                        required
+                    >
+                      {MAJOR_DEGREE_LEVELS.map((level) => (
+                          <MenuItem key={level} value={level}>
+                            {getMajorDegreeLevelLabel(level)}
+                          </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Mã quốc gia"
+                      value={formData.national_code}
+                      onChange={(e) => handleInputChange('national_code', e.target.value)}
+                      placeholder="VD: 7480101"
+                  />
+
+                  <TextField
+                      fullWidth
+                      label="Slug"
+                      value={formData.slug}
+                      onChange={(e) => handleInputChange('slug', e.target.value)}
+                      placeholder="VD: cong-nghe-thong-tin"
+                  />
+                </Stack>
+
+                <FormControlLabel
+                    control={
+                      <Switch
+                          checked={formData.is_moet_standard}
+                          onChange={(e) => handleInputChange('is_moet_standard', e.target.checked)}
+                      />
+                    }
+                    label="Chuẩn MOET"
                 />
-              }
-              label="Chuẩn MOET"
-            />
+              </Stack>
+            </Paper>
 
             {/* Academic Information */}
-            <Typography variant="h5" sx={{ mt: 4, mb: 3, fontWeight: 'bold' }}>
-              Thông tin đào tạo
-            </Typography>
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Thông tin đào tạo
+              </Typography>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Thời gian đào tạo (năm)"
+                      type="number"
+                      value={formData.duration_years}
+                      onChange={(e) => handleInputChange('duration_years', parseFloat(e.target.value))}
+                      inputProps={{ min: 0.5, max: 10, step: 0.5 }}
+                  />
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Thời gian đào tạo (năm)"
-                type="number"
-                value={formData.duration_years}
-                onChange={(e) => handleInputChange('duration_years', parseFloat(e.target.value))}
-                inputProps={{ min: 0.5, max: 10, step: 0.5 }}
-              />
-              
-              <TextField
-                fullWidth
-                label="Số học kỳ/năm"
-                type="number"
-                value={formData.semesters_per_year}
-                onChange={(e) => handleInputChange('semesters_per_year', parseInt(e.target.value))}
-                inputProps={{ min: 1, max: 4 }}
-              />
-            </Stack>
+                  <TextField
+                      fullWidth
+                      label="Số học kỳ/năm"
+                      type="number"
+                      value={formData.semesters_per_year}
+                      onChange={(e) => handleInputChange('semesters_per_year', parseInt(e.target.value))}
+                      inputProps={{ min: 1, max: 4 }}
+                  />
+                </Stack>
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Số tín chỉ tối thiểu"
-                type="number"
-                value={formData.total_credits_min}
-                onChange={(e) => handleInputChange('total_credits_min', parseInt(e.target.value))}
-                inputProps={{ min: 1, max: 1000 }}
-              />
-              
-              <TextField
-                fullWidth
-                label="Số tín chỉ tối đa"
-                type="number"
-                value={formData.total_credits_max}
-                onChange={(e) => handleInputChange('total_credits_max', parseInt(e.target.value))}
-                inputProps={{ min: 1, max: 1000 }}
-              />
-            </Stack>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Số tín chỉ tối thiểu"
+                      type="number"
+                      value={formData.total_credits_min}
+                      onChange={(e) => handleInputChange('total_credits_min', parseInt(e.target.value))}
+                      inputProps={{ min: 1, max: 1000 }}
+                  />
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Học kỳ bắt đầu"
-                value={formData.start_terms}
-                onChange={(e) => handleInputChange('start_terms', e.target.value)}
-                placeholder="VD: Fall, Spring"
-              />
-              
-              <TextField
-                fullWidth
-                label="Chỉ tiêu mặc định"
-                type="number"
-                value={formData.default_quota}
-                onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
-                inputProps={{ min: 0 }}
-              />
-            </Stack>
+                  <TextField
+                      fullWidth
+                      label="Số tín chỉ tối đa"
+                      type="number"
+                      value={formData.total_credits_max}
+                      onChange={(e) => handleInputChange('total_credits_max', parseInt(e.target.value))}
+                      inputProps={{ min: 1, max: 1000 }}
+                  />
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Học kỳ bắt đầu</InputLabel>
+                    <Select
+                        value={formData.start_terms}
+                        label="Học kỳ bắt đầu"
+                        onChange={(e) => handleInputChange('start_terms', e.target.value)}
+                    >
+                      {MAJOR_START_TERMS.map((term) => (
+                          <MenuItem key={term} value={term}>
+                            {getMajorStartTermLabel(term)}
+                          </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                      fullWidth
+                      label="Chỉ tiêu mặc định"
+                      type="number"
+                      value={formData.default_quota}
+                      onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
+                      inputProps={{ min: 0 }}
+                  />
+                </Stack>
+              </Stack>
+            </Paper>
 
             {/* Additional Information */}
-            <Typography variant="h5" sx={{ mt: 4, mb: 3, fontWeight: 'bold' }}>
-              Thông tin bổ sung
-            </Typography>
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Thông tin bổ sung
+              </Typography>
+              <Stack spacing={2}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Nhóm ngành</InputLabel>
+                    <Select
+                        value={formData.field_cluster}
+                        label="Nhóm ngành"
+                        onChange={(e) => handleInputChange('field_cluster', e.target.value)}
+                    >
+                      <MenuItem value="">Chọn nhóm ngành</MenuItem>
+                      {MAJOR_FIELD_CLUSTERS.map((cluster) => (
+                          <MenuItem key={cluster} value={cluster}>
+                            {getMajorFieldClusterLabel(cluster)}
+                          </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Nhóm ngành"
-                value={formData.field_cluster}
-                onChange={(e) => handleInputChange('field_cluster', e.target.value)}
-              />
-              
-              <FormControl fullWidth>
-                <InputLabel>Mô hình chuyên ngành</InputLabel>
-                <Select
-                  value={formData.specialization_model}
-                  label="Mô hình chuyên ngành"
-                  onChange={(e) => handleInputChange('specialization_model', e.target.value)}
+                  <FormControl fullWidth>
+                    <InputLabel>Mô hình chuyên ngành</InputLabel>
+                    <Select
+                        value={formData.specialization_model}
+                        label="Mô hình chuyên ngành"
+                        onChange={(e) => handleInputChange('specialization_model', e.target.value)}
+                    >
+                      {MAJOR_SPECIALIZATION_MODELS.map((model) => (
+                          <MenuItem key={model} value={model}>
+                            {getMajorSpecializationModelLabel(model)}
+                          </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                      fullWidth
+                      label="Ngày thành lập"
+                      type="date"
+                      value={formData.established_at}
+                      onChange={(e) => handleInputChange('established_at', e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                  />
+
+                  <FormControl fullWidth>
+                    <InputLabel>Trạng thái</InputLabel>
+                    <Select
+                        value={formData.status}
+                        label="Trạng thái"
+                        onChange={(e) => handleInputChange('status', e.target.value)}
+                    >
+                      <MenuItem value="DRAFT">Nháp</MenuItem>
+                      <MenuItem value="PROPOSED">Đề xuất</MenuItem>
+                      <MenuItem value="REVIEWING">Đang xem xét</MenuItem>
+                      <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
+                      <MenuItem value="REJECTED">Bị từ chối</MenuItem>
+                      <MenuItem value="PUBLISHED">Đã công bố</MenuItem>
+                      <MenuItem value="ACTIVE">Hoạt động</MenuItem>
+                      <MenuItem value="SUSPENDED">Tạm dừng</MenuItem>
+                      <MenuItem value="CLOSED">Đã đóng</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                <TextField
+                    fullWidth
+                    label="Mô tả"
+                    multiline
+                    rows={3}
+                    value={formData.description}
+                    onChange={(e) => handleInputChange('description', e.target.value)}
+                />
+
+                <TextField
+                    fullWidth
+                    label="Ghi chú"
+                    multiline
+                    rows={2}
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                />
+              </Stack>
+            </Paper>
+          </Box>
+
+          {/* Sidebar */}
+          <Box sx={{ flex: 1 }}>
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Tóm tắt
+              </Typography>
+              <Stack spacing={1.5}>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Mã ngành
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {formData.code || 'Chưa nhập'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Tên ngành
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {formData.name_vi || 'Chưa nhập'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Bằng cấp
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {getMajorDegreeLevelLabel(formData.degree_level)}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Thời gian đào tạo
+                  </Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                    {formData.duration_years ? `${formData.duration_years} năm` : 'Chưa nhập'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Trạng thái
+                  </Typography>
+                  <Chip
+                      label={getMajorStatusLabel(formData.status)}
+                      color={getMajorStatusColor(formData.status)}
+                      size="small"
+                  />
+                </Box>
+              </Stack>
+            </Paper>
+
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Thao tác
+              </Typography>
+              <Stack spacing={2}>
+                <Button
+                    variant="contained"
+                    startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+                    onClick={handleSubmit}
+                    disabled={saving}
+                    fullWidth
                 >
-                  <MenuItem value="none">Không chuyên ngành</MenuItem>
-                  <MenuItem value="major">Có chuyên ngành</MenuItem>
-                  <MenuItem value="track">Có hướng chuyên sâu</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
-              <TextField
-                fullWidth
-                label="Ngày thành lập"
-                type="date"
-                value={formData.established_at}
-                onChange={(e) => handleInputChange('established_at', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-              
-              <FormControl fullWidth>
-                <InputLabel>Trạng thái</InputLabel>
-                <Select
-                  value={formData.status}
-                  label="Trạng thái"
-                  onChange={(e) => handleInputChange('status', e.target.value)}
+                  {saving ? 'Đang cập nhật...' : 'Cập nhật ngành đào tạo'}
+                </Button>
+                <Button
+                    onClick={() => router.back()}
+                    fullWidth
                 >
-                  <MenuItem value="draft">Nháp</MenuItem>
-                  <MenuItem value="proposed">Đề xuất</MenuItem>
-                  <MenuItem value="active">Hoạt động</MenuItem>
-                  <MenuItem value="suspended">Tạm dừng</MenuItem>
-                  <MenuItem value="closed">Đã đóng</MenuItem>
-                </Select>
-              </FormControl>
+                  Hủy
+                </Button>
+              </Stack>
+            </Paper>
+          </Box>
+        </Stack>
+
+        {/* Help Dialog */}
+        <Dialog
+            open={helpDialogOpen}
+            onClose={() => setHelpDialogOpen(false)}
+            maxWidth="md"
+            fullWidth
+        >
+          <DialogTitle>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <InfoIcon color="primary" />
+              <Typography variant="h6">Hướng dẫn chỉnh sửa ngành đào tạo</Typography>
             </Stack>
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={2}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Thông tin cơ bản
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Mã ngành: Mã định danh duy nhất cho ngành đào tạo (VD: CNTT, KT, NN)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Tên ngành: Tên đầy đủ của ngành đào tạo bằng tiếng Việt và tiếng Anh
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Đơn vị quản lý: Khoa/Viện/Bộ môn chịu trách nhiệm quản lý ngành
+                </Typography>
+              </Box>
 
-            <TextField
-              fullWidth
-              label="Mô tả"
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-            />
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Thông tin đào tạo
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Thời gian đào tạo: Số năm học (có thể là số thập phân như 4.5 năm)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Số tín chỉ: Tối thiểu và tối đa số tín chỉ sinh viên cần tích lũy
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Học kỳ bắt đầu: Học kỳ mà ngành bắt đầu tuyển sinh
+                </Typography>
+              </Box>
 
-            <TextField
-              fullWidth
-              label="Ghi chú"
-              multiline
-              rows={2}
-              value={formData.notes}
-              onChange={(e) => handleInputChange('notes', e.target.value)}
-            />
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Thông tin bổ sung
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Nhóm ngành: Phân loại ngành theo lĩnh vực (CNTT, Kinh tế, Xã hội...)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Mô hình chuyên ngành: Cách tổ chức chuyên ngành (không, track, concentration...)
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Trạng thái: Trạng thái hiện tại của ngành trong quy trình phê duyệt
+                </Typography>
+              </Box>
 
-            {/* Action Buttons */}
-            <Stack direction="row" spacing={2} justifyContent="flex-end" sx={{ mt: 4 }}>
-              <Button
-                onClick={() => router.back()}
-                sx={{ minWidth: 100 }}
-              >
-                Hủy
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-                onClick={handleSubmit}
-                disabled={saving}
-                sx={{ minWidth: 150 }}
-              >
-                {saving ? 'Đang gửi...' : 'Gửi yêu cầu chỉnh sửa'}
-              </Button>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                  Lưu ý
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Thay đổi sẽ được lưu trực tiếp vào cơ sở dữ liệu
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Hãy kiểm tra kỹ thông tin trước khi cập nhật
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  • Một số thay đổi có thể cần phê duyệt từ cấp trên
+                </Typography>
+              </Box>
             </Stack>
-          </Stack>
-        </Paper>
-      </Container>
-    </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setHelpDialogOpen(false)}>Đóng</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Success Snackbar */}
+        <Snackbar
+            open={!!successMessage}
+            autoHideDuration={6000}
+            onClose={() => setSuccessMessage(null)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert
+              onClose={() => setSuccessMessage(null)}
+              severity="success"
+              sx={{ width: '100%' }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography>{successMessage}</Typography>
+              {redirecting && (
+                  <>
+                    <CircularProgress size={16} />
+                    <Typography variant="caption">Đang chuyển hướng...</Typography>
+                  </>
+              )}
+            </Stack>
+          </Alert>
+        </Snackbar>
+      </Box>
   );
 }

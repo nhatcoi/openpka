@@ -416,7 +416,7 @@ export default function ProgramBlocksPage(): JSX.Element {
             onChange={(_, value) => setCurrentType(value)}
             variant="fullWidth"
           >
-            <Tab label="Khối học phần" value="blocks" />
+            <Tab label="Khối kiến thức" value="blocks" />
             <Tab label="Nhóm khối học phần" value="groups" />
           </Tabs>
         </Paper>

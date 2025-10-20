@@ -45,7 +45,9 @@ import {
   Step,
   StepLabel,
   StepContent,
-  Stack
+  Stack,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -577,6 +579,24 @@ useEffect(() => {
     <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE, COURSE_PERMISSIONS.REJECT, COURSE_PERMISSIONS.PUBLISH]}>
       <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1, py: 4 }}>
         <Box sx={{ mb: 4 }}>
+          <Breadcrumbs sx={{ mb: 2 }}>
+            <Link
+              color="inherit"
+              href="/tms"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              TMS
+            </Link>
+            <Link
+              color="inherit"
+              href="/tms/courses"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Học phần
+            </Link>
+            <Typography color="text.primary">Phê duyệt</Typography>
+          </Breadcrumbs>
+          
           <Typography variant="h4" component="h1" gutterBottom>
             <AssessmentIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
             Phê duyệt học phần
