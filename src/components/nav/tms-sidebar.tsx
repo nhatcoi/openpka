@@ -18,23 +18,24 @@ import {
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
-    People as PeopleIcon,
     School as SchoolIcon,
-    Work as WorkIcon,
+    LibraryBooks as LibraryBooksIcon,
+    Add as AddIcon,
+    Class as ClassIcon,
+    ViewModule as ViewModuleIcon,
+    Storage as StorageIcon,
+    Visibility as VisibilityIcon,
+    BookOnline as BookOnlineIcon,
+    Subject as SubjectIcon,
+    Approval as ApprovalIcon,
+    SchoolOutlined as SchoolOutlinedIcon,
+    ListAlt as ListAltIcon,
+    History as HistoryIcon,
+    Assessment as AssessmentIcon,
+    Folder as FolderIcon,
+    TrendingUp as TrendingUpIcon,
     ExpandLess,
     ExpandMore,
-    Group as GroupIcon,
-    Assessment as AssessmentIcon,
-    Person as PersonIcon,
-    Security as SecurityIcon,
-    AdminPanelSettings as AdminPanelSettingsIcon,
-    VpnKey as VpnKeyIcon,
-    Assignment as AssignmentIcon,
-    Business as BusinessIcon,
-    AccountTree as AccountTreeIcon,
-    SupervisorAccount as SupervisorAccountIcon,
-    EventNote as EventNoteIcon,
-    Edit as EditIcon,
 } from '@mui/icons-material';
 
 interface MenuItem {
@@ -51,112 +52,170 @@ const menuItems: MenuItem[] = [
         key: 'dashboard',
         label: 'Dashboard',
         icon: <DashboardIcon />,
-        href: '/hr/dashboard',
-        permission: 'user.read', // Tất cả roles đều có user.read
+        href: '/tms/dashboard',
+        permission: 'tms.program.read',
     },
     {
-        key: 'leave-requests',
-        label: 'Đơn xin nghỉ',
-        icon: <EventNoteIcon />,
-        href: '/hr/leave-requests',
-        permission: 'leave_request.read', // Cần quyền đọc đơn xin nghỉ
+        key: 'program-management',
+        label: 'Quản lý chương trình đào tạo',
+        icon: <SchoolIcon />,
+        permission: 'tms.program.read',
+        children: [
+            {
+                key: 'programs',
+                label: 'Danh sách chương trình',
+                icon: <LibraryBooksIcon />,
+                href: '/tms/programs',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'programs-create',
+                label: 'Tạo chương trình mới',
+                icon: <AddIcon />,
+                href: '/tms/programs/create',
+                permission: 'tms.program.write',
+            },
+            {
+                key: 'programs-map',
+                label: 'Gán học phần',
+                icon: <ClassIcon />,
+                href: '/tms/programs/map',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'programs-blocks',
+                label: 'Quản lý khối học phần',
+                icon: <ViewModuleIcon />,
+                href: '/tms/programs/blocks',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'programs-framework',
+                label: 'Khung chương trình đào tạo',
+                icon: <StorageIcon />,
+                href: '/tms/programs/framework',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'programs-review',
+                label: 'Phê duyệt chương trình',
+                icon: <VisibilityIcon />,
+                href: '/tms/programs/review',
+                permission: 'tms.program.approve',
+            },
+        ],
     },
     {
-        key: 'my-evaluations',
-        label: 'Đánh giá của tôi',
+        key: 'subject-management',
+        label: 'Quản lý học phần',
+        icon: <BookOnlineIcon />,
+        permission: 'tms.course.read',
+        children: [
+            {
+                key: 'courses',
+                label: 'Danh sách học phần',
+                icon: <SubjectIcon />,
+                href: '/tms/courses',
+                permission: 'tms.course.read',
+            },
+            {
+                key: 'courses-create',
+                label: 'Tạo học phần mới',
+                icon: <AddIcon />,
+                href: '/tms/courses/create',
+                permission: 'tms.course.write',
+            },
+            {
+                key: 'courses-approval',
+                label: 'Phê duyệt học phần',
+                icon: <ApprovalIcon />,
+                href: '/tms/courses/approval',
+                permission: 'tms.course.approve',
+            },
+        ],
+    },
+    {
+        key: 'major-management',
+        label: 'Quản lý ngành đào tạo',
+        icon: <SchoolOutlinedIcon />,
+        permission: 'tms.program.read',
+        children: [
+            {
+                key: 'majors',
+                label: 'Danh sách ngành đào tạo',
+                icon: <ListAltIcon />,
+                href: '/tms/majors',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'majors-create',
+                label: 'Tạo ngành đào tạo mới',
+                icon: <AddIcon />,
+                href: '/tms/majors/create',
+                permission: 'tms.program.write',
+            },
+            {
+                key: 'majors-review',
+                label: 'Phê duyệt ngành đào tạo',
+                icon: <VisibilityIcon />,
+                href: '/tms/majors/review',
+                permission: 'tms.program.approve',
+            },
+        ],
+    },
+    {
+        key: 'cohort-management',
+        label: 'Quản lý khóa học',
+        icon: <ClassIcon />,
+        permission: 'tms.program.read',
+        children: [
+            {
+                key: 'cohorts',
+                label: 'Danh sách khóa học',
+                icon: <ListAltIcon />,
+                href: '/tms/cohorts',
+                permission: 'tms.program.read',
+            },
+            {
+                key: 'cohorts-create',
+                label: 'Tạo khóa học mới',
+                icon: <AddIcon />,
+                href: '/tms/cohorts/create',
+                permission: 'tms.program.write',
+            },
+            {
+                key: 'cohorts-statistics',
+                label: 'Thống kê khóa học',
+                icon: <TrendingUpIcon />,
+                href: '/tms/cohorts/statistics',
+                permission: 'tms.program.read',
+            },
+        ],
+    },
+    {
+        key: 'history',
+        label: 'Lịch sử thay đổi',
+        icon: <HistoryIcon />,
+        href: '/tms/history',
+        permission: 'tms.program.read',
+    },
+    {
+        key: 'reports',
+        label: 'Báo cáo đào tạo',
         icon: <AssessmentIcon />,
-        href: '/hr/my-evaluations',
-        permission: 'performance_review.read', // Giảng viên có thể xem đánh giá của mình
+        href: '/tms/reports',
+        permission: 'tms.program.read',
     },
     {
-        key: 'hr-management',
-        label: 'Quản lý Nhân sự',
-        icon: <GroupIcon />,
-        permission: 'hr.employee.read', // Cần quyền đọc nhân viên
-        children: [
-            {
-                key: 'employees',
-                label: 'Nhân viên',
-                icon: <PeopleIcon />,
-                href: '/hr/employees',
-                permission: 'hr.employee.read',
-            },
-            {
-                key: 'qualifications',
-                label: 'Bằng cấp',
-                icon: <SchoolIcon />,
-                href: '/hr/qualifications',
-                permission: 'hr.employee.read',
-            },
-            {
-                key: 'employments',
-                label: 'Hợp đồng',
-                icon: <WorkIcon />,
-                href: '/hr/employments',
-                permission: 'hr.employee.read',
-            },
-            {
-                key: 'performance-reviews',
-                label: 'Đánh giá hiệu suất',
-                icon: <AssessmentIcon />,
-                href: '/hr/performance-reviews',
-                permission: 'performance_review.read',
-            },
-            {
-                key: 'evaluation-periods',
-                label: 'Quản lý kỳ đánh giá',
-                icon: <AssessmentIcon />,
-                href: '/hr/evaluation-periods',
-                permission: 'performance_review.create',
-            },
-            {
-                key: 'employee-logs',
-                label: 'Lịch sử sửa đổi',
-                icon: <EditIcon />,
-                href: '/hr/employee-logs',
-                permission: 'hr.employee.read',
-            }
-        ],
-    },
-    {
-        key: 'rbac',
-        label: 'Phân quyền',
-        icon: <SecurityIcon />,
-        permission: 'role.read', // Admin có quyền đọc role
-        children: [
-            {
-                key: 'roles',
-                label: 'Vai trò',
-                icon: <AdminPanelSettingsIcon />,
-                href: '/hr/roles',
-                permission: 'role.read',
-            },
-            {
-                key: 'permissions',
-                label: 'Quyền hạn',
-                icon: <VpnKeyIcon />,
-                href: '/hr/permissions',
-                permission: 'role.read', // Sử dụng role.read vì permissions liên quan đến roles
-            },
-            {
-                key: 'role-permissions',
-                label: 'Vai trò - Quyền hạn',
-                icon: <AssignmentIcon />,
-                href: '/hr/role-permissions',
-                permission: 'role.read',
-            },
-            {
-                key: 'user-roles',
-                label: 'Người dùng - Vai trò',
-                icon: <PersonIcon />,
-                href: '/hr/user-roles',
-                permission: 'user.read', // Liên quan đến user
-            },
-        ],
+        key: 'documents',
+        label: 'Quản lý tài liệu',
+        icon: <FolderIcon />,
+        href: '/tms/documents',
+        permission: 'tms.program.read',
     },
 ];
 
-export function NewSidebar() {
+export function TmsSidebar() {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const permissions = session?.user?.permissions || [];
@@ -167,11 +226,11 @@ export function NewSidebar() {
         console.log('👤 User:', session.user.username, session.user.email);
     }
 
-
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-        'hr-management': true,
-        'rbac': false,
-        'org-management': false,
+        'program-management': true,
+        'subject-management': true,
+        'major-management': true,
+        'cohort-management': false,
     });
 
     // Function to check if user has permission
@@ -326,7 +385,7 @@ export function NewSidebar() {
                 {/* Header */}
                 <Box sx={{ padding: 2, textAlign: 'center' }}>
                     <Typography variant="h6" sx={{ color: 'white', fontWeight: 700 }}>
-                        HR System
+                        TMS System
                     </Typography>
                 </Box>
                 <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.12)' }} />
@@ -339,3 +398,4 @@ export function NewSidebar() {
         </Drawer>
     );
 }
+

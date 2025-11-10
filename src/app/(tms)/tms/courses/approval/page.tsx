@@ -420,7 +420,7 @@ useEffect(() => {
             onClick={(e) => {
               e.stopPropagation();
               // Nếu người dùng KHÔNG thuộc Phòng đào tạo (không có quyền REVIEW), hiển thị cảnh báo gợi ý
-              if (!hasPermission(COURSE_PERMISSIONS.REVIEW)) {
+              if (!hasPermission(COURSE_PERMISSIONS.APPROVE)) {
                 setOverrideSubjectId(subject.id);
                 setOverrideDialogOpen(true);
                 return;
@@ -576,7 +576,7 @@ useEffect(() => {
   };
 
   return (
-    <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE, COURSE_PERMISSIONS.REJECT, COURSE_PERMISSIONS.PUBLISH]}>
+    <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
       <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1, py: 4 }}>
         <Box sx={{ mb: 4 }}>
           <Breadcrumbs sx={{ mb: 2 }}>

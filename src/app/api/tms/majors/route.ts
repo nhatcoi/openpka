@@ -16,7 +16,6 @@ const createMajorSchema = z.object({
   field_cluster: z.string().max(64).optional(),
   specialization_model: z.string().max(32).optional().default('none'),
   org_unit_id: z.number(),
-  parent_major_id: z.number().nullable().optional(),
   duration_years: z.number().min(0.1).max(10).optional().default(4.0),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
@@ -30,6 +29,32 @@ const createMajorSchema = z.object({
   description: z.string().optional(),
   notes: z.string().optional(),
 });
+
+const MAJOR_SELECT = {
+  id: true,
+  code: true,
+  name_vi: true,
+  name_en: true,
+  short_name: true,
+  slug: true,
+  is_moet_standard: true,
+  degree_level: true,
+  field_cluster: true,
+  org_unit_id: true,
+  duration_years: true,
+  total_credits_min: true,
+  total_credits_max: true,
+  semesters_per_year: true,
+  start_terms: true,
+  status: true,
+  established_at: true,
+  closed_at: true,
+  description: true,
+  created_by: true,
+  updated_by: true,
+  created_at: true,
+  updated_at: true,
+} as const;
 
 // GET /api/tms/majors
 export const GET = withErrorHandling(async (request: NextRequest) => {
@@ -65,56 +90,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   const [majors, total] = await Promise.all([
     prisma.major.findMany({
       where,
-      include: {
-        OrgUnit: { 
-          select: { 
-            id: true, 
-            name: true, 
-            code: true, 
-            type: true,
-            parent_id: true 
-          } 
-        },
-        Major: { 
-          select: { 
-            id: true, 
-            code: true, 
-            name_vi: true, 
-            name_en: true,
-            degree_level: true 
-          } 
-        },
-        other_majors: { 
-          select: { 
-            id: true, 
-            code: true, 
-            name_vi: true, 
-            name_en: true,
-            degree_level: true 
-          } 
-        },
-        Program: {
-          select: {
-            id: true,
-            code: true,
-            name_vi: true,
-            name_en: true,
-            version: true,
-            status: true,
-            total_credits: true,
-            effective_from: true,
-            effective_to: true
-          },
-          orderBy: { id: 'desc' },
-          take: 3
-        },
-        _count: { 
-          select: { 
-            Program: true,
-            other_majors: true
-          } 
-        },
-      },
+      select: MAJOR_SELECT,
       orderBy: { id: 'desc' },
       skip,
       take: limit,
@@ -154,13 +130,10 @@ export const POST = withBody(async (body: unknown) => {
     data: {
       ...validatedData,
       status: validatedData.status || 'DRAFT',
-      parent_major_id: validatedData.parent_major_id || null,
       established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
       closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
     },
-    include: {
-      OrgUnit: { select: { id: true, name: true, code: true } }
-    }
+    select: MAJOR_SELECT,
   });
 
   return { data: major, message: 'Major created successfully' };

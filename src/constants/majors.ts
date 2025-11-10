@@ -95,17 +95,20 @@ export const MAJOR_START_TERMS: MajorStartTerm[] = [
 ];
 
 export const MAJOR_PERMISSIONS = {
-  VIEW: 'tms.major.view',
-  CREATE: 'tms.major.create',
-  UPDATE: 'tms.major.update',
-  DELETE: 'tms.major.delete',
-  MANAGE: 'tms.major.manage',
+  READ: 'tms.major.read',
+  WRITE: 'tms.major.write',
   APPROVE: 'tms.major.approve',
-  PUBLISH: 'tms.major.publish',
-  REVIEW: 'tms.major.review',
-  REJECT: 'tms.major.reject',
-  REQUEST_EDIT: 'tms.major.request_edit',
-  SCIENCE_COUNCIL_PUBLISH: 'tms.major.science_council_publish',
+  // Legacy permissions (for backward compatibility)
+  VIEW: 'tms.major.read', // Alias for READ
+  CREATE: 'tms.major.write', // Alias for WRITE
+  UPDATE: 'tms.major.write', // Alias for WRITE
+  DELETE: 'tms.major.write', // Alias for WRITE
+  MANAGE: 'tms.major.write', // Alias for WRITE (use write + approve for full manage)
+  PUBLISH: 'tms.major.approve', // Alias for APPROVE
+  REVIEW: 'tms.major.approve', // Alias for APPROVE
+  REJECT: 'tms.major.approve', // Alias for APPROVE
+  REQUEST_EDIT: 'tms.major.write', // Alias for WRITE
+  SCIENCE_COUNCIL_PUBLISH: 'tms.major.approve', // Alias for APPROVE
 } as const;
 
 // Major workflow actions

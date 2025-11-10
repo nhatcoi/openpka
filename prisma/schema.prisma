@@ -502,50 +502,6 @@ model Course {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model MajorOutcome {
-  id        BigInt   @id @default(autoincrement())
-  major_id  BigInt
-  code      String   @db.VarChar(32)
-  content   String
-  version   String?  @default("v1") @db.VarChar(32)
-  is_active Boolean? @default(true)
-  Major     Major    @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([major_id, code, version])
-  @@map("major_outcome")
-  @@schema("academic")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model MajorQuotaYear {
-  id       BigInt  @id @default(autoincrement())
-  major_id BigInt
-  year     Int     @db.SmallInt
-  quota    Int
-  note     String?
-  Major    Major   @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([major_id, year])
-  @@map("major_quota_year")
-  @@schema("academic")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model MajorTuition {
-  id            BigInt  @id @default(autoincrement())
-  major_id      BigInt
-  year          Int     @db.SmallInt
-  tuition_group String  @db.VarChar(64)
-  amount_vnd    Decimal @db.Decimal(14, 2)
-  note          String?
-  Major         Major   @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@unique([major_id, year, tuition_group])
-  @@map("major_tuition")
-  @@schema("academic")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
@@ -561,37 +517,27 @@ model Major {
   name_en              String?               @db.VarChar(255)
   short_name           String?               @db.VarChar(100)
   slug                 String?               @db.VarChar(255)
-  national_code        String?               @db.VarChar(32)
   is_moet_standard     Boolean?              @default(false)
   degree_level         String                @db.VarChar(32)
   field_cluster        String?               @db.VarChar(64)
-  specialization_model String?               @default("none") @db.VarChar(32)
   org_unit_id          BigInt
-  parent_major_id      BigInt?
   duration_years       Decimal?              @default(4.0) @db.Decimal(3, 1)
   total_credits_min    Int?                  @db.SmallInt
   total_credits_max    Int?                  @db.SmallInt
   semesters_per_year   Int?                  @default(2) @db.SmallInt
   start_terms          String?               @default("Fall") @db.VarChar(64)
   default_quota        Int?
-  tuition_group        String?               @db.VarChar(64)
   status               String                @default("active") @db.VarChar(32)
   established_at       DateTime?             @db.Date
   closed_at            DateTime?             @db.Date
   description          String?
   notes                String?
+  is_active            Boolean?              @default(true)
   created_by           BigInt?
   updated_by           BigInt?
   created_at           DateTime?             @default(now()) @db.Timestamptz(6)
   updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
-  MajorOutcome         MajorOutcome[]
-  major_owner_history  MajorOwnerHistory[]
-  MajorQuotaYear       MajorQuotaYear[]
-  MajorTuition         MajorTuition[]
   OrgUnit              OrgUnit               @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_owner")
-  Major                Major?                @relation("majorsTomajors", fields: [parent_major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_parent")
-  other_majors         Major[]               @relation("majorsTomajors")
-  Program              Program[]             @relation("MajorPrograms")
 
   @@unique([org_unit_id, code], map: "uq_major_code_per_owner")
   @@index([degree_level], map: "idx_major_degree_level")
@@ -599,20 +545,6 @@ model Major {
   @@index([slug], map: "idx_major_slug")
   @@index([status], map: "idx_major_status")
   @@map("majors")
-  @@schema("academic")
-}
-
-/// Bảng danh mục template
-model BlockTemplateCategory {
-  id          BigInt    @id @default(autoincrement())
-  code        String    @unique @db.VarChar(32)
-  name        String    @db.VarChar(255)
-  description String?
-  is_active   Boolean?  @default(true)
-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@index([is_active], map: "idx_block_template_category_active")
-  @@map("block_template_categories")
   @@schema("academic")
 }
 

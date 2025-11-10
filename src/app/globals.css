@@ -36,3 +36,8 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Ensure MUI ListItemText primary text renders in black */
+/* .MuiListItemText-primary {
+  color: #000000 !important;
+} */

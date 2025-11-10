@@ -582,7 +582,7 @@ export default function MajorReviewPage(): JSX.Element {
     : [];
 
   return (
-    <PermissionGuard requiredPermissions={[MAJOR_PERMISSIONS.VIEW, MAJOR_PERMISSIONS.REVIEW]} fallback={
+    <PermissionGuard requiredPermissions={[MAJOR_PERMISSIONS.READ, MAJOR_PERMISSIONS.APPROVE]} fallback={
       <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <Typography variant="h6" color="error">
           Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.

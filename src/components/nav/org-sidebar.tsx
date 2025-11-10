@@ -18,23 +18,21 @@ import {
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
-    People as PeopleIcon,
-    School as SchoolIcon,
-    Work as WorkIcon,
+    Apartment as ApartmentIcon,
+    AccountTree as AccountTreeIcon,
+    Timeline as TimelineIcon,
+    Group as GroupIcon,
+    ListAlt as ListAltIcon,
+    Add as AddIcon,
+    Visibility as VisibilityIcon,
+    Approval as ApprovalIcon,
+    Publish as PublishIcon,
+    Storage as StorageIcon,
+    AssignmentInd as AssignmentIndIcon,
+    Assessment as AssessmentIcon,
+    Settings as SettingsIcon,
     ExpandLess,
     ExpandMore,
-    Group as GroupIcon,
-    Assessment as AssessmentIcon,
-    Person as PersonIcon,
-    Security as SecurityIcon,
-    AdminPanelSettings as AdminPanelSettingsIcon,
-    VpnKey as VpnKeyIcon,
-    Assignment as AssignmentIcon,
-    Business as BusinessIcon,
-    AccountTree as AccountTreeIcon,
-    SupervisorAccount as SupervisorAccountIcon,
-    EventNote as EventNoteIcon,
-    Edit as EditIcon,
 } from '@mui/icons-material';
 
 interface MenuItem {
@@ -51,112 +49,105 @@ const menuItems: MenuItem[] = [
         key: 'dashboard',
         label: 'Dashboard',
         icon: <DashboardIcon />,
-        href: '/hr/dashboard',
-        permission: 'user.read', // Tất cả roles đều có user.read
+        href: '/org/dashboard',
+        permission: 'org_unit.unit.view',
     },
     {
-        key: 'leave-requests',
-        label: 'Đơn xin nghỉ',
-        icon: <EventNoteIcon />,
-        href: '/hr/leave-requests',
-        permission: 'leave_request.read', // Cần quyền đọc đơn xin nghỉ
+        key: 'tree-management',
+        label: 'Cây tổ chức',
+        icon: <ApartmentIcon />,
+        permission: 'org_unit.unit.view',
+        children: [
+            {
+                key: 'tree',
+                label: 'Cây tổ chức',
+                icon: <AccountTreeIcon />,
+                href: '/org/tree',
+                permission: 'org_unit.unit.view',
+            },
+            {
+                key: 'diagram',
+                label: 'Sơ đồ',
+                icon: <TimelineIcon />,
+                href: '/org/diagram',
+                permission: 'org_unit.unit.view',
+            },
+        ],
     },
     {
-        key: 'my-evaluations',
-        label: 'Đánh giá của tôi',
-        icon: <AssessmentIcon />,
-        href: '/hr/my-evaluations',
-        permission: 'performance_review.read', // Giảng viên có thể xem đánh giá của mình
-    },
-    {
-        key: 'hr-management',
-        label: 'Quản lý Nhân sự',
+        key: 'unit-management',
+        label: 'Quản lý đơn vị',
         icon: <GroupIcon />,
-        permission: 'hr.employee.read', // Cần quyền đọc nhân viên
+        permission: 'org_unit.unit.view',
         children: [
             {
-                key: 'employees',
-                label: 'Nhân viên',
-                icon: <PeopleIcon />,
-                href: '/hr/employees',
-                permission: 'hr.employee.read',
+                key: 'units',
+                label: 'Danh sách đơn vị',
+                icon: <ListAltIcon />,
+                href: '/org/unit',
+                permission: 'org_unit.unit.view',
             },
             {
-                key: 'qualifications',
-                label: 'Bằng cấp',
-                icon: <SchoolIcon />,
-                href: '/hr/qualifications',
-                permission: 'hr.employee.read',
+                key: 'unit-draft',
+                label: 'Đề xuất',
+                icon: <AddIcon />,
+                href: '/org/unit/create/draft',
+                permission: 'org_unit.unit.create',
             },
             {
-                key: 'employments',
-                label: 'Hợp đồng',
-                icon: <WorkIcon />,
-                href: '/hr/employments',
-                permission: 'hr.employee.read',
+                key: 'unit-review',
+                label: 'Xem xét/Thẩm định',
+                icon: <VisibilityIcon />,
+                href: '/org/unit/create/review',
+                permission: 'org_unit.unit.view',
             },
             {
-                key: 'performance-reviews',
-                label: 'Đánh giá hiệu suất',
-                icon: <AssessmentIcon />,
-                href: '/hr/performance-reviews',
-                permission: 'performance_review.read',
+                key: 'unit-approve',
+                label: 'Phê duyệt',
+                icon: <ApprovalIcon />,
+                href: '/org/unit/create/approve',
+                permission: 'org_unit.unit.view',
             },
             {
-                key: 'evaluation-periods',
-                label: 'Quản lý kỳ đánh giá',
-                icon: <AssessmentIcon />,
-                href: '/hr/evaluation-periods',
-                permission: 'performance_review.create',
+                key: 'unit-activate',
+                label: 'Kích hoạt',
+                icon: <PublishIcon />,
+                href: '/org/unit/create/activate',
+                permission: 'org_unit.unit.view',
             },
             {
-                key: 'employee-logs',
-                label: 'Lịch sử sửa đổi',
-                icon: <EditIcon />,
-                href: '/hr/employee-logs',
-                permission: 'hr.employee.read',
-            }
+                key: 'unit-audit',
+                label: 'Theo dõi biến đổi',
+                icon: <StorageIcon />,
+                href: '/org/unit/create/audit',
+                permission: 'org_unit.unit.view',
+            },
         ],
     },
     {
-        key: 'rbac',
-        label: 'Phân quyền',
-        icon: <SecurityIcon />,
-        permission: 'role.read', // Admin có quyền đọc role
-        children: [
-            {
-                key: 'roles',
-                label: 'Vai trò',
-                icon: <AdminPanelSettingsIcon />,
-                href: '/hr/roles',
-                permission: 'role.read',
-            },
-            {
-                key: 'permissions',
-                label: 'Quyền hạn',
-                icon: <VpnKeyIcon />,
-                href: '/hr/permissions',
-                permission: 'role.read', // Sử dụng role.read vì permissions liên quan đến roles
-            },
-            {
-                key: 'role-permissions',
-                label: 'Vai trò - Quyền hạn',
-                icon: <AssignmentIcon />,
-                href: '/hr/role-permissions',
-                permission: 'role.read',
-            },
-            {
-                key: 'user-roles',
-                label: 'Người dùng - Vai trò',
-                icon: <PersonIcon />,
-                href: '/hr/user-roles',
-                permission: 'user.read', // Liên quan đến user
-            },
-        ],
+        key: 'assignments',
+        label: 'Phân công nhân sự',
+        icon: <AssignmentIndIcon />,
+        href: '/org/assignments',
+        permission: 'org_unit.assignment.view',
+    },
+    {
+        key: 'reports',
+        label: 'Báo cáo tổ chức',
+        icon: <AssessmentIcon />,
+        href: '/org/reports',
+        permission: 'org_unit.report.view',
+    },
+    {
+        key: 'config',
+        label: 'Cấu hình hệ thống',
+        icon: <SettingsIcon />,
+        href: '/org/config',
+        permission: 'org_unit.type.admin',
     },
 ];
 
-export function NewSidebar() {
+export function OrgSidebar() {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const permissions = session?.user?.permissions || [];
@@ -167,11 +158,9 @@ export function NewSidebar() {
         console.log('👤 User:', session.user.username, session.user.email);
     }
 
-
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-        'hr-management': true,
-        'rbac': false,
-        'org-management': false,
+        'tree-management': true,
+        'unit-management': true,
     });
 
     // Function to check if user has permission
@@ -326,7 +315,7 @@ export function NewSidebar() {
                 {/* Header */}
                 <Box sx={{ padding: 2, textAlign: 'center' }}>
                     <Typography variant="h6" sx={{ color: 'white', fontWeight: 700 }}>
-                        HR System
+                        Org System
                     </Typography>
                 </Box>
                 <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.12)' }} />
@@ -339,3 +328,4 @@ export function NewSidebar() {
         </Drawer>
     );
 }
+

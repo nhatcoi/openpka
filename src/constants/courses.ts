@@ -65,15 +65,18 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
 ];
 
 export const COURSE_PERMISSIONS = {
-    VIEW: 'tms.course.view',
-    CREATE: 'tms.course.create',
-    UPDATE: 'tms.course.update',
-    DELETE: 'tms.course.delete',
-    REVIEW: 'tms.course.review',
+    READ: 'tms.course.read',
+    WRITE: 'tms.course.write',
     APPROVE: 'tms.course.approve',
-    REJECT: 'tms.course.reject',
-    PUBLISH: 'tms.course.publish',
-    MANAGE: 'tms.course.manage'
+    // Legacy permissions (for backward compatibility)
+    VIEW: 'tms.course.read', // Alias for READ
+    CREATE: 'tms.course.write', // Alias for WRITE
+    UPDATE: 'tms.course.write', // Alias for WRITE
+    DELETE: 'tms.course.write', // Alias for WRITE
+    REVIEW: 'tms.course.approve', // Alias for APPROVE
+    REJECT: 'tms.course.approve', // Alias for APPROVE
+    PUBLISH: 'tms.course.approve', // Alias for APPROVE
+    MANAGE: 'tms.course.write', // Alias for WRITE (use write + approve for full manage)
 } as const;
 
 export function normalizeCoursePriority(priority?: string | null): CoursePriority {

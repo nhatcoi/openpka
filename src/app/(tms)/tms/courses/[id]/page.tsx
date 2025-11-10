@@ -1931,7 +1931,7 @@ export default function CourseDetailPage() {
               <CardContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {/* Phòng Đào Tạo - Quyền quản lý workflow */}
-                  <PermissionGuard requiredPermissions={['tms.course.manage']}>
+                  <PermissionGuard requiredPermissions={['tms.course.approve']}>
                     {/* <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
                       Phòng Đào Tạo
                     </Typography> */}
@@ -1989,7 +1989,7 @@ export default function CourseDetailPage() {
                   </PermissionGuard>
 
                   {/* Hội đồng Khoa học - Quyền phê duyệt cuối cùng */}
-                  <PermissionGuard requiredPermissions={['tms.course.final_approve']}>
+                  <PermissionGuard requiredPermissions={['tms.course.approve']}>
                     <Typography variant="subtitle2" color="secondary" sx={{ mb: 1, mt: 2 }}>
                       Hội đồng Khoa học
                     </Typography>

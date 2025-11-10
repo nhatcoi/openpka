@@ -615,7 +615,7 @@ export default function ProgramReviewPage(): JSX.Element {
     : [];
 
   return (
-    <PermissionGuard requiredPermissions={[PROGRAM_PERMISSIONS.REVIEW, PROGRAM_PERMISSIONS.APPROVE, PROGRAM_PERMISSIONS.PUBLISH]} fallback={
+    <PermissionGuard requiredPermissions={[PROGRAM_PERMISSIONS.APPROVE]} fallback={
       <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <Typography variant="h6" color="error">
           Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.
