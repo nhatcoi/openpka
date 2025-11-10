@@ -25,7 +25,6 @@ import {
     ExpandMore,
     Group as GroupIcon,
     Assessment as AssessmentIcon,
-    History as HistoryIcon,
     Person as PersonIcon,
     Security as SecurityIcon,
     AdminPanelSettings as AdminPanelSettingsIcon,
@@ -36,12 +35,6 @@ import {
     SupervisorAccount as SupervisorAccountIcon,
     EventNote as EventNoteIcon,
     Edit as EditIcon,
-    MenuBook as MenuBookIcon,
-    Class as ClassIcon,
-    BookmarkBorder as BookmarkBorderIcon,
-    ViewList as ViewListIcon,
-    PlaylistAddCheck as PlaylistAddCheckIcon,
-    AssignmentTurnedIn as AssignmentTurnedInIcon,
 } from '@mui/icons-material';
 
 interface MenuItem {
@@ -79,28 +72,28 @@ const menuItems: MenuItem[] = [
         key: 'hr-management',
         label: 'Quản lý Nhân sự',
         icon: <GroupIcon />,
-        permission: 'employee.read', // Cần quyền đọc nhân viên
+        permission: 'hr.employee.read', // Cần quyền đọc nhân viên
         children: [
             {
                 key: 'employees',
                 label: 'Nhân viên',
                 icon: <PeopleIcon />,
                 href: '/hr/employees',
-                permission: 'employee.read',
+                permission: 'hr.employee.read',
             },
             {
                 key: 'qualifications',
                 label: 'Bằng cấp',
                 icon: <SchoolIcon />,
                 href: '/hr/qualifications',
-                permission: 'employee.read',
+                permission: 'hr.employee.read',
             },
             {
                 key: 'employments',
                 label: 'Hợp đồng',
                 icon: <WorkIcon />,
                 href: '/hr/employments',
-                permission: 'employee.read',
+                permission: 'hr.employee.read',
             },
             {
                 key: 'performance-reviews',
@@ -121,7 +114,7 @@ const menuItems: MenuItem[] = [
                 label: 'Lịch sử sửa đổi',
                 icon: <EditIcon />,
                 href: '/hr/employee-logs',
-                permission: 'employee.read',
+                permission: 'hr.employee.read',
             }
         ],
     },
@@ -161,49 +154,6 @@ const menuItems: MenuItem[] = [
             },
         ],
     },
-    {
-        key: 'tms',
-        label: 'Quản lý Chương trình Đào tạo',
-        icon: <MenuBookIcon />,
-        permission: 'program.read',
-        children: [
-            {
-                key: 'programs',
-                label: 'Chương trình',
-                icon: <ClassIcon />,
-                href: '/tms/programs',
-                permission: 'program.read',
-            },
-            {
-                key: 'program-blocks',
-                label: 'Khối học phần',
-                icon: <BookmarkBorderIcon />,
-                href: '/tms/programs/program-blocks',
-                permission: 'program.read',
-            },
-            {
-                key: 'courses',
-                label: 'Học phần',
-                icon: <ViewListIcon />,
-                href: '/tms/courses',
-                permission: 'course.read',
-            },
-            {
-                key: 'majors',
-                label: 'Ngành đào tạo',
-                icon: <PlaylistAddCheckIcon />,
-                href: '/tms/majors',
-                permission: 'major.read',
-            },
-            {
-                key: 'framework',
-                label: 'Khung chương trình',
-                icon: <AssignmentTurnedInIcon />,
-                href: '/tms/programs/framework',
-                permission: 'program.read',
-            },
-        ],
-    }
 ];
 
 export function NewSidebar() {
@@ -222,7 +172,6 @@ export function NewSidebar() {
         'hr-management': true,
         'rbac': false,
         'org-management': false,
-        'tms': true,
     });
 
     // Function to check if user has permission

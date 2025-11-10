@@ -54,7 +54,7 @@ export default function HrLayout({
 
     const handleEditProfile = () => {
         handleUserMenuClose();
-        router.push(HR_ROUTES.PROFILE);
+        router.push('/me');
     };
 
     const handleLogout = () => {

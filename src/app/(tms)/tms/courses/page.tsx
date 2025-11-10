@@ -40,7 +40,9 @@ import {
   Stack,
   Pagination,
   CircularProgress,
-  Snackbar
+  Snackbar,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -322,7 +324,18 @@ export default function CoursesPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/tms"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          TMS
+        </Link>
+        <Typography color="text.primary">Học phần</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           <AssignmentIcon sx={{ mr: 2, verticalAlign: 'middle' }} />

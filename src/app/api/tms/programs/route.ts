@@ -70,14 +70,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
             name: true,
           },
         },
-        Major: {
-          select: {
-            id: true,
-            code: true,
-            name_vi: true,
-            name_en: true,
-          },
-        },
         ProgramCourseMap: {
           select: {
             id: true,
@@ -117,14 +109,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
           name: (program as any).OrgUnit.name,
         }
       : null,
-    major: (program as any).Major
-      ? {
-          id: (program as any).Major.id.toString(),
-          code: (program as any).Major.code,
-          name_vi: (program as any).Major.name_vi,
-          name_en: (program as any).Major.name_en,
-        }
-      : null,
+    major: program.major_id ? { id: program.major_id.toString() } : null,
     stats: {
       student_count: (program as any)._count?.StudentAcademicProgress || 0,
       block_count: (program as any).ProgramCourseMap?.length || 0,
@@ -156,7 +141,7 @@ export const POST = withBody(async (body: unknown) => {
   const userId = BigInt(1);
 
   const orgUnitId = data.org_unit_id ? BigInt(Number(data.org_unit_id)) : null;
-  const majorId = data.major_id ? BigInt(Number(data.major_id)) : null;
+  let majorId = data.major_id ? BigInt(Number(data.major_id)) : null;
 
   if (data.org_unit_id != null && data.org_unit_id !== '') {
     if (orgUnitId) {
@@ -170,62 +155,42 @@ export const POST = withBody(async (body: unknown) => {
     }
   }
 
-  // Uniqueness pre-check for (major_id, version)
+  if (data.major_id != null && data.major_id !== '') {
+    if (majorId) {
+      try {
+        const exists = await db.major.findUnique({
+          where: { id: majorId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new Error('Không tìm thấy chuyên ngành (major_id)');
+        }
+      } catch (error: any) {
+        if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+          majorId = null;
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
+
   const version = data.version || String(now.getFullYear());
-  // Uniqueness pre-check for code
+  
+  // Check code uniqueness
   if (data.code) {
     const codeDup = await db.program.findUnique({ where: { code: data.code } });
     if (codeDup) {
       throw new Error('Mã chương trình đã tồn tại');
     }
   }
-  if (majorId) {
-    const dup = await db.program.findFirst({
-      where: { major_id: majorId, version },
-      select: { id: true },
-    });
-    if (dup) {
-      throw new Error('Đã tồn tại chương trình cùng ngành (major) và phiên bản (version)');
-    }
-  }
-  const result = await db.$transaction(async (tx) => {
-    // Normalize PLO: accept array or object; save as object { items: [...] }
-    const incomingPlo = (data as any).plo;
-    // Accept three shapes:
-    // 1) plain object map { PLO1: ".." }
-    // 2) array -> convert to object map PLO1..n
-    // 3) { items: [...] } -> flatten to object map
-    const toObjectMap = (val: unknown): Record<string, string> | undefined => {
-      if (!val) return undefined;
-      if (Array.isArray(val)) {
-        const map: Record<string, string> = {};
-        val.forEach((item, idx) => {
-          let label = '';
-          if (item && typeof item === 'object') {
-            const r = item as any;
-            label = (r.label ?? r.description_vi ?? r.description ?? '').toString().trim();
-          } else if (typeof item === 'string') {
-            label = item.trim();
-          }
-          if (label) map[`PLO${idx + 1}`] = label;
-        });
-        return Object.keys(map).length ? map : undefined;
-      }
-      if (typeof val === 'object') {
-        const anyVal = val as any;
-        if (Array.isArray(anyVal.items)) return toObjectMap(anyVal.items);
-        const entries = Object.entries(val as Record<string, unknown>)
-          .reduce((acc, [k, v]) => {
-            const label = (v ?? '').toString().trim();
-            if (label) acc[k] = label;
-            return acc;
-          }, {} as Record<string, string>);
-        return Object.keys(entries).length ? entries : undefined;
-      }
-      return undefined;
-    };
-    const normalizedPlo = toObjectMap(incomingPlo);
-    const program = await tx.program.create({
+  // Simple PLO normalization
+  const plo = (data as any).plo;
+  const normalizedPlo = plo ? (typeof plo === 'object' ? plo : { PLO1: plo }) : undefined;
+  
+  let program;
+  try {
+    program = await db.program.create({
       data: {
         code: data.code,
         name_vi: data.name_vi,
@@ -254,36 +219,69 @@ export const POST = withBody(async (body: unknown) => {
         },
       },
     });
-
-    let blockCount = 0;
-    let courseCount = 0;
-
-    // Assign provided templates (legacy path)
-    if (Array.isArray((data as any).block_templates) && (data as any).block_templates.length > 0) {
-      for (let index = 0; index < (data as any).block_templates.length; index += 1) {
-        const templateInput = (data as any).block_templates[index];
-        const numericTemplateId = Number(templateInput.template_id);
-        if (Number.isNaN(numericTemplateId)) continue;
-
-        await (tx as any).programCourseMap.create({
-          data: {
-            program_id: program.id,
-            block_id: BigInt(numericTemplateId),
-            display_order: templateInput.display_order ? Math.max(1, templateInput.display_order) : index + 1,
-            is_required: templateInput.is_required ?? true,
-            custom_title: templateInput.custom_title?.trim(),
-            custom_description: templateInput.custom_description?.trim(),
+  } catch (error: any) {
+    if (error.code === 'P2021' || error.message?.includes('majors') || error.message?.includes('does not exist')) {
+      program = await db.program.create({
+        data: {
+          code: data.code,
+          name_vi: data.name_vi,
+          name_en: data.name_en || null,
+          description: data.description || null,
+          version,
+          total_credits: data.total_credits ?? 120,
+          status: data.status || ProgramStatus.DRAFT,
+          org_unit_id: orgUnitId,
+          major_id: null,
+          plo: normalizedPlo,
+          effective_from: data.effective_from ? new Date(data.effective_from) : null,
+          effective_to: data.effective_to ? new Date(data.effective_to) : null,
+          created_at: now,
+          updated_at: now,
+          created_by: userId,
+          updated_by: userId,
+        },
+        include: {
+          OrgUnit: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
           },
-        });
-        blockCount += 1;
-      }
+        },
+      });
+    } else if (error.message?.includes('Unique constraint failed')) {
+      throw new Error('Đã có chương trình đã tồn tại trong Khoa và ngành này, vui lòng kiểm tra và chọn khác');
+    } else {
+      throw error;
     }
+  }
 
-    // Note: standalone_courses are now handled through template assignments
-    // If you need standalone courses, create a special template for them
+  let blockCount = 0;
+  let courseCount = 0;
 
-    return { program, blockCount, courseCount };
-  });
+  if (Array.isArray((data as any).block_templates) && (data as any).block_templates.length > 0) {
+    for (let index = 0; index < (data as any).block_templates.length; index += 1) {
+      const templateInput = (data as any).block_templates[index];
+      const numericTemplateId = Number(templateInput.template_id);
+      if (Number.isNaN(numericTemplateId)) continue;
+
+      await db.programCourseMap.create({
+        data: {
+          program_id: program.id,
+          block_id: BigInt(numericTemplateId),
+          display_order: templateInput.display_order ? Math.max(1, templateInput.display_order) : index + 1,
+          is_required: templateInput.is_required ?? true,
+          custom_title: templateInput.custom_title?.trim(),
+          custom_description: templateInput.custom_description?.trim(),
+        },
+      });
+      blockCount += 1;
+    }
+  }
+
+  const result = { program, blockCount, courseCount };
+
 
   // Sao chép cấu trúc từ chương trình khác nếu được chỉ định
   let copiedCount = 0;
@@ -344,7 +342,7 @@ export const POST = withBody(async (body: unknown) => {
     effective_to: result.program.effective_to,
     priority: normalizeProgramPriority(data.priority || ProgramPriority.MEDIUM),
     org_unit_id: orgUnitId ?? null,
-    major_id: majorId ?? null,
+    major_id: majorId,
     orgUnit: (result.program as any).OrgUnit
       ? {
           id: (result.program as any).OrgUnit.id,
@@ -352,7 +350,7 @@ export const POST = withBody(async (body: unknown) => {
           name: (result.program as any).OrgUnit.name,
         }
       : null,
-    major: null,
+    major: majorId ? { id: majorId.toString() } : null,
     stats: {
       student_count: 0,
       block_count: result.blockCount,

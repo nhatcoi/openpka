@@ -95,18 +95,21 @@ export const PROGRAM_WORKFLOW_STAGES: ProgramWorkflowStage[] = [
 ];
 
 export const PROGRAM_PERMISSIONS = {
-  VIEW: 'tms.program.view',
-  CREATE: 'tms.program.create',
-  UPDATE: 'tms.program.update',
-  DELETE: 'tms.program.delete',
-  SUBMIT: 'tms.program.submit',
-  REVIEW: 'tms.program.review',
+  READ: 'tms.program.read',
+  WRITE: 'tms.program.write',
   APPROVE: 'tms.program.approve',
-  REJECT: 'tms.program.reject',
-  PUBLISH: 'tms.program.publish',
-  REQUEST_EDIT: 'tms.program.request_edit',
-  SCIENCE_COUNCIL_PUBLISH: 'tms.program.science_council_publish',
-  MANAGE: 'tms.program.manage',
+  // Legacy permissions (for backward compatibility)
+  VIEW: 'tms.program.read', // Alias for READ
+  CREATE: 'tms.program.write', // Alias for WRITE
+  UPDATE: 'tms.program.write', // Alias for WRITE
+  DELETE: 'tms.program.write', // Alias for WRITE
+  SUBMIT: 'tms.program.write', // Alias for WRITE
+  REVIEW: 'tms.program.approve', // Alias for APPROVE
+  REJECT: 'tms.program.approve', // Alias for APPROVE
+  PUBLISH: 'tms.program.approve', // Alias for APPROVE
+  REQUEST_EDIT: 'tms.program.write', // Alias for WRITE
+  SCIENCE_COUNCIL_PUBLISH: 'tms.program.approve', // Alias for APPROVE
+  MANAGE: 'tms.program.write', // Alias for WRITE (use write + approve for full manage)
 } as const;
 
 export const PROGRAM_BLOCK_TYPES: ProgramBlockType[] = [

@@ -37,6 +37,8 @@ import {
   Table,
   TableBody,
   TableCell,
+  Breadcrumbs,
+  Link,
   TableContainer,
   TableHead,
   TableRow,
@@ -168,7 +170,25 @@ export default function SubjectCategoriesPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
+      <Breadcrumbs sx={{ mb: 2 }}>
+        <Link
+          color="inherit"
+          href="/tms"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          TMS
+        </Link>
+        <Link
+          color="inherit"
+          href="/tms/courses"
+          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+        >
+          Học phần
+        </Link>
+        <Typography color="text.primary">Phân loại</Typography>
+      </Breadcrumbs>
+
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           <CategoryIcon sx={{ mr: 2, verticalAlign: 'middle' }} />

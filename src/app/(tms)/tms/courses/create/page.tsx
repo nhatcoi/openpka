@@ -38,7 +38,9 @@ import {
   AccordionSummary,
   AccordionDetails,
   Alert,
-  InputAdornment
+  InputAdornment,
+  Breadcrumbs,
+  Link
 } from '@mui/material';
 import {
   School as SchoolIcon,
@@ -1122,8 +1124,26 @@ export default function CreateCoursePage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
       <Box sx={{ mb: 4 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Link
+            color="inherit"
+            href="/tms/courses"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            Học phần
+          </Link>
+          <Typography color="text.primary">Tạo mới</Typography>
+        </Breadcrumbs>
+        
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => router.back()}

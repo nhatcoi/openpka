@@ -36,6 +36,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -218,6 +220,17 @@ export default function ProgramsPage(): JSX.Element {
   return (
     <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
       <Container maxWidth={false} sx={{ px: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Typography color="text.primary">Chương trình đào tạo</Typography>
+        </Breadcrumbs>
+
         <Paper
           elevation={0}
           sx={{

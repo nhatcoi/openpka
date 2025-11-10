@@ -3,7 +3,7 @@ import { db as prisma } from '@/lib/db';
 import { z } from 'zod';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse, validateSchema } from '@/lib/api/api-handler';
 
-// Simplified schema without removed JSON fields
+// Updated schema to match database structure
 const createMajorSchema = z.object({
   code: z.string().min(1).max(32),
   name_vi: z.string().min(1).max(255),
@@ -11,25 +11,50 @@ const createMajorSchema = z.object({
   short_name: z.string().max(100).optional(),
   slug: z.string().max(255).optional(),
   national_code: z.string().max(32).optional(),
-  is_moet_standard: z.boolean().optional(),
+  is_moet_standard: z.boolean().optional().default(false),
   degree_level: z.string().min(1).max(32),
   field_cluster: z.string().max(64).optional(),
-  specialization_model: z.string().max(32).optional(),
+  specialization_model: z.string().max(32).optional().default('none'),
   org_unit_id: z.number(),
-  parent_major_id: z.number().optional(),
-  duration_years: z.number().min(0.1).max(10).optional(),
+  duration_years: z.number().min(0.1).max(10).optional().default(4.0),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
-  semesters_per_year: z.number().min(1).max(4).optional(),
-  start_terms: z.string().max(64).optional(),
+  semesters_per_year: z.number().min(1).max(4).optional().default(2),
+  start_terms: z.string().max(64).optional().default('Fall'),
   default_quota: z.number().min(0).optional(),
   tuition_group: z.string().max(64).optional(),
-  status: z.enum(['draft', 'proposed', 'active', 'suspended', 'closed']).optional(),
+  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional().default('DRAFT'),
   established_at: z.string().optional(),
   closed_at: z.string().optional(),
   description: z.string().optional(),
   notes: z.string().optional(),
 });
+
+const MAJOR_SELECT = {
+  id: true,
+  code: true,
+  name_vi: true,
+  name_en: true,
+  short_name: true,
+  slug: true,
+  is_moet_standard: true,
+  degree_level: true,
+  field_cluster: true,
+  org_unit_id: true,
+  duration_years: true,
+  total_credits_min: true,
+  total_credits_max: true,
+  semesters_per_year: true,
+  start_terms: true,
+  status: true,
+  established_at: true,
+  closed_at: true,
+  description: true,
+  created_by: true,
+  updated_by: true,
+  created_at: true,
+  updated_at: true,
+} as const;
 
 // GET /api/tms/majors
 export const GET = withErrorHandling(async (request: NextRequest) => {
@@ -62,95 +87,10 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   if (degree_level) where.degree_level = degree_level;
   if (org_unit_id) where.org_unit_id = parseInt(org_unit_id);
 
-  // Get majors with full related data
   const [majors, total] = await Promise.all([
     prisma.major.findMany({
       where,
-      include: {
-        OrgUnit: { 
-          select: { 
-            id: true, 
-            name: true, 
-            code: true, 
-            type: true,
-            parent_id: true 
-          } 
-        },
-        Major: { 
-          select: { 
-            id: true, 
-            code: true, 
-            name_vi: true, 
-            name_en: true,
-            degree_level: true 
-          } 
-        },
-        other_majors: { 
-          select: { 
-            id: true, 
-            code: true, 
-            name_vi: true, 
-            name_en: true,
-            degree_level: true 
-          } 
-        },
-        Program: {
-          select: {
-            id: true,
-            code: true,
-            name_vi: true,
-            name_en: true,
-            version: true,
-            status: true,
-            total_credits: true,
-            effective_from: true,
-            effective_to: true
-          },
-          orderBy: { id: 'desc' },
-          take: 3
-        },
-        MajorOutcome: {
-          select: {
-            id: true,
-            code: true,
-            content: true,
-            version: true,
-            is_active: true
-          },
-          orderBy: { id: 'desc' },
-          take: 5
-        },
-        MajorQuotaYear: {
-          select: {
-            id: true,
-            year: true,
-            quota: true,
-            note: true
-          },
-          orderBy: { year: 'desc' },
-          take: 3
-        },
-        MajorTuition: {
-          select: {
-            id: true,
-            year: true,
-            tuition_group: true,
-            amount_vnd: true,
-            note: true
-          },
-          orderBy: { year: 'desc' },
-          take: 3
-        },
-        _count: { 
-          select: { 
-            Program: true, 
-            MajorOutcome: true, 
-            MajorQuotaYear: true, 
-            MajorTuition: true,
-            other_majors: true
-          } 
-        },
-      },
+      select: MAJOR_SELECT,
       orderBy: { id: 'desc' },
       skip,
       take: limit,
@@ -189,11 +129,11 @@ export const POST = withBody(async (body: unknown) => {
   const major = await prisma.major.create({
     data: {
       ...validatedData,
-      status: validatedData.status || 'draft',
+      status: validatedData.status || 'DRAFT',
+      established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
+      closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
     },
-    include: {
-      OrgUnit: { select: { id: true, name: true, code: true } }
-    }
+    select: MAJOR_SELECT,
   });
 
   return { data: major, message: 'Major created successfully' };

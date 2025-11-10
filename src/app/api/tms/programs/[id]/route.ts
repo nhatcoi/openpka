@@ -114,28 +114,22 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
     data.major_id = majorId;
   }
 
-  // Comment out direct status update - let workflow engine handle it
-  // const resolveStatusFromAction = (action?: ProgramWorkflowAction | null): ProgramStatus | undefined => {
-  //   switch (action) {
-  //     case 'submit':
-  //       return ProgramStatus.SUBMITTED;
-  //     case 'review':
-  //       return ProgramStatus.REVIEWING;
-  //     case 'approve':
-  //       return ProgramStatus.APPROVED;
-  //     case 'publish':
-  //       return ProgramStatus.PUBLISHED;
-  //     case 'reject':
-  //       return ProgramStatus.REJECTED;
-  //     default:
-  //       return undefined;
-  //   }
-  // };
+  // Directly derive program status from workflow action (immediate status update)
+  const resolveStatusFromAction = (action?: string | null): ProgramStatus | undefined => {
+    const a = (action || '').toLowerCase();
+    if (a === 'submit' || a === 'review') return ProgramStatus.REVIEWING;
+    if (a === 'approve') return ProgramStatus.APPROVED;
+    if (a === 'reject') return ProgramStatus.REJECTED;
+    if (a === 'publish' || a === 'science_council_publish') return ProgramStatus.PUBLISHED;
+    if (a === 'request_edit') return ProgramStatus.DRAFT;
+    return undefined;
+  };
 
-  // const workflowDerivedStatus = resolveStatusFromAction(payload.workflow_action);
-  // if (workflowDerivedStatus) {
-  //   data.status = workflowDerivedStatus;
-  // }
+  const actionStr = String(payload.workflow_action || '');
+  const workflowDerivedStatus = resolveStatusFromAction(actionStr);
+  if (workflowDerivedStatus) {
+    data.status = workflowDerivedStatus;
+  }
 
   const result = await db.$transaction(async (tx) => {
     const programBigInt = BigInt(programId);
@@ -183,18 +177,56 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
     let workflowSnapshot = null;
     const workflowAction = payload.workflow_action;
 
+    // If status was directly provided, persist an approval history entry
+    const directStatus = (payload as any).status as ProgramStatus | undefined;
+    if (directStatus) {
+      // Ensure workflow instance exists
+      let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
+      if (!workflowInstance) {
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'PROGRAM',
+          entityId: programBigInt,
+          initiatedBy: actorId,
+          metadata: { program_id: programId },
+        }) as any;
+      }
+
+      const mapStatusToAction = (s: ProgramStatus): string => {
+        switch (s) {
+          case ProgramStatus.REVIEWING:
+            return 'REVIEW';
+          case ProgramStatus.APPROVED:
+            return 'APPROVE';
+          case ProgramStatus.REJECTED:
+            return 'REJECT';
+          case ProgramStatus.PUBLISHED:
+            return 'PUBLISH';
+          case ProgramStatus.DRAFT:
+          default:
+            return 'RETURN';
+        }
+      };
+
+      await tx.approvalRecord.create({
+        data: {
+          workflow_instance_id: BigInt((workflowInstance as any).id),
+          approver_id: actorId,
+          action: mapStatusToAction(directStatus),
+          comments: (payload as any).workflow_notes || null,
+          approved_at: new Date(),
+        },
+      });
+    }
+
     if (workflowAction) {
       // Handle publish action separately for already approved programs
-      if (workflowAction === 'publish') {
+      if (actionStr === 'publish') {
         const currentProgram = await tx.program.findUnique({
           where: { id: programBigInt },
           select: { status: true }
         });
         
-        if (currentProgram?.status === ProgramStatus.APPROVED) {
-          // Direct publish for already approved programs
-          statusOverride = ProgramStatus.PUBLISHED;
-        } else {
+        if (!workflowDerivedStatus && currentProgram?.status !== ProgramStatus.APPROVED) {
           // Use workflow for other cases
           let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
 
@@ -217,14 +249,10 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
               approverId: actorId,
             });
 
-            if (updatedInstance.status === 'COMPLETED') {
-              statusOverride = ProgramStatus.PUBLISHED;
-            }
+            // Do not override status if direct mapping already applied
           } catch (error) {
             // If workflow is already completed, just set to published
-            if (error instanceof Error && error.message.includes('already completed')) {
-              statusOverride = ProgramStatus.PUBLISHED;
-            } else {
+            if (!(error instanceof Error && error.message.includes('already completed'))) {
               throw error;
             }
           }
@@ -250,14 +278,14 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
           approve: 'APPROVE',
           reject: 'REJECT',
         };
-
-        const engineAction = engineActionMap[workflowAction];
+        let engineAction: 'APPROVE' | 'REJECT' | 'RETURN' | undefined = engineActionMap[workflowAction];
+        if (!engineAction && actionStr === 'request_edit') engineAction = 'RETURN';
 
         if (engineAction) {
           // Check if workflow instance is already completed
           if (workflowInstance && (workflowInstance.status === 'COMPLETED' || workflowInstance.status === 'REJECTED')) {
             // If workflow is completed (REJECTED), we need to create a new workflow instance for re-approval
-            if (workflowAction === 'approve' || workflowAction === 'review') {
+            if (actionStr === 'approve' || actionStr === 'review') {
               // Create a new workflow instance for re-approval
               workflowInstance = await academicWorkflowEngine.createWorkflow({
                 entityType: 'PROGRAM',
@@ -280,35 +308,32 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
             approverId: actorId,
           });
 
-          switch (updatedInstance.status) {
-            case 'PENDING':
-              statusOverride = ProgramStatus.DRAFT;
-              break;
-            case 'IN_PROGRESS':
-              // When workflow is in progress, it means it moved to next step after approval
-              // Set to APPROVED if this is an approve action
-              if (workflowAction === 'approve') {
-                statusOverride = ProgramStatus.APPROVED;
-              } else {
+          // Keep engine state for history; do not override status if direct mapping exists
+          if (!workflowDerivedStatus) {
+            switch (updatedInstance.status) {
+              case 'PENDING':
                 statusOverride = ProgramStatus.REVIEWING;
-              }
-              break;
-            case 'APPROVED':
-              statusOverride = ProgramStatus.APPROVED;
-              break;
-            case 'REJECTED':
-              statusOverride = ProgramStatus.REJECTED;
-              break;
-            case 'COMPLETED':
-              statusOverride = ProgramStatus.PUBLISHED;
-              break;
-            default:
-              break;
+                break;
+              case 'IN_PROGRESS':
+                statusOverride = ProgramStatus.REVIEWING;
+                break;
+              case 'APPROVED':
+                statusOverride = ProgramStatus.APPROVED;
+                break;
+              case 'REJECTED':
+                statusOverride = ProgramStatus.REJECTED;
+                break;
+              case 'COMPLETED':
+                statusOverride = ProgramStatus.PUBLISHED;
+                break;
+              default:
+                break;
+            }
           }
         }
       }
 
-      if (statusOverride) {
+      if (!workflowDerivedStatus && statusOverride) {
         await tx.program.update({
           where: { id: programBigInt },
           data: { status: statusOverride },
