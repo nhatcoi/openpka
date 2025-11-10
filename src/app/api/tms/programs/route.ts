@@ -70,14 +70,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
             name: true,
           },
         },
-        Major: {
-          select: {
-            id: true,
-            code: true,
-            name_vi: true,
-            name_en: true,
-          },
-        },
         ProgramCourseMap: {
           select: {
             id: true,
@@ -117,14 +109,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
           name: (program as any).OrgUnit.name,
         }
       : null,
-    major: (program as any).Major
-      ? {
-          id: (program as any).Major.id.toString(),
-          code: (program as any).Major.code,
-          name_vi: (program as any).Major.name_vi,
-          name_en: (program as any).Major.name_en,
-        }
-      : null,
+    major: program.major_id ? { id: program.major_id.toString() } : null,
     stats: {
       student_count: (program as any)._count?.StudentAcademicProgress || 0,
       block_count: (program as any).ProgramCourseMap?.length || 0,
@@ -156,7 +141,7 @@ export const POST = withBody(async (body: unknown) => {
   const userId = BigInt(1);
 
   const orgUnitId = data.org_unit_id ? BigInt(Number(data.org_unit_id)) : null;
-  const majorId = data.major_id ? BigInt(Number(data.major_id)) : null;
+  let majorId = data.major_id ? BigInt(Number(data.major_id)) : null;
 
   if (data.org_unit_id != null && data.org_unit_id !== '') {
     if (orgUnitId) {
@@ -172,12 +157,20 @@ export const POST = withBody(async (body: unknown) => {
 
   if (data.major_id != null && data.major_id !== '') {
     if (majorId) {
-      const exists = await db.major.findUnique({
-        where: { id: majorId },
-        select: { id: true },
-      });
-      if (!exists) {
-        throw new Error('Không tìm thấy chuyên ngành (major_id)');
+      try {
+        const exists = await db.major.findUnique({
+          where: { id: majorId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new Error('Không tìm thấy chuyên ngành (major_id)');
+        }
+      } catch (error: any) {
+        if (error.code === 'P2021' || error.message?.includes('does not exist')) {
+          majorId = null;
+        } else {
+          throw error;
+        }
       }
     }
   }
@@ -195,50 +188,78 @@ export const POST = withBody(async (body: unknown) => {
   const plo = (data as any).plo;
   const normalizedPlo = plo ? (typeof plo === 'object' ? plo : { PLO1: plo }) : undefined;
   
-   // Create program without transaction first to test
-   try {
-     const program = await db.program.create({
-    data: {
-      code: data.code,
-      name_vi: data.name_vi,
-      name_en: data.name_en || null,
-      description: data.description || null,
-      version,
-      total_credits: data.total_credits ?? 120,
-      status: data.status || ProgramStatus.DRAFT,
-      org_unit_id: orgUnitId,
-      major_id: majorId, // Use the provided major_id
-      plo: normalizedPlo,
-      effective_from: data.effective_from ? new Date(data.effective_from) : null,
-      effective_to: data.effective_to ? new Date(data.effective_to) : null,
-      created_at: now,
-      updated_at: now,
-      created_by: userId,
-      updated_by: userId,
-    },
-    include: {
-      OrgUnit: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
+  let program;
+  try {
+    program = await db.program.create({
+      data: {
+        code: data.code,
+        name_vi: data.name_vi,
+        name_en: data.name_en || null,
+        description: data.description || null,
+        version,
+        total_credits: data.total_credits ?? 120,
+        status: data.status || ProgramStatus.DRAFT,
+        org_unit_id: orgUnitId,
+        major_id: majorId,
+        plo: normalizedPlo,
+        effective_from: data.effective_from ? new Date(data.effective_from) : null,
+        effective_to: data.effective_to ? new Date(data.effective_to) : null,
+        created_at: now,
+        updated_at: now,
+        created_by: userId,
+        updated_by: userId,
+      },
+      include: {
+        OrgUnit: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
         },
       },
-      Major: {
-        select: {
-          id: true,
-          code: true,
-          name_vi: true,
-          name_en: true,
+    });
+  } catch (error: any) {
+    if (error.code === 'P2021' || error.message?.includes('majors') || error.message?.includes('does not exist')) {
+      program = await db.program.create({
+        data: {
+          code: data.code,
+          name_vi: data.name_vi,
+          name_en: data.name_en || null,
+          description: data.description || null,
+          version,
+          total_credits: data.total_credits ?? 120,
+          status: data.status || ProgramStatus.DRAFT,
+          org_unit_id: orgUnitId,
+          major_id: null,
+          plo: normalizedPlo,
+          effective_from: data.effective_from ? new Date(data.effective_from) : null,
+          effective_to: data.effective_to ? new Date(data.effective_to) : null,
+          created_at: now,
+          updated_at: now,
+          created_by: userId,
+          updated_by: userId,
         },
-      },
-    },
-  });
+        include: {
+          OrgUnit: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      });
+    } else if (error.message?.includes('Unique constraint failed')) {
+      throw new Error('Đã có chương trình đã tồn tại trong Khoa và ngành này, vui lòng kiểm tra và chọn khác');
+    } else {
+      throw error;
+    }
+  }
 
   let blockCount = 0;
   let courseCount = 0;
 
-  // Assign provided templates (legacy path)
   if (Array.isArray((data as any).block_templates) && (data as any).block_templates.length > 0) {
     for (let index = 0; index < (data as any).block_templates.length; index += 1) {
       const templateInput = (data as any).block_templates[index];
@@ -259,16 +280,7 @@ export const POST = withBody(async (body: unknown) => {
     }
   }
 
-  // Note: standalone_courses are now handled through template assignments
-  // If you need standalone courses, create a special template for them
-
-     const result = { program, blockCount, courseCount };
-   } catch (error) {
-     if (error instanceof Error && error.message.includes('Unique constraint failed')) {
-       throw new Error('Đã có chương trình đã tồn tại trong Khoa và ngành này, vui lòng kiểm tra và chọn khác');
-     }
-     throw error;
-   }
+  const result = { program, blockCount, courseCount };
 
 
   // Sao chép cấu trúc từ chương trình khác nếu được chỉ định
@@ -338,7 +350,7 @@ export const POST = withBody(async (body: unknown) => {
           name: (result.program as any).OrgUnit.name,
         }
       : null,
-    major: (result.program as any).Major,
+    major: majorId ? { id: majorId.toString() } : null,
     stats: {
       student_count: 0,
       block_count: result.blockCount,

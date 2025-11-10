@@ -62,7 +62,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   if (degree_level) where.degree_level = degree_level;
   if (org_unit_id) where.org_unit_id = parseInt(org_unit_id);
 
-  // Get majors with full related data
   const [majors, total] = await Promise.all([
     prisma.major.findMany({
       where,
@@ -109,44 +108,9 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
           orderBy: { id: 'desc' },
           take: 3
         },
-        MajorOutcome: {
-          select: {
-            id: true,
-            code: true,
-            content: true,
-            version: true,
-            is_active: true
-          },
-          orderBy: { id: 'desc' },
-          take: 5
-        },
-        MajorQuotaYear: {
-          select: {
-            id: true,
-            year: true,
-            quota: true,
-            note: true
-          },
-          orderBy: { year: 'desc' },
-          take: 3
-        },
-        MajorTuition: {
-          select: {
-            id: true,
-            year: true,
-            tuition_group: true,
-            amount_vnd: true,
-            note: true
-          },
-          orderBy: { year: 'desc' },
-          take: 3
-        },
         _count: { 
           select: { 
-            Program: true, 
-            MajorOutcome: true, 
-            MajorQuotaYear: true, 
-            MajorTuition: true,
+            Program: true,
             other_majors: true
           } 
         },
