@@ -34,18 +34,18 @@ const ProgramStructurePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [blockMap, setBlockMap] = useState<Map<string, any>>(new Map());
 
-  // Helper function to get prerequisites by type
-  const getPrerequisitesByType = (prerequisites: any[]) => {
-    if (!prerequisites || prerequisites.length === 0) {
+  // Helper function to get constraints by type from program_course_map.constraints
+  const getConstraintsByType = (constraints: any) => {
+    if (!constraints || !constraints.courses || !Array.isArray(constraints.courses) || constraints.courses.length === 0) {
       return { prerequisite: '-', prior: '-' };
     }
     
-    const prerequisiteCourses = prerequisites
-      .filter((prereq: any) => prereq.prerequisite_type === 'prerequisite')
-      .map((prereq: any) => prereq.prerequisite_course.code);
-    const priorCourses = prerequisites
-      .filter((prereq: any) => prereq.prerequisite_type === 'prior')
-      .map((prereq: any) => prereq.prerequisite_course.code);
+    const prerequisiteCourses = constraints.courses
+      .filter((c: any) => c.type === 'PREREQUISITE')
+      .map((c: any) => c.code);
+    const priorCourses = constraints.courses
+      .filter((c: any) => c.type === 'PRIOR')
+      .map((c: any) => c.code);
     
     return {
       prerequisite: prerequisiteCourses.length > 0 ? prerequisiteCourses.join(', ') : '-',
@@ -75,15 +75,15 @@ const ProgramStructurePage: React.FC = () => {
           groupData.courses
             .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .forEach((course: any) => {
-              const prereqs = getPrerequisitesByType(course.prerequisites);
+              const constraints = getConstraintsByType(course.constraints);
               csvData.push([
                 course.code,
                 course.name_vi,
                 course.credits,
                 course.theory_credit || 0,
                 course.practical_credit || 0,
-                prereqs.prerequisite,
-                prereqs.prior,
+                constraints.prerequisite,
+                constraints.prior,
                 blockData.block.title,
                 groupData.group.title
               ]);
@@ -157,7 +157,7 @@ const ProgramStructurePage: React.FC = () => {
                     groupData.courses
                       .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
                       .map((course: any) => {
-                        const prereqs = getPrerequisitesByType(course.prerequisites);
+                        const constraints = getConstraintsByType(course.constraints);
                         return `
                           <tr>
                             <td>${course.code}</td>
@@ -165,8 +165,8 @@ const ProgramStructurePage: React.FC = () => {
                             <td>${course.credits}</td>
                             <td>${course.theory_credit || 0}</td>
                             <td>${course.practical_credit || 0}</td>
-                            <td>${prereqs.prerequisite}</td>
-                            <td>${prereqs.prior}</td>
+                            <td>${constraints.prerequisite}</td>
+                            <td>${constraints.prior}</td>
                             <td>${blockData.block.title}</td>
                             <td>${groupData.group.title}</td>
                           </tr>
@@ -207,12 +207,28 @@ const ProgramStructurePage: React.FC = () => {
         }>();
 
         result.data.ProgramCourseMap?.forEach((courseMap: any) => {
-          const blockId = courseMap.ProgramBlock.id;
-          const groupId = courseMap.ProgramBlockGroup.id;
+          // Handle null block or group - use placeholder IDs if null
+          const blockId = courseMap.ProgramBlock?.id?.toString() || 'no-block';
+          const groupId = courseMap.ProgramBlockGroup?.id?.toString() || 'no-group';
+          
+          // Use placeholder objects if block/group is null
+          const block = courseMap.ProgramBlock || {
+            id: 'no-block',
+            title: 'Không thuộc khối',
+            code: 'N/A',
+            display_order: 9999
+          };
+          
+          const group = courseMap.ProgramBlockGroup || {
+            id: 'no-group',
+            title: 'Không thuộc nhóm',
+            code: 'N/A',
+            display_order: 9999
+          };
           
           if (!newBlockMap.has(blockId)) {
             newBlockMap.set(blockId, {
-              block: courseMap.ProgramBlock,
+              block: block,
               groups: new Map()
             });
           }
@@ -221,16 +237,19 @@ const ProgramStructurePage: React.FC = () => {
           
           if (!blockData.groups.has(groupId)) {
             blockData.groups.set(groupId, {
-              group: courseMap.ProgramBlockGroup,
+              group: group,
               courses: []
             });
           }
           
-          blockData.groups.get(groupId)!.courses.push({
-            ...courseMap.Course,
-            displayOrder: courseMap.display_order,
-            prerequisites: courseMap.Course.prerequisites || []
-          });
+          // Only add course if Course data exists
+          if (courseMap.Course) {
+            blockData.groups.get(groupId)!.courses.push({
+              ...courseMap.Course,
+              displayOrder: courseMap.display_order,
+              constraints: courseMap.constraints || null
+            });
+          }
         });
 
         // Add parent group information
@@ -413,14 +432,14 @@ const ProgramStructurePage: React.FC = () => {
                                         <TableCell align="center" sx={{ width: '8%' }}>{course.practical_credit || 0}</TableCell>
                                         <TableCell sx={{ width: '12%' }}>
                                           {(() => {
-                                            const prereqs = getPrerequisitesByType(course.prerequisites);
-                                            return prereqs.prerequisite;
+                                            const constraints = getConstraintsByType(course.constraints);
+                                            return constraints.prerequisite;
                                           })()}
                                         </TableCell>
                                         <TableCell sx={{ width: '10%' }}>
                                           {(() => {
-                                            const prereqs = getPrerequisitesByType(course.prerequisites);
-                                            return prereqs.prior;
+                                            const constraints = getConstraintsByType(course.constraints);
+                                            return constraints.prior;
                                           })()}
                                         </TableCell>
                                       </TableRow>
@@ -440,14 +459,14 @@ const ProgramStructurePage: React.FC = () => {
                                     <TableCell align="center" sx={{ width: '8%' }}>{course.practical_credit || 0}</TableCell>
                                     <TableCell sx={{ width: '12%' }}>
                                       {(() => {
-                                        const prereqs = getPrerequisitesByType(course.prerequisites);
-                                        return prereqs.prerequisite;
+                                        const constraints = getConstraintsByType(course.constraints);
+                                        return constraints.prerequisite;
                                       })()}
                                     </TableCell>
                                     <TableCell sx={{ width: '10%' }}>
                                       {(() => {
-                                        const prereqs = getPrerequisitesByType(course.prerequisites);
-                                        return prereqs.prior;
+                                        const constraints = getConstraintsByType(course.constraints);
+                                        return constraints.prior;
                                       })()}
                                     </TableCell>
                                   </TableRow>
@@ -479,14 +498,14 @@ const ProgramStructurePage: React.FC = () => {
                                     <TableCell align="center" sx={{ width: '8%' }}>{course.practical_credit || 0}</TableCell>
                                     <TableCell sx={{ width: '12%' }}>
                                       {(() => {
-                                        const prereqs = getPrerequisitesByType(course.prerequisites);
-                                        return prereqs.prerequisite;
+                                        const constraints = getConstraintsByType(course.constraints);
+                                        return constraints.prerequisite;
                                       })()}
                                     </TableCell>
                                     <TableCell sx={{ width: '10%' }}>
                                       {(() => {
-                                        const prereqs = getPrerequisitesByType(course.prerequisites);
-                                        return prereqs.prior;
+                                        const constraints = getConstraintsByType(course.constraints);
+                                        return constraints.prior;
                                       })()}
                                     </TableCell>
                                   </TableRow>
