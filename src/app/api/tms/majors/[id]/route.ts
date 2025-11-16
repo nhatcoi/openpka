@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { withErrorHandling, withIdParam, withIdAndBody, validateSchema, createErrorResponse } from '@/lib/api/api-handler';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { MajorStatus, MAJOR_PERMISSIONS } from '@/constants/majors';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 
@@ -79,6 +80,9 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
   }
+  
+  // Check permission
+  requirePermission(session, MAJOR_PERMISSIONS.UPDATE);
 
   const majorId = parseInt(id);
 
@@ -155,6 +159,14 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
 
 // DELETE /api/tms/majors/[id]
 export const DELETE = withIdParam(async (id: string) => {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized');
+  }
+  
+  // Check permission
+  requirePermission(session, MAJOR_PERMISSIONS.DELETE);
+  
   const majorId = parseInt(id);
 
   if (isNaN(majorId)) {

@@ -10,6 +10,14 @@ interface BulkAssignInputCourseItem {
   course_id: number | string;
   is_required?: boolean;
   display_order?: number | string | null;
+  constraints?: {
+    courses: Array<{
+      course_id: string;
+      code: string;
+      name: string;
+      type: string;
+    }>;
+  } | null;
 }
 
 interface BulkAssignInput {
@@ -60,6 +68,7 @@ export const POST = withBody(async (body: unknown) => {
       group_id: groupId,
       is_required: i.is_required ?? true,
       display_order: i.display_order == null || i.display_order === '' ? index + 1 : Number(i.display_order),
+      constraints: i.constraints || null,
     }));
 
   if (dataToInsert.length === 0) {

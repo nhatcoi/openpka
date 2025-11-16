@@ -11,6 +11,7 @@ import {
 import { UpdateProgramInput, ProgramWorkflowAction } from '@/lib/api/schemas/program';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { selectProgramDetail } from '@/lib/api/selects/program';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 
@@ -69,18 +70,20 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   const actionPermissionMap: Partial<Record<ProgramWorkflowAction, string>> = {
     submit: PROGRAM_PERMISSIONS.UPDATE,
-    review: PROGRAM_PERMISSIONS.REVIEW,
+    review: PROGRAM_PERMISSIONS.APPROVE,
     approve: PROGRAM_PERMISSIONS.APPROVE,
-    reject: PROGRAM_PERMISSIONS.REJECT,
+    reject: PROGRAM_PERMISSIONS.APPROVE,
     publish: PROGRAM_PERMISSIONS.PUBLISH,
   };
 
   if (payload.workflow_action) {
     const requiredPermission = actionPermissionMap[payload.workflow_action];
-    const hasManagePermission = userPermissions.includes(PROGRAM_PERMISSIONS.MANAGE);
-    if (requiredPermission && !hasManagePermission && !userPermissions.includes(requiredPermission)) {
-      return createErrorResponse('Forbidden', 'Bạn không có quyền thực hiện thao tác này', 403);
+    if (requiredPermission) {
+      requirePermission(session, requiredPermission);
     }
+  } else {
+    // For regular updates, check update permission
+    requirePermission(session, PROGRAM_PERMISSIONS.UPDATE);
   }
 
   const data: Record<string, unknown> = {

@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db as prisma } from '@/lib/db';
 import { z } from 'zod';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse, validateSchema } from '@/lib/api/api-handler';
@@ -58,6 +61,11 @@ const MAJOR_SELECT = {
 
 // GET /api/tms/majors
 export const GET = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    requirePermission(session, 'tms.major.view');
+  }
+  
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
@@ -111,6 +119,14 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
 
 // POST /api/tms/majors
 export const POST = withBody(async (body: unknown) => {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized');
+  }
+  
+  // Check permission
+  requirePermission(session, 'tms.major.create');
+  
   const validatedData = validateSchema(createMajorSchema, body);
 
   // Check if major code already exists

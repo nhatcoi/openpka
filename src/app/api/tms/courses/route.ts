@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse } from '@/lib/api/api-handler';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { CreateCourseInput, CourseQueryInput } from '@/lib/api/schemas/course';
 import {
   CoursePrerequisiteType,
@@ -20,6 +21,9 @@ export const GET = withErrorHandling(
     if (!session?.user?.id) {
       return createErrorResponse('Unauthorized', 'Authentication required', 401);
     }
+    
+    // Check permission
+    requirePermission(session, 'tms.course.view');
 
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
@@ -104,8 +108,15 @@ export const GET = withErrorHandling(
 // POST /api/tms/courses 
 export const POST = withBody(
   async (body: unknown, request: Request) => {
-    // Temporarily use admin id = 1 instead of session
-    const userId = BigInt(1); // Default admin user
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+    
+    // Check permission
+    requirePermission(session, 'tms.course.create');
+    
+    const userId = BigInt(session.user.id);
 
     const courseData = body as CreateCourseInput;
 
