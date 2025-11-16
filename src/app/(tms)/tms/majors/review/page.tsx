@@ -65,8 +65,7 @@ import {
   Help as HelpIcon,
   Security as SecurityIcon,
 } from '@mui/icons-material';
-import { PermissionGuard } from '@/components/auth/permission-guard';
-import { PermissionButton } from '@/components/auth/PermissionButton';
+import { useSession } from 'next-auth/react';
 import {
   MajorStatus,
   MajorWorkflowStage,
@@ -411,6 +410,8 @@ export default function MajorReviewPage(): JSX.Element {
 
   const getActionButtons = (major: MajorReviewItem, context: 'table' | 'detail' = 'table') => {
     const buttons: JSX.Element[] = [];
+    const permissions = session?.user?.permissions || [];
+    const hasPermission = (perm: string) => permissions.includes(perm);
 
     if (context === 'table') {
       buttons.push(
@@ -452,114 +453,114 @@ export default function MajorReviewPage(): JSX.Element {
     }
 
     if (major.status === MajorStatus.REVIEWING) {
-      buttons.push(
-        <PermissionButton
-          key={`approve-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.APPROVE]}
-          size="small"
-          variant="contained"
-          color="success"
-          startIcon={<CheckCircleIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.APPROVE);
-          }}
-          noPermissionTooltip="Bạn không có quyền phê duyệt ngành đào tạo này"
-        >
-          Phê duyệt
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`reject-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.REJECT]}
-          size="small"
-          color="error"
-          variant="outlined"
-          startIcon={<CancelIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.REJECT);
-          }}
-          noPermissionTooltip="Bạn không có quyền từ chối ngành đào tạo này"
-        >
-          Từ chối
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa ngành đào tạo này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
+      if (hasPermission(MAJOR_PERMISSIONS.APPROVE)) {
+        buttons.push(
+          <Button
+            key={`approve-${major.id}`}
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.APPROVE);
+            }}
+          >
+            Phê duyệt
+          </Button>,
+        );
+      }
+      if (hasPermission(MAJOR_PERMISSIONS.APPROVE)) {
+        buttons.push(
+          <Button
+            key={`reject-${major.id}`}
+            size="small"
+            color="error"
+            variant="outlined"
+            startIcon={<CancelIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.REJECT);
+            }}
+          >
+            Từ chối
+          </Button>,
+        );
+      }
+      if (hasPermission(MAJOR_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${major.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
     }
 
     if (major.status === MajorStatus.APPROVED) {
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa ngành đào tạo này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`science-council-publish-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.SCIENCE_COUNCIL_PUBLISH]}
-          size="small"
-          variant="contained"
-          color="primary"
-          startIcon={<ScienceIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.SCIENCE_COUNCIL_PUBLISH);
-          }}
-          noPermissionTooltip="Bạn không có quyền Hội đồng khoa học công bố ngành đào tạo này"
-        >
-          Hội đồng khoa học công bố
-        </PermissionButton>,
-      );
+      if (hasPermission(MAJOR_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${major.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
+      if (hasPermission(MAJOR_PERMISSIONS.PUBLISH)) {
+        buttons.push(
+          <Button
+            key={`science-council-publish-${major.id}`}
+            size="small"
+            variant="contained"
+            color="primary"
+            startIcon={<ScienceIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.SCIENCE_COUNCIL_PUBLISH);
+            }}
+          >
+            Hội đồng khoa học công bố
+          </Button>,
+        );
+      }
     }
 
     if (major.status === MajorStatus.PUBLISHED) {
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${major.id}`}
-          requiredPermissions={[MAJOR_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa ngành đào tạo này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
+      if (hasPermission(MAJOR_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${major.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(major, MajorWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
     }
 
     return buttons;
@@ -581,14 +582,24 @@ export default function MajorReviewPage(): JSX.Element {
       }, 'detail')
     : [];
 
-  return (
-    <PermissionGuard requiredPermissions={[MAJOR_PERMISSIONS.READ, MAJOR_PERMISSIONS.APPROVE]} fallback={
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
+  const hasPermission = (perm: string) => permissions.includes(perm);
+  
+  // Check if user can view and approve
+  const canViewAndApprove = hasPermission(MAJOR_PERMISSIONS.VIEW) && hasPermission(MAJOR_PERMISSIONS.APPROVE);
+
+  if (!canViewAndApprove) {
+    return (
       <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <Typography variant="h6" color="error">
           Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.
         </Typography>
       </Box>
-    }>
+    );
+  }
+
+  return (
       <Box sx={{ py: 4, backgroundColor: 'background.default', minHeight: '100vh' }}>
         <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', md: 'center' }} spacing={3} mb={4}>
@@ -1184,6 +1195,5 @@ export default function MajorReviewPage(): JSX.Element {
         </Alert>
       </Snackbar>
       </Box>
-    </PermissionGuard>
   );
 }

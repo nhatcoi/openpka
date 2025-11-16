@@ -67,8 +67,7 @@ import {
   Help as HelpIcon,
   Security as SecurityIcon,
 } from '@mui/icons-material';
-import { PermissionGuard } from '@/components/auth/permission-guard';
-import { PermissionButton } from '@/components/auth/PermissionButton';
+import { useSession } from 'next-auth/react';
 import {
   ProgramPriority,
   ProgramStatus,
@@ -429,6 +428,8 @@ export default function ProgramReviewPage(): JSX.Element {
 
   const getActionButtons = (program: ProgramReviewItem, context: 'table' | 'detail' = 'table') => {
     const buttons: JSX.Element[] = [];
+    const permissions = session?.user?.permissions || [];
+    const hasPermission = (perm: string) => permissions.includes(perm);
 
     if (context === 'table') {
       buttons.push(
@@ -474,137 +475,137 @@ export default function ProgramReviewPage(): JSX.Element {
 
     if (program.status === ProgramStatus.REVIEWING) {
       // Reviewing: Phê duyệt, Từ chối, Yêu cầu chỉnh sửa
-      buttons.push(
-        <PermissionButton
-          key={`approve-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.APPROVE]}
-          size="small"
-          variant="contained"
-          color="success"
-          startIcon={<CheckCircleIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.APPROVE);
-          }}
-          noPermissionTooltip="Bạn không có quyền phê duyệt chương trình này"
-        >
-          Phê duyệt
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`reject-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.REJECT]}
-          size="small"
-          color="error"
-          variant="outlined"
-          startIcon={<CancelIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.REJECT);
-          }}
-          noPermissionTooltip="Bạn không có quyền từ chối chương trình này"
-        >
-          Từ chối
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa chương trình này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
+      if (hasPermission(PROGRAM_PERMISSIONS.APPROVE)) {
+        buttons.push(
+          <Button
+            key={`approve-${program.id}`}
+            size="small"
+            variant="contained"
+            color="success"
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.APPROVE);
+            }}
+          >
+            Phê duyệt
+          </Button>,
+        );
+      }
+      if (hasPermission(PROGRAM_PERMISSIONS.APPROVE)) {
+        buttons.push(
+          <Button
+            key={`reject-${program.id}`}
+            size="small"
+            color="error"
+            variant="outlined"
+            startIcon={<CancelIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.REJECT);
+            }}
+          >
+            Từ chối
+          </Button>,
+        );
+      }
+      if (hasPermission(PROGRAM_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${program.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
     }
 
     if (program.status === ProgramStatus.APPROVED) {
       // Approved: Yêu cầu chỉnh sửa, Hội đồng khoa học công bố
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa chương trình này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
-      buttons.push(
-        <PermissionButton
-          key={`science-council-publish-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.SCIENCE_COUNCIL_PUBLISH]}
-          size="small"
-          variant="contained"
-          color="primary"
-          startIcon={<ScienceIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.SCIENCE_COUNCIL_PUBLISH);
-          }}
-          noPermissionTooltip="Bạn không có quyền Hội đồng khoa học công bố chương trình này"
-        >
-          Hội đồng khoa học công bố
-        </PermissionButton>,
-      );
+      if (hasPermission(PROGRAM_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${program.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
+      if (hasPermission(PROGRAM_PERMISSIONS.PUBLISH)) {
+        buttons.push(
+          <Button
+            key={`science-council-publish-${program.id}`}
+            size="small"
+            variant="contained"
+            color="primary"
+            startIcon={<ScienceIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.SCIENCE_COUNCIL_PUBLISH);
+            }}
+          >
+            Hội đồng khoa học công bố
+          </Button>,
+        );
+      }
     }
 
     if (program.status === ProgramStatus.PUBLISHED) {
       // Published: Yêu cầu chỉnh sửa
-      buttons.push(
-        <PermissionButton
-          key={`request-edit-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.REQUEST_EDIT]}
-          size="small"
-          variant="outlined"
-          color="warning"
-          startIcon={<EditIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
-          }}
-          noPermissionTooltip="Bạn không có quyền yêu cầu chỉnh sửa chương trình này"
-        >
-          Yêu cầu chỉnh sửa
-        </PermissionButton>,
-      );
+      if (hasPermission(PROGRAM_PERMISSIONS.UPDATE)) {
+        buttons.push(
+          <Button
+            key={`request-edit-${program.id}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            startIcon={<EditIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.REQUEST_EDIT);
+            }}
+          >
+            Yêu cầu chỉnh sửa
+          </Button>,
+        );
+      }
     }
 
     // Legacy logic cho các status khác (để tương thích ngược)
     if (program.status === ProgramStatus.SUBMITTED) {
-      buttons.push(
-        <PermissionButton
-          key={`review-${program.id}`}
-          requiredPermissions={[PROGRAM_PERMISSIONS.REVIEW]}
-          size="small"
-          variant="outlined"
-          color="primary"
-          startIcon={<CheckCircleIcon fontSize="small" />}
-          onClick={(event) => {
-            event.stopPropagation();
-            openActionConfirm(program, ProgramWorkflowAction.REVIEW);
-          }}
-          noPermissionTooltip="Bạn không có quyền tiếp nhận chương trình này"
-        >
-          Tiếp nhận
-        </PermissionButton>,
-      );
+      if (hasPermission(PROGRAM_PERMISSIONS.APPROVE)) {
+        buttons.push(
+          <Button
+            key={`review-${program.id}`}
+            size="small"
+            variant="outlined"
+            color="primary"
+            startIcon={<CheckCircleIcon fontSize="small" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              openActionConfirm(program, ProgramWorkflowAction.REVIEW);
+            }}
+          >
+            Tiếp nhận
+          </Button>,
+        );
+      }
     }
 
     return buttons;
@@ -614,14 +615,21 @@ export default function ProgramReviewPage(): JSX.Element {
     ? getActionButtons(buildReviewItemFromDetail(detail), 'detail')
     : [];
 
-  return (
-    <PermissionGuard requiredPermissions={[PROGRAM_PERMISSIONS.APPROVE]} fallback={
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
+  const canViewAndApprove = permissions.includes(PROGRAM_PERMISSIONS.VIEW) && permissions.includes(PROGRAM_PERMISSIONS.APPROVE);
+
+  if (!canViewAndApprove) {
+    return (
       <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
         <Typography variant="h6" color="error">
           Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.
         </Typography>
       </Box>
-    }>
+    );
+  }
+
+  return (
       <Box sx={{ py: 4, backgroundColor: 'background.default', minHeight: '100vh' }}>
         <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1 }}>
           <Breadcrumbs sx={{ mb: 2 }}>
@@ -1473,6 +1481,5 @@ export default function ProgramReviewPage(): JSX.Element {
         </Alert>
       </Snackbar>
       </Box>
-    </PermissionGuard>
   );
 }

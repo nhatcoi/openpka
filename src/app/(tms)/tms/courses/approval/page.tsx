@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { PermissionGuard } from '@/components/auth/permission-guard';
+// PermissionGuard removed - using session permissions directly
 import {
   Box,
   Container,
@@ -374,7 +374,9 @@ useEffect(() => {
     }
   };
 
-  // Use PermissionGuard for per-button permission enforcement
+  // Check permissions directly from session
+  const permissions = session?.user?.permissions || [];
+  const hasPermission = (permission: string) => permissions.includes(permission);
 
   const getActionButtons = (subject: any) => {
     const buttons = [];
@@ -395,9 +397,10 @@ useEffect(() => {
 
     if (subject.status === CourseStatus.DRAFT) {
       // Allow Academic Office to "Xem xét" directly from DRAFT
-      buttons.push(
-        <PermissionGuard key="review-draft" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+      if (hasPermission(COURSE_PERMISSIONS.REVIEW)) {
+        buttons.push(
           <Button
+            key="review-draft"
             size="small"
             variant="outlined"
             startIcon={<CheckCircleIcon />}
@@ -408,11 +411,12 @@ useEffect(() => {
           >
             Xem xét
           </Button>
-        </PermissionGuard>
-      );
-      buttons.push(
-        <PermissionGuard key="approve-draft" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+        );
+      }
+      if (hasPermission(COURSE_PERMISSIONS.APPROVE)) {
+        buttons.push(
           <Button
+            key="approve-draft"
             size="small"
             variant="contained"
             color="success"
@@ -430,14 +434,15 @@ useEffect(() => {
           >
             Phê duyệt
           </Button>
-        </PermissionGuard>
-      );
+        );
+      }
     }
 
     if (subject.status === CourseStatus.SUBMITTED && subject.workflowStage === WorkflowStage.ACADEMIC_OFFICE) {
-      buttons.push(
-        <PermissionGuard key="review" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+      if (hasPermission(COURSE_PERMISSIONS.REVIEW)) {
+        buttons.push(
           <Button
+            key="review"
             size="small"
             variant="outlined"
             startIcon={<CheckCircleIcon />}
@@ -448,11 +453,12 @@ useEffect(() => {
           >
             Xem xét
           </Button>
-        </PermissionGuard>
-      );
-      buttons.push(
-        <PermissionGuard key="approve-from-ao" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+        );
+      }
+      if (hasPermission(COURSE_PERMISSIONS.APPROVE)) {
+        buttons.push(
           <Button
+            key="approve-from-ao"
             size="small"
             variant="contained"
             color="success"
@@ -464,16 +470,17 @@ useEffect(() => {
           >
             Phê duyệt
           </Button>
-        </PermissionGuard>
-      );
+        );
+      }
     }
 
     if (subject.status === CourseStatus.REVIEWING) {
       if (subject.workflowStage === WorkflowStage.ACADEMIC_OFFICE) {
         // Show both Xem xét and Phê duyệt at AO stage as well
-        buttons.push(
-          <PermissionGuard key="review-ao" requiredPermissions={[COURSE_PERMISSIONS.REVIEW]}>
+        if (hasPermission(COURSE_PERMISSIONS.REVIEW)) {
+          buttons.push(
             <Button
+              key="review-ao"
               size="small"
               variant="outlined"
               startIcon={<CheckCircleIcon />}
@@ -484,11 +491,12 @@ useEffect(() => {
             >
               Xem xét
             </Button>
-          </PermissionGuard>
-        );
-        buttons.push(
-          <PermissionGuard key="approve" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+          );
+        }
+        if (hasPermission(COURSE_PERMISSIONS.APPROVE)) {
+          buttons.push(
             <Button
+              key="approve"
               size="small"
               variant="contained"
               color="success"
@@ -500,11 +508,12 @@ useEffect(() => {
             >
               Phê duyệt
             </Button>
-          </PermissionGuard>
-        );
-        buttons.push(
-          <PermissionGuard key="reject" requiredPermissions={[COURSE_PERMISSIONS.REJECT]}>
+          );
+        }
+        if (hasPermission(COURSE_PERMISSIONS.REJECT)) {
+          buttons.push(
             <Button
+              key="reject"
               size="small"
               color="error"
               startIcon={<CancelIcon />}
@@ -515,13 +524,14 @@ useEffect(() => {
             >
               Từ chối
             </Button>
-          </PermissionGuard>
-        );
+          );
+        }
       }
       if (subject.workflowStage === WorkflowStage.ACADEMIC_BOARD) {
-        buttons.push(
-          <PermissionGuard key="board-approve" requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+        if (hasPermission(COURSE_PERMISSIONS.APPROVE)) {
+          buttons.push(
             <Button
+              key="board-approve"
               size="small"
               variant="contained"
               color="success"
@@ -533,11 +543,12 @@ useEffect(() => {
             >
               Thẩm định đạt
             </Button>
-          </PermissionGuard>
-        );
-        buttons.push(
-          <PermissionGuard key="board-reject" requiredPermissions={[COURSE_PERMISSIONS.REJECT]}>
+          );
+        }
+        if (hasPermission(COURSE_PERMISSIONS.REJECT)) {
+          buttons.push(
             <Button
+              key="board-reject"
               size="small"
               color="error"
               startIcon={<CancelIcon />}
@@ -548,15 +559,16 @@ useEffect(() => {
             >
               Thẩm định không đạt
             </Button>
-          </PermissionGuard>
-        );
+          );
+        }
       }
     }
 
     if (subject.status === CourseStatus.APPROVED || subject.workflowStage === WorkflowStage.ACADEMIC_BOARD) {
-      buttons.push(
-        <PermissionGuard key="publish" requiredPermissions={[COURSE_PERMISSIONS.PUBLISH]}>
+      if (hasPermission(COURSE_PERMISSIONS.PUBLISH)) {
+        buttons.push(
           <Button
+            key="publish"
             size="small"
             variant="contained"
             color="info"
@@ -568,16 +580,28 @@ useEffect(() => {
           >
             Phê duyệt cuối / Xuất bản
           </Button>
-        </PermissionGuard>
-      );
+        );
+      }
     }
 
     return buttons;
   };
 
-  return (
-    <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+  // Check if user has permission to view this page
+  if (!hasPermission(COURSE_PERMISSIONS.APPROVE)) {
+    return (
       <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1, py: 4 }}>
+        <Box sx={{ py: 4, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+          <Typography variant="h6" color="error">
+            Bạn không có quyền truy cập trang này. Vui lòng liên hệ quản trị viên.
+          </Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  return (
+    <Container maxWidth={false} sx={{ maxWidth: '98vw', px: 1, py: 4 }}>
         <Box sx={{ mb: 4 }}>
           <Breadcrumbs sx={{ mb: 2 }}>
             <Link
@@ -1265,7 +1289,7 @@ useEffect(() => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOverrideDialogOpen(false)}>Hủy</Button>
-          <PermissionGuard requiredPermissions={[COURSE_PERMISSIONS.APPROVE]}>
+          {hasPermission(COURSE_PERMISSIONS.APPROVE) && (
             <Button
               variant="contained"
               color="success"
@@ -1279,7 +1303,7 @@ useEffect(() => {
             >
               Vẫn phê duyệt
             </Button>
-          </PermissionGuard>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -1306,6 +1330,5 @@ useEffect(() => {
         </DialogActions>
       </Dialog>
       </Container>
-    </PermissionGuard>
   );
 }

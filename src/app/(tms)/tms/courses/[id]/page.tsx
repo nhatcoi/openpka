@@ -74,7 +74,7 @@ import {
   ExpandLess as ExpandLessIcon
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
-import { PermissionGuard } from '@/components/auth/permission-guard';
+import { useSession } from 'next-auth/react';
 import {
   COURSE_STATUSES,
   CoursePrerequisiteType,
@@ -234,6 +234,7 @@ export default function CourseDetailPage() {
   const router = useRouter();
   const routeParams = useParams<{ id: string }>();
   const routeId = routeParams?.id as string;
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState(0);
   // Removed edit mode; using request flow instead
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'warning' | 'error' }>({ open: false, message: '', severity: 'success' });
@@ -1931,12 +1932,13 @@ export default function CourseDetailPage() {
               <CardContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {/* Phòng Đào Tạo - Quyền quản lý workflow */}
-                  <PermissionGuard requiredPermissions={['tms.course.approve']}>
-                    {/* <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
-                      Phòng Đào Tạo
-                    </Typography> */}
-                    
-                    <Button
+                  {session?.user?.permissions?.includes('tms.course.approve') && (
+                    <>
+                      {/* <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
+                        Phòng Đào Tạo
+                      </Typography> */}
+                      
+                      <Button
                       variant="contained"
                       color="success"
                       startIcon={<CheckCircleIcon />}
@@ -1986,34 +1988,37 @@ export default function CourseDetailPage() {
                     >
                       Xóa học phần
                     </Button>
-                  </PermissionGuard>
+                    </>
+                  )}
 
                   {/* Hội đồng Khoa học - Quyền phê duyệt cuối cùng */}
-                  <PermissionGuard requiredPermissions={['tms.course.approve']}>
-                    <Typography variant="subtitle2" color="secondary" sx={{ mb: 1, mt: 2 }}>
-                      Hội đồng Khoa học
-                    </Typography>
-                    
-                    <Button
-                      variant="contained"
-                      color="success"
-                      startIcon={<CheckCircleIcon />}
-                      onClick={() => handleOpenDialog('final_approve')}
-                      disabled={saving || courseDetail.status === CourseStatus.PUBLISHED}
-                    >
-                      Phê duyệt cuối cùng
-                    </Button>
-                    
-                    <Button
-                      variant="contained"
-                      color="error"
-                      startIcon={<CancelIcon />}
-                      onClick={() => handleOpenDialog('final_reject')}
-                      disabled={saving || courseDetail.status === CourseStatus.REJECTED}
-                    >
-                      Từ chối cuối cùng
-                    </Button>
-                  </PermissionGuard>
+                  {session?.user?.permissions?.includes('tms.course.approve') && (
+                    <>
+                      <Typography variant="subtitle2" color="secondary" sx={{ mb: 1, mt: 2 }}>
+                        Hội đồng Khoa học
+                      </Typography>
+                      
+                      <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={<CheckCircleIcon />}
+                        onClick={() => handleOpenDialog('final_approve')}
+                        disabled={saving || courseDetail.status === CourseStatus.PUBLISHED}
+                      >
+                        Phê duyệt cuối cùng
+                      </Button>
+                      
+                      <Button
+                        variant="contained"
+                        color="error"
+                        startIcon={<CancelIcon />}
+                        onClick={() => handleOpenDialog('final_reject')}
+                        disabled={saving || courseDetail.status === CourseStatus.REJECTED}
+                      >
+                        Từ chối cuối cùng
+                      </Button>
+                    </>
+                  )}
 
                 </Box>
               </CardContent>
