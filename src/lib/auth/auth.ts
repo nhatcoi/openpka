@@ -102,17 +102,29 @@ export const authOptions: NextAuthOptions = {
         },
         async jwt({ token, user }) {
             if (user) {
-                token.id = user.id
-                token.username = user.username
-                token.permissions = (user as { permissions: string[] }).permissions
+                if ('id' in user && user.id) {
+                    token.id = user.id
+                }
+                if ('username' in user && typeof user.username === 'string') {
+                    token.username = user.username
+                }
+                if ('permissions' in user && Array.isArray(user.permissions)) {
+                    token.permissions = user.permissions as string[]
+                }
             }
             return token
         },
         async session({ session, token }) {
             if (token && session.user) {
-                session.user.id = token.id as string
-                session.user.username = token.username as string
-                session.user.permissions = token.permissions as string[]
+                if (token.id) {
+                    session.user.id = token.id as string
+                }
+                if (token.username) {
+                    session.user.username = token.username as string
+                }
+                if (Array.isArray(token.permissions)) {
+                    session.user.permissions = token.permissions as string[]
+                }
             }
             return session
         },
