@@ -28,22 +28,42 @@ import {
     ListItemIcon,
     ListItemText,
     MenuItem,
+    Accordion,
+    AccordionSummary,
+    AccordionDetails,
 } from '@mui/material';
 import {
-    Security as SecurityIcon,
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    MoreVert as MoreVertIcon,
-    Visibility as VisibilityIcon,
-} from '@mui/icons-material';
+    Shield,
+    Plus,
+    Edit,
+    Trash2,
+    MoreVertical,
+    Eye,
+    ChevronDown,
+    User,
+    Building2,
+    Users,
+    GraduationCap,
+    Package,
+} from 'lucide-react';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 
 interface Permission {
     id: string;
-    code: string;
+    code?: string;
     name: string;
-    role_permission: Array<{
+    description?: string;
+    resource?: string;
+    action?: string;
+    RolePermission?: Array<{
+        id: string;
+        roles: {
+            id: string;
+            code: string;
+            name: string;
+        };
+    }>;
+    role_permission?: Array<{
         id: string;
         roles: {
             id: string;
@@ -64,7 +84,10 @@ export default function PermissionsPage() {
     const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
     const [formData, setFormData] = useState({
         code: '',
-        name: ''
+        name: '',
+        description: '',
+        resource: '',
+        action: ''
     });
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -118,7 +141,7 @@ export default function PermissionsPage() {
             if (result.success) {
                 setOpenDialog(false);
                 setEditingPermission(null);
-                setFormData({ code: '', name: '' });
+                setFormData({ code: '', name: '', description: '', resource: '', action: '' });
                 fetchData();
             } else {
                 setError(result.error || 'Failed to save permission');
@@ -153,8 +176,11 @@ export default function PermissionsPage() {
     const handleEdit = (permission: Permission) => {
         setEditingPermission(permission);
         setFormData({
-            code: permission.code,
-            name: permission.name
+            code: permission.code || '',
+            name: permission.name,
+            description: permission.description || '',
+            resource: permission.resource || '',
+            action: permission.action || ''
         });
         setOpenDialog(true);
         handleMenuClose();
@@ -162,7 +188,7 @@ export default function PermissionsPage() {
 
     const handleAdd = () => {
         setEditingPermission(null);
-        setFormData({ code: '', name: '' });
+        setFormData({ code: '', name: '', description: '', resource: '', action: '' });
         setOpenDialog(true);
     };
 
@@ -184,6 +210,91 @@ export default function PermissionsPage() {
         handleMenuClose();
     };
 
+    // Group permissions by main module
+    const groupPermissionsByModule = (perms: Permission[]) => {
+        const groups: Record<string, Permission[]> = {
+            'user': [],
+            'org': [],
+            'hr': [],
+            'tms': [],
+            'other': []
+        };
+        
+        perms.forEach(perm => {
+            const name = perm.name.toLowerCase();
+            let mainModule = 'other';
+            
+            // Determine main module based on permission name prefix
+            if (name.startsWith('user') || name.startsWith('auth') || name.startsWith('profile')) {
+                mainModule = 'user';
+            } else if (name.startsWith('org_unit') || name.startsWith('org.')) {
+                mainModule = 'org';
+            } else if (name.startsWith('hr')) {
+                mainModule = 'hr';
+            } else if (name.startsWith('tms')) {
+                mainModule = 'tms';
+            }
+            
+            groups[mainModule].push(perm);
+        });
+        
+        // Sort permissions within each module by resource, then by name
+        Object.keys(groups).forEach(module => {
+            groups[module].sort((a, b) => {
+                const resourceA = a.resource || '';
+                const resourceB = b.resource || '';
+                if (resourceA !== resourceB) {
+                    return resourceA.localeCompare(resourceB);
+                }
+                return a.name.localeCompare(b.name);
+            });
+        });
+        
+        // Define module order
+        const moduleOrder = ['user', 'org', 'hr', 'tms', 'other'];
+        const sortedModules = moduleOrder.filter(module => groups[module].length > 0);
+        
+        return { groups, sortedModules };
+    };
+
+    const getModuleDisplayName = (module: string) => {
+        const moduleNames: Record<string, string> = {
+            'user': 'Người dùng',
+            'org': 'Tổ chức',
+            'hr': 'Nhân sự',
+            'tms': 'Quản lý đào tạo',
+            'other': 'Khác',
+        };
+        
+        return moduleNames[module] || module;
+    };
+
+    const getModuleIcon = (module: string) => {
+        const icons: Record<string, React.ReactNode> = {
+            'user': <User size={20} />,
+            'org': <Building2 size={20} />,
+            'hr': <Users size={20} />,
+            'tms': <GraduationCap size={20} />,
+            'other': <Package size={20} />,
+        };
+        
+        return icons[module] || <Package size={20} />;
+    };
+
+    const getModuleColor = (module: string) => {
+        const colors: Record<string, string> = {
+            'user': '#1976d2',      // Blue
+            'org': '#2e7d32',       // Green
+            'hr': '#ed6c02',        // Orange
+            'tms': '#9c27b0',       // Purple
+            'other': '#757575',     // Grey
+        };
+        
+        return colors[module] || '#757575';
+    };
+
+    const { groups, sortedModules } = groupPermissionsByModule(permissions);
+
     if (loading && permissions.length === 0) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -196,16 +307,17 @@ export default function PermissionsPage() {
         <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Box display="flex" alignItems="center" gap={2}>
-                    <SecurityIcon color="primary" sx={{ fontSize: 32 }} />
+                    <Shield size={32} color="#2e4c92" />
                     <Typography variant="h4" component="h1">
                         Quản lý Quyền hạn
                     </Typography>
                 </Box>
                 <Button
                     variant="contained"
-                    startIcon={<AddIcon />}
                     onClick={handleAdd}
+                    sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
                 >
+                    <Plus size={20} />
                     Thêm Quyền hạn
                 </Button>
             </Box>
@@ -216,51 +328,135 @@ export default function PermissionsPage() {
                 </Alert>
             )}
 
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>Mã quyền</TableCell>
-                            <TableCell>Tên quyền</TableCell>
-                            <TableCell>Số vai trò</TableCell>
-                            <TableCell align="center">Thao tác</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {permissions.map((permission) => (
-                            <TableRow key={permission.id}>
-                                <TableCell>
-                                    <Typography variant="body2" fontWeight="medium">
-                                        {permission.code}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {permission.name}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {sortedModules.map((module) => {
+                    const moduleColor = getModuleColor(module);
+                    return (
+                        <Accordion key={module} defaultExpanded={module === 'hr'}>
+                            <AccordionSummary
+                                expandIcon={<ChevronDown size={20} />}
+                                sx={{
+                                    backgroundColor: `${moduleColor}08`,
+                                    borderLeft: `4px solid ${moduleColor}`,
+                                    '&:hover': {
+                                        backgroundColor: `${moduleColor}12`,
+                                    },
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Box sx={{ color: moduleColor, display: 'flex', alignItems: 'center' }}>
+                                            {getModuleIcon(module)}
+                                        </Box>
+                                        <Typography variant="h6" sx={{ fontWeight: 600, color: moduleColor }}>
+                                            {getModuleDisplayName(module)}
+                                        </Typography>
+                                    </Box>
                                     <Chip
-                                        label={permission.RolePermission.length}
-                                        color="primary"
+                                        label={`${groups[module].length} quyền`}
+                                        size="small"
+                                        sx={{
+                                            backgroundColor: `${moduleColor}15`,
+                                            color: moduleColor,
+                                            borderColor: moduleColor,
+                                        }}
                                         variant="outlined"
-                                        size="small"
                                     />
-                                </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => handleMenuOpen(e, permission)}
-                                        color="primary"
-                                    >
-                                        <MoreVertIcon />
-                                    </IconButton>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </TableContainer>
+                                </Box>
+                            </AccordionSummary>
+                            <AccordionDetails sx={{ p: 0 }}>
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow sx={{ backgroundColor: `${moduleColor}05` }}>
+                                                <TableCell sx={{ fontWeight: 600 }}>Mã quyền</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>Tên quyền</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>Resource</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>Mô tả</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }} align="center">Số vai trò</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }} align="center">Thao tác</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {groups[module].map((permission) => {
+                                                const rolePermissions = permission.RolePermission || permission.role_permission || [];
+                                                return (
+                                                    <TableRow 
+                                                        key={permission.id}
+                                                        sx={{
+                                                            '&:hover': {
+                                                                backgroundColor: `${moduleColor}08`,
+                                                            },
+                                                        }}
+                                                    >
+                                                        <TableCell>
+                                                            <Typography variant="body2" fontWeight="medium" sx={{ fontFamily: 'monospace' }}>
+                                                                {permission.code || permission.name}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography variant="body2">
+                                                                {permission.name}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography 
+                                                                variant="body2" 
+                                                                sx={{ 
+                                                                    fontFamily: 'monospace',
+                                                                    color: moduleColor,
+                                                                    fontWeight: 500,
+                                                                }}
+                                                            >
+                                                                {permission.resource || '-'}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Typography 
+                                                                variant="body2" 
+                                                                color="text.secondary"
+                                                                sx={{
+                                                                    maxWidth: 400,
+                                                                    overflow: 'hidden',
+                                                                    textOverflow: 'ellipsis',
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                            >
+                                                                {permission.description || '-'}
+                                                            </Typography>
+                                                        </TableCell>
+                                                        <TableCell align="center">
+                                                            <Chip
+                                                                label={rolePermissions.length}
+                                                                sx={{
+                                                                    backgroundColor: `${moduleColor}15`,
+                                                                    color: moduleColor,
+                                                                    borderColor: moduleColor,
+                                                                }}
+                                                                variant="outlined"
+                                                                size="small"
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell align="center">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(e) => handleMenuOpen(e, permission)}
+                                                                sx={{ color: moduleColor }}
+                                                            >
+                                                                <MoreVertical size={20} />
+                                                            </IconButton>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </AccordionDetails>
+                        </Accordion>
+                    );
+                })}
+            </Box>
 
             {/* Actions Menu */}
             <Menu
@@ -278,7 +474,7 @@ export default function PermissionsPage() {
             >
                 <MenuItem onClick={handleViewDetails} sx={{ color: 'black !important' }}>
                     <ListItemIcon>
-                        <VisibilityIcon fontSize="small" sx={{ color: 'black !important' }} />
+                        <Eye size={18} style={{ color: 'black' }} />
                     </ListItemIcon>
                     <ListItemText sx={{
                         '& .MuiListItemText-primary': {
@@ -288,7 +484,7 @@ export default function PermissionsPage() {
                 </MenuItem>
                 <MenuItem onClick={() => selectedPermission && handleEdit(selectedPermission)} sx={{ color: 'black !important' }}>
                     <ListItemIcon>
-                        <EditIcon fontSize="small" sx={{ color: 'black !important' }} />
+                        <Edit size={18} style={{ color: 'black' }} />
                     </ListItemIcon>
                     <ListItemText sx={{
                         '& .MuiListItemText-primary': {
@@ -298,7 +494,7 @@ export default function PermissionsPage() {
                 </MenuItem>
                 <MenuItem onClick={() => selectedPermission && handleDelete(selectedPermission)} sx={{ color: 'black !important' }}>
                     <ListItemIcon>
-                        <DeleteIcon fontSize="small" sx={{ color: 'black !important' }} />
+                        <Trash2 size={18} style={{ color: 'black' }} />
                     </ListItemIcon>
                     <ListItemText sx={{
                         '& .MuiListItemText-primary': {
@@ -320,8 +516,8 @@ export default function PermissionsPage() {
                                 label="Mã quyền"
                                 value={formData.code}
                                 onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                                required
                                 fullWidth
+                                helperText="Mã định danh quyền (ví dụ: hr.employee.view)"
                             />
                             <TextField
                                 label="Tên quyền"
@@ -329,6 +525,30 @@ export default function PermissionsPage() {
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 required
                                 fullWidth
+                                helperText="Tên đầy đủ của quyền"
+                            />
+                            <TextField
+                                label="Mô tả"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                fullWidth
+                                multiline
+                                rows={3}
+                                helperText="Mô tả chi tiết về quyền này"
+                            />
+                            <TextField
+                                label="Resource"
+                                value={formData.resource}
+                                onChange={(e) => setFormData({ ...formData, resource: e.target.value })}
+                                fullWidth
+                                helperText="Tài nguyên (ví dụ: hr.employee)"
+                            />
+                            <TextField
+                                label="Action"
+                                value={formData.action}
+                                onChange={(e) => setFormData({ ...formData, action: e.target.value })}
+                                fullWidth
+                                helperText="Hành động (ví dụ: view, create, update, delete)"
                             />
                         </Box>
                     </DialogContent>

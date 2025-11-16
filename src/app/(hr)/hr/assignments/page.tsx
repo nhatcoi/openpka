@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signIn } from 'next-auth/react';
 import {
@@ -18,16 +18,6 @@ import {
     IconButton,
     Alert,
     CircularProgress,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    Grid,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -37,6 +27,7 @@ import {
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 
+// Types
 interface Assignment {
     id: string;
     employee_id: string;
@@ -62,15 +53,78 @@ interface Assignment {
     };
 }
 
+interface Employee {
+    id: string;
+    name?: string;
+    User?: {
+        id: string;
+        full_name: string;
+        email?: string;
+    };
+    user?: {
+        full_name: string;
+        email?: string;
+    };
+}
+
+interface OrgUnit {
+    id: string;
+    name: string;
+}
+
+// Helper functions
+const parseOrgUnitsFromResponse = (result: any): OrgUnit[] => {
+    if (!result) return [];
+
+    // Handle paginated response format
+    let unitsArray: any[] = [];
+    
+    if (result.success && result.data) {
+        if (Array.isArray(result.data)) {
+            unitsArray = result.data;
+        } else if (result.data.items && Array.isArray(result.data.items)) {
+            unitsArray = result.data.items;
+        }
+    } else if (result.items && Array.isArray(result.items)) {
+        unitsArray = result.items;
+    } else if (Array.isArray(result)) {
+        unitsArray = result;
+    }
+
+    return unitsArray.map((unit: any) => ({
+        id: unit.id,
+        name: unit.name || unit.code || `Unit ${unit.id}`,
+    }));
+};
+
+const formatDate = (dateString: string): string => {
+    try {
+        return new Date(dateString).toLocaleDateString('vi-VN');
+    } catch {
+        return dateString;
+    }
+};
+
+const formatAllocation = (allocation: string): string => {
+    try {
+        return `${(parseFloat(allocation) * 100).toFixed(0)}%`;
+    } catch {
+        return allocation;
+    }
+};
+
 export default function AssignmentsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
+    
+    // State
     const [assignments, setAssignments] = useState<Assignment[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [employees, setEmployees] = useState<{ id: string; name: string }[]>([]);
-    const [orgUnits, setOrgUnits] = useState<{ id: string; name: string }[]>([]);
+    const [error, setError] = useState<string>('');
 
+    // Fetch data on mount
     useEffect(() => {
         if (status === 'loading') return;
 
@@ -79,27 +133,41 @@ export default function AssignmentsPage() {
             return;
         }
 
-        fetchAssignments();
-        fetchEmployees();
-        fetchOrgUnits();
+        void fetchAllData();
     }, [session, status]);
+
+    // Fetch all required data
+    const fetchAllData = async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            await Promise.all([
+                fetchAssignments(),
+                fetchEmployees(),
+                fetchOrgUnits(),
+            ]);
+        } catch (err) {
+            console.error('Error fetching data:', err);
+            setError('Lỗi khi tải dữ liệu');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchAssignments = async () => {
         try {
-            setLoading(true);
             const response = await fetch(API_ROUTES.HR.ASSIGNMENTS);
             const result = await response.json();
 
             if (result.success) {
-                setAssignments(result.data);
+                setAssignments(Array.isArray(result.data) ? result.data : []);
             } else {
                 setError('Không thể tải danh sách phân công');
             }
-        } catch (error) {
-            console.error('Error fetching assignments:', error);
+        } catch (err) {
+            console.error('Error fetching assignments:', err);
             setError('Lỗi khi tải danh sách phân công');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -107,11 +175,13 @@ export default function AssignmentsPage() {
         try {
             const response = await fetch(API_ROUTES.HR.EMPLOYEES);
             const result = await response.json();
+            
             if (result.success) {
-                setEmployees(result.data);
+                setEmployees(Array.isArray(result.data) ? result.data : []);
             }
-        } catch (error) {
-            console.error('Error fetching employees:', error);
+        } catch (err) {
+            console.error('Error fetching employees:', err);
+            // Don't set error for employees, it's not critical
         }
     };
 
@@ -119,15 +189,16 @@ export default function AssignmentsPage() {
         try {
             const response = await fetch(API_ROUTES.ORG.UNITS);
             const result = await response.json();
-            if (result.success) {
-                setOrgUnits(result.data);
-            }
-        } catch (error) {
-            console.error('Error fetching org units:', error);
+            const units = parseOrgUnitsFromResponse(result);
+            setOrgUnits(units);
+        } catch (err) {
+            console.error('Error fetching org units:', err);
+            setOrgUnits([]); // Ensure it's always an array
         }
     };
 
-    const handleDelete = async (id: string) => {
+    // Handlers
+    const handleDelete = useCallback(async (id: string) => {
         if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) {
             return;
         }
@@ -140,30 +211,58 @@ export default function AssignmentsPage() {
             const result = await response.json();
 
             if (result.success) {
-                setAssignments(assignments.filter(assignment => assignment.id !== id));
+                setAssignments(prev => prev.filter(assignment => assignment.id !== id));
+                setError(''); // Clear any previous errors
             } else {
                 setError(result.error || 'Có lỗi xảy ra khi xóa phân công');
             }
-        } catch (error) {
-            console.error('Error deleting assignment:', error);
+        } catch (err) {
+            console.error('Error deleting assignment:', err);
             setError('Lỗi khi xóa phân công');
         }
-    };
+    }, []);
 
-    const getEmployeeName = (employeeId: string) => {
-        const employee = employees.find(emp => emp.id === employeeId);
-        return employee?.user?.full_name || `Employee ${employeeId}`;
-    };
+    const handleView = useCallback((id: string) => {
+        router.push(HR_ROUTES.ASSIGNMENTS_DETAIL(id));
+    }, [router]);
 
-    const getOrgUnitName = (orgUnitId: string) => {
-        const orgUnit = orgUnits.find(unit => unit.id === orgUnitId);
-        return orgUnit?.name || `Unit ${orgUnitId}`;
-    };
+    const handleEdit = useCallback((id: string) => {
+        router.push(HR_ROUTES.ASSIGNMENTS_EDIT(id));
+    }, [router]);
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN');
-    };
+    // Helper functions
+    const getEmployeeName = useCallback((assignment: Assignment): string => {
+        // Priority: assignment.employee data > employees lookup
+        if (assignment.employee?.user?.full_name) {
+            return assignment.employee.user.full_name;
+        }
 
+        if (!Array.isArray(employees)) {
+            return `Employee ${assignment.employee_id}`;
+        }
+
+        const employee = employees.find(emp => emp.id === assignment.employee_id);
+        return employee?.User?.full_name || employee?.user?.full_name || employee?.name || `Employee ${assignment.employee_id}`;
+    }, [employees]);
+
+    const getOrgUnitName = useCallback((assignment: Assignment): string => {
+        // Priority: assignment.org_unit data > orgUnits lookup
+        if (assignment.org_unit?.name) {
+            return assignment.org_unit.name;
+        }
+
+        if (!Array.isArray(orgUnits)) {
+            return `Unit ${assignment.org_unit_id}`;
+        }
+
+        const orgUnit = orgUnits.find(unit => unit.id === assignment.org_unit_id);
+        return orgUnit?.name || `Unit ${assignment.org_unit_id}`;
+    }, [orgUnits]);
+
+    // Computed values
+    const hasAssignments = useMemo(() => assignments.length > 0, [assignments]);
+
+    // Loading state
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -172,12 +271,14 @@ export default function AssignmentsPage() {
         );
     }
 
+    // Not authenticated
     if (!session) {
         return null;
     }
 
     return (
         <Box>
+            {/* Header */}
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h4" component="h1">
                     Quản lý phân công
@@ -191,12 +292,14 @@ export default function AssignmentsPage() {
                 </Button>
             </Box>
 
+            {/* Error message */}
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
                     {error}
                 </Alert>
             )}
 
+            {/* Assignments table */}
             <Paper>
                 <TableContainer>
                     <Table>
@@ -209,64 +312,69 @@ export default function AssignmentsPage() {
                                 <TableCell>Chính</TableCell>
                                 <TableCell>Ngày bắt đầu</TableCell>
                                 <TableCell>Ngày kết thúc</TableCell>
-                                <TableCell>Thao tác</TableCell>
+                                <TableCell align="right">Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {assignments.map((assignment) => (
-                                <TableRow key={assignment.id}>
-                                    <TableCell>
-                                        {getEmployeeName(assignment.employee_id)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {getOrgUnitName(assignment.org_unit_id)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={assignment.assignment_type}
-                                            color={assignment.assignment_type === 'admin' ? 'primary' : 'secondary'}
-                                            size="small"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        {(parseFloat(assignment.allocation) * 100).toFixed(0)}%
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={assignment.is_primary ? 'Có' : 'Không'}
-                                            color={assignment.is_primary ? 'success' : 'default'}
-                                            size="small"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        {formatDate(assignment.start_date)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {assignment.end_date ? formatDate(assignment.end_date) : '-'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => router.push(HR_ROUTES.ASSIGNMENTS_DETAIL(assignment.id))}
-                                        >
-                                            <ViewIcon />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => router.push(HR_ROUTES.ASSIGNMENTS_EDIT(assignment.id))}
-                                        >
-                                            <EditIcon />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleDelete(assignment.id)}
-                                            color="error"
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
+                            {hasAssignments ? (
+                                assignments.map((assignment) => (
+                                    <TableRow key={assignment.id} hover>
+                                        <TableCell>{getEmployeeName(assignment)}</TableCell>
+                                        <TableCell>{getOrgUnitName(assignment)}</TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={assignment.assignment_type}
+                                                color={assignment.assignment_type === 'admin' ? 'primary' : 'secondary'}
+                                                size="small"
+                                            />
+                                        </TableCell>
+                                        <TableCell>{formatAllocation(assignment.allocation)}</TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={assignment.is_primary ? 'Có' : 'Không'}
+                                                color={assignment.is_primary ? 'success' : 'default'}
+                                                size="small"
+                                            />
+                                        </TableCell>
+                                        <TableCell>{formatDate(assignment.start_date)}</TableCell>
+                                        <TableCell>
+                                            {assignment.end_date ? formatDate(assignment.end_date) : '-'}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleView(assignment.id)}
+                                                aria-label="Xem chi tiết"
+                                            >
+                                                <ViewIcon />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleEdit(assignment.id)}
+                                                aria-label="Chỉnh sửa"
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => handleDelete(assignment.id)}
+                                                color="error"
+                                                aria-label="Xóa"
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Chưa có phân công nào
+                                        </Typography>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>
