@@ -392,7 +392,6 @@ model OrgUnit {
   campus_id                  BigInt?
   planned_establishment_date DateTime?             @db.Date
   Course                     Course[]
-  major_owner_history        MajorOwnerHistory[]
   Major                      Major[]
   Program                    Program[]             @relation("OrgUnitPrograms")
   OrgAssignment              OrgAssignment[]
@@ -526,18 +525,17 @@ model Major {
   total_credits_max    Int?                  @db.SmallInt
   semesters_per_year   Int?                  @default(2) @db.SmallInt
   start_terms          String?               @default("Fall") @db.VarChar(64)
-  default_quota        Int?
   status               String                @default("active") @db.VarChar(32)
   established_at       DateTime?             @db.Date
   closed_at            DateTime?             @db.Date
   description          String?
-  notes                String?
   is_active            Boolean?              @default(true)
   created_by           BigInt?
   updated_by           BigInt?
   created_at           DateTime?             @default(now()) @db.Timestamptz(6)
   updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
   OrgUnit              OrgUnit               @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_owner")
+  Program              Program[]             @relation("MajorPrograms")
 
   @@unique([org_unit_id, code], map: "uq_major_code_per_owner")
   @@index([degree_level], map: "idx_major_degree_level")
@@ -590,6 +588,7 @@ model ProgramCourseMap {
   group_id          BigInt?
   is_required       Boolean?           @default(true)
   display_order     Int?               @default(1) @db.SmallInt
+  constraints       Json?              // Điều kiện học phần riêng cho CTĐT này (JSONB): học phần tiên quyết, học trước, code, tên
   ProgramBlock      ProgramBlock?      @relation(fields: [block_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   Course            Course             @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   ProgramBlockGroup ProgramBlockGroup? @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -1283,20 +1282,6 @@ model ApprovalRecord {
   @@index([approver_id], map: "idx_academic_approval_records_approver")
   @@index([workflow_instance_id], map: "idx_academic_approval_records_workflow")
   @@map("approval_records")
-  @@schema("academic")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model MajorOwnerHistory {
-  id          BigInt    @id @default(autoincrement())
-  major_id    BigInt
-  org_unit_id BigInt
-  start_date  DateTime  @db.Date
-  end_date    DateTime? @db.Date
-  majors      Major     @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  org_units   OrgUnit   @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([major_id], map: "idx_moh_major")
   @@schema("academic")
 }
 
