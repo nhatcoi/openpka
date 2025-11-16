@@ -74,7 +74,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { useOrgUnitsPagination } from '@/hooks/use-org-units-pagination';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { usePermissions } from '@/lib/auth/permission-utils';
 
 interface CreateUnitData {
   name: string;
@@ -89,6 +89,7 @@ interface CreateUnitData {
 
 export default function OrgUnitManagementPage() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
 
   // Fetch real types and statuses from API
   const {
@@ -513,7 +514,7 @@ export default function OrgUnitManagementPage() {
               >
                 Làm mới
               </Button>
-              <PermissionGuard permission="org_unit.unit.create">
+              {hasPermission('org_unit.unit.create') && (
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
@@ -522,7 +523,7 @@ export default function OrgUnitManagementPage() {
                 >
                   Thêm đơn vị
                 </Button>
-              </PermissionGuard>
+              )}
             </Stack>
           </Stack>
         </CardContent>
