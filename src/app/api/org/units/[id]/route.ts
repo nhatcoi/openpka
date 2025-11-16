@@ -3,6 +3,7 @@ import { withIdParam, withIdAndBody } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission, createForbiddenResponse } from '@/lib/auth/api-permissions';
 
 export const GET = withIdParam(
   async (id: string, request: Request) => {
@@ -44,11 +45,11 @@ export const PUT = withIdAndBody(
       throw new Error('Unauthorized');
     }
 
-    const userPermissions = session.user.permissions || [];
-    const hasUpdatePermission = userPermissions.includes('org_unit.unit.update');
-    
-    if (!hasUpdatePermission) {
-      throw new Error('Không có quyền cập nhật đơn vị này');
+    // Check permission using helper function
+    try {
+      requirePermission(session, 'org_unit.unit.update');
+    } catch (error) {
+      throw error; // Will be handled by withErrorHandling
     }
 
     const unitId = BigInt(id);
@@ -93,11 +94,11 @@ export const DELETE = withIdParam(
       throw new Error('Unauthorized');
     }
 
-    const userPermissions = session.user.permissions || [];
-    const hasDeletePermission = userPermissions.includes('org_unit.unit.delete');
-    
-    if (!hasDeletePermission) {
-      throw new Error('Không có quyền xóa đơn vị này');
+    // Check permission using helper function
+    try {
+      requirePermission(session, 'org_unit.unit.delete');
+    } catch (error) {
+      throw error; // Will be handled by withErrorHandling
     }
 
     const unitId = BigInt(id);

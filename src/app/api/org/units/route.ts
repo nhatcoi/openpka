@@ -5,9 +5,17 @@ import { Prisma } from '@prisma/client';
 import { getUserAccessibleUnits } from '@/lib/auth/hierarchical-permissions';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 
 export const GET = withErrorHandling(
   async (request: NextRequest) => {
+    const session = await getServerSession(authOptions);
+    
+    // Check permission - view permission
+    if (session?.user?.id) {
+      requirePermission(session, 'org_unit.unit.view');
+    }
+
     const { searchParams } = new URL(request.url);
     
     // Parse query parameters
@@ -130,6 +138,15 @@ export const GET = withErrorHandling(
 
 export const POST = withBody(
   async (body: unknown) => {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+
+    // Check permission using helper function
+    requirePermission(session, 'org_unit.unit.create');
+
     const data = body as Record<string, unknown>;
     const { name, code, description, type, status, parent_id } = data;
     
