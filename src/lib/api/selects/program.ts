@@ -29,6 +29,7 @@ export const selectProgramDetail = {
       group_id: true,
       is_required: true,
       display_order: true,
+      constraints: true,
       ProgramBlock: {
         select: {
           id: true,

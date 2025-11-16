@@ -95,16 +95,18 @@ export const PROGRAM_WORKFLOW_STAGES: ProgramWorkflowStage[] = [
 ];
 
 export const PROGRAM_PERMISSIONS = {
-  READ: 'tms.program.read',
-  WRITE: 'tms.program.write',
+  // New permissions structure
+  VIEW: 'tms.program.view',
+  CREATE: 'tms.program.create',
+  UPDATE: 'tms.program.update',
+  DELETE: 'tms.program.delete',
   APPROVE: 'tms.program.approve',
-  // Legacy permissions (for backward compatibility)
-  VIEW: 'tms.program.read', // Alias for READ
-  CREATE: 'tms.program.write', // Alias for WRITE
-  UPDATE: 'tms.program.write', // Alias for WRITE
-  DELETE: 'tms.program.write', // Alias for WRITE
-  SUBMIT: 'tms.program.write', // Alias for WRITE
-  REVIEW: 'tms.program.approve', // Alias for APPROVE
+  PUBLISH: 'tms.program.publish',
+  // Legacy aliases for backward compatibility
+  READ: 'tms.program.view',
+  WRITE: 'tms.program.create', // Use CREATE for write operations
+  SUBMIT: 'tms.program.create', // Use CREATE for submit
+  REVIEW: 'tms.program.approve',
   REJECT: 'tms.program.approve', // Alias for APPROVE
   PUBLISH: 'tms.program.approve', // Alias for APPROVE
   REQUEST_EDIT: 'tms.program.write', // Alias for WRITE
