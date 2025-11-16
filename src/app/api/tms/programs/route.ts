@@ -315,7 +315,8 @@ async function copyProgramStructure(
         group_id: true,
         is_required: true,
         display_order: true,
-      },
+        constraints: true,
+      } as any,
       orderBy: [{ block_id: 'asc' }, { display_order: 'asc' }],
     });
 
@@ -323,13 +324,14 @@ async function copyProgramStructure(
       return 0;
     }
 
-    const newMappings = sourceMappings.map((mapping) => ({
+    const newMappings = sourceMappings.map((mapping: any) => ({
       program_id: targetProgramId,
       course_id: mapping.course_id,
       block_id: mapping.block_id,
       group_id: mapping.group_id,
       is_required: mapping.is_required,
       display_order: mapping.display_order,
+      constraints: mapping.constraints ?? null,
     }));
 
     const result = await db.programCourseMap.createMany({
