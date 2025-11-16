@@ -95,16 +95,18 @@ export const MAJOR_START_TERMS: MajorStartTerm[] = [
 ];
 
 export const MAJOR_PERMISSIONS = {
-  READ: 'tms.major.read',
-  WRITE: 'tms.major.write',
+  // New permissions structure
+  VIEW: 'tms.major.view',
+  CREATE: 'tms.major.create',
+  UPDATE: 'tms.major.update',
+  DELETE: 'tms.major.delete',
   APPROVE: 'tms.major.approve',
-  // Legacy permissions (for backward compatibility)
-  VIEW: 'tms.major.read', // Alias for READ
-  CREATE: 'tms.major.write', // Alias for WRITE
-  UPDATE: 'tms.major.write', // Alias for WRITE
-  DELETE: 'tms.major.write', // Alias for WRITE
-  MANAGE: 'tms.major.write', // Alias for WRITE (use write + approve for full manage)
-  PUBLISH: 'tms.major.approve', // Alias for APPROVE
+  PUBLISH: 'tms.major.publish',
+  // Legacy aliases for backward compatibility
+  READ: 'tms.major.view',
+  WRITE: 'tms.major.create', // Use CREATE for write operations
+  MANAGE: 'tms.major.view', // Use VIEW for manage
+  // Removed: REJECT, REQUEST_EDIT, SCIENCE_COUNCIL_PUBLISH (use APPROVE/PUBLISH instead)
   REVIEW: 'tms.major.approve', // Alias for APPROVE
   REJECT: 'tms.major.approve', // Alias for APPROVE
   REQUEST_EDIT: 'tms.major.write', // Alias for WRITE
