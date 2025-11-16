@@ -30,11 +30,10 @@ import {
     AdminPanelSettings as AdminPanelSettingsIcon,
     VpnKey as VpnKeyIcon,
     Assignment as AssignmentIcon,
-    Business as BusinessIcon,
-    AccountTree as AccountTreeIcon,
-    SupervisorAccount as SupervisorAccountIcon,
     EventNote as EventNoteIcon,
-    Edit as EditIcon,
+    AssignmentInd as AssignmentIndIcon,
+    CastForEducation as TrainingsIcon,
+    History as HistoryIcon,
 } from '@mui/icons-material';
 
 interface MenuItem {
@@ -52,107 +51,163 @@ const menuItems: MenuItem[] = [
         label: 'Dashboard',
         icon: <DashboardIcon />,
         href: '/hr/dashboard',
-        permission: 'user.read', // Tất cả roles đều có user.read
+        permission: 'hr.view',
     },
     {
         key: 'leave-requests',
         label: 'Đơn xin nghỉ',
         icon: <EventNoteIcon />,
         href: '/hr/leave-requests',
-        permission: 'leave_request.read', // Cần quyền đọc đơn xin nghỉ
+        permission: 'hr.leave_request.view',
     },
     {
         key: 'my-evaluations',
         label: 'Đánh giá của tôi',
         icon: <AssessmentIcon />,
         href: '/hr/my-evaluations',
-        permission: 'performance_review.read', // Giảng viên có thể xem đánh giá của mình
+        permission: 'hr.performance_review.view',
     },
     {
         key: 'hr-management',
         label: 'Quản lý Nhân sự',
         icon: <GroupIcon />,
-        permission: 'hr.employee.read', // Cần quyền đọc nhân viên
+        permission: 'hr.employee.view',
         children: [
             {
                 key: 'employees',
                 label: 'Nhân viên',
                 icon: <PeopleIcon />,
                 href: '/hr/employees',
-                permission: 'hr.employee.read',
+                permission: 'hr.employee.view',
+            },
+            {
+                key: 'assignments',
+                label: 'Phân công công việc',
+                icon: <AssignmentIndIcon />,
+                href: '/hr/assignments',
+                permission: 'hr.assignment.view',
             },
             {
                 key: 'qualifications',
                 label: 'Bằng cấp',
                 icon: <SchoolIcon />,
                 href: '/hr/qualifications',
-                permission: 'hr.employee.read',
+                permission: 'hr.qualification.view',
+            },
+            {
+                key: 'employee-qualifications',
+                label: 'Bằng cấp nhân viên',
+                icon: <SchoolIcon />,
+                href: '/hr/employee-qualifications',
+                permission: 'hr.qualification.view',
             },
             {
                 key: 'employments',
                 label: 'Hợp đồng',
                 icon: <WorkIcon />,
                 href: '/hr/employments',
-                permission: 'hr.employee.read',
+                permission: 'hr.employment.view',
+            },
+            {
+                key: 'academic-titles',
+                label: 'Học hàm, học vị',
+                icon: <SchoolIcon />,
+                href: '/hr/academic-titles',
+                permission: 'hr.academic_title.view',
+            },
+            {
+                key: 'employee-academic-titles',
+                label: 'Học hàm, học vị nhân viên',
+                icon: <SchoolIcon />,
+                href: '/hr/employee-academic-titles',
+                permission: 'hr.academic_title.view',
+            },
+            {
+                key: 'trainings',
+                label: 'Đào tạo',
+                icon: <TrainingsIcon />,
+                href: '/hr/trainings',
+                permission: 'hr.training.view',
+            },
+            {
+                key: 'employee-trainings',
+                label: 'Đào tạo nhân viên',
+                icon: <TrainingsIcon />,
+                href: '/hr/employee-trainings',
+                permission: 'hr.training.view',
             },
             {
                 key: 'performance-reviews',
                 label: 'Đánh giá hiệu suất',
                 icon: <AssessmentIcon />,
                 href: '/hr/performance-reviews',
-                permission: 'performance_review.read',
+                permission: 'hr.performance_review.view',
             },
             {
                 key: 'evaluation-periods',
                 label: 'Quản lý kỳ đánh giá',
                 icon: <AssessmentIcon />,
                 href: '/hr/evaluation-periods',
-                permission: 'performance_review.create',
+                permission: 'hr.performance_review.create',
             },
             {
                 key: 'employee-logs',
                 label: 'Lịch sử sửa đổi',
-                icon: <EditIcon />,
+                icon: <HistoryIcon />,
                 href: '/hr/employee-logs',
-                permission: 'hr.employee.read',
-            }
+                permission: 'hr.employee.view',
+            },
         ],
     },
     {
         key: 'rbac',
         label: 'Phân quyền',
         icon: <SecurityIcon />,
-        permission: 'role.read', // Admin có quyền đọc role
+        permission: 'hr.rbac.view',
         children: [
             {
                 key: 'roles',
                 label: 'Vai trò',
                 icon: <AdminPanelSettingsIcon />,
                 href: '/hr/roles',
-                permission: 'role.read',
+                permission: 'hr.rbac.view',
             },
             {
                 key: 'permissions',
                 label: 'Quyền hạn',
                 icon: <VpnKeyIcon />,
                 href: '/hr/permissions',
-                permission: 'role.read', // Sử dụng role.read vì permissions liên quan đến roles
+                permission: 'hr.rbac.view',
             },
             {
                 key: 'role-permissions',
                 label: 'Vai trò - Quyền hạn',
                 icon: <AssignmentIcon />,
                 href: '/hr/role-permissions',
-                permission: 'role.read',
+                permission: 'hr.rbac.view',
             },
             {
                 key: 'user-roles',
                 label: 'Người dùng - Vai trò',
                 icon: <PersonIcon />,
                 href: '/hr/user-roles',
-                permission: 'user.read', // Liên quan đến user
+                permission: 'hr.rbac.view',
             },
         ],
+    },
+    {
+        key: 'reports',
+        label: 'Báo cáo',
+        icon: <AssessmentIcon />,
+        href: '/hr/reports',
+        permission: 'hr.report.view',
+    },
+    {
+        key: 'profile',
+        label: 'Hồ sơ cá nhân',
+        icon: <PersonIcon />,
+        href: '/hr/profile',
+        permission: 'hr.employee.view',
     },
 ];
 
@@ -161,27 +216,21 @@ export function NewSidebar() {
     const { data: session, status } = useSession();
     const permissions = session?.user?.permissions || [];
 
-    // Debug logging for development
     if (process.env.NODE_ENV === 'development' && session?.user) {
         console.log('🔐 User permissions:', permissions);
         console.log('👤 User:', session.user.username, session.user.email);
     }
 
-
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'hr-management': true,
-        'rbac': false,
         'org-management': false,
+        'rbac': false,
     });
 
-    // Function to check if user has permission
     const hasPermission = (requiredPermission: string) => {
-        const hasAccess = permissions.includes(requiredPermission);
-        // Debug logging (remove in production)
-        if (process.env.NODE_ENV === 'development') {
-            console.log(`Permission check: ${requiredPermission} - ${hasAccess ? '✅' : '❌'}`);
-        }
-        return hasAccess;
+        if (!requiredPermission) return true; // Không yêu cầu permission = hiển thị
+        if (!permissions || permissions.length === 0) return false; // Chưa có permissions = không hiển thị
+        return permissions.includes(requiredPermission);
     };
 
     const handleToggleSection = (key: string) => {
@@ -192,12 +241,10 @@ export function NewSidebar() {
     };
 
     const renderMenuItem = (item: MenuItem, level: number = 0) => {
-        // Check permission first
         if (item.permission && !hasPermission(item.permission)) {
             return null;
         }
 
-        // For parent items with children, check if any child is accessible
         if (item.children && item.children.length > 0) {
             const hasAccessibleChildren = item.children.some(child =>
                 !child.permission || hasPermission(child.permission)
@@ -207,11 +254,11 @@ export function NewSidebar() {
             }
         }
 
-        const isActive = item.href ? pathname === item.href : false;
+        const isActive = item.href ? pathname === item.href || pathname.startsWith(item.href + '/') : false;
         const hasChildren = item.children && item.children.length > 0;
 
         if (hasChildren) {
-            const isOpen = openSections[item.key];
+            const isOpen = openSections[item.key] ?? false;
 
             return (
                 <React.Fragment key={item.key}>
@@ -225,8 +272,9 @@ export function NewSidebar() {
                                 margin: '2px 8px',
                                 minHeight: 44,
                                 transition: 'all 0.2s ease-in-out',
+                                backgroundColor: isActive ? 'rgba(255, 255, 255, 0.15)' : 'transparent',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
                                     transform: 'translateX(2px)',
                                 },
                             }}
@@ -236,6 +284,9 @@ export function NewSidebar() {
                             </ListItemIcon>
                             <ListItemText
                                 primary={item.label}
+                                primaryTypographyProps={{
+                                    component: 'div',
+                                }}
                                 sx={{
                                     '& .MuiListItemText-primary': {
                                         color: '#ffffff',
@@ -246,7 +297,7 @@ export function NewSidebar() {
                             {isOpen ? <ExpandLess sx={{ color: '#ffffff' }} /> : <ExpandMore sx={{ color: '#ffffff' }} />}
                         </ListItemButton>
                     </ListItem>
-                    <Collapse in={isOpen} timeout="auto">
+                    <Collapse in={isOpen} timeout="auto" unmountOnExit>
                         <Box
                             sx={{
                                 backgroundColor: 'rgba(0, 0, 0, 0.15)',
@@ -254,7 +305,6 @@ export function NewSidebar() {
                                 marginLeft: 2,
                                 marginRight: 1,
                                 borderRadius: '0 8px 8px 0',
-                                boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.2)',
                                 overflow: 'hidden',
                             }}
                         >
@@ -275,8 +325,8 @@ export function NewSidebar() {
                         color: '#ffffff',
                         backgroundColor: isActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
                         borderRadius: level > 0 ? '6px' : '0',
-                        margin: level > 0 ? '1px 4px' : '0',
-                        minHeight: 36,
+                        margin: level > 0 ? '1px 4px' : '2px 8px',
+                        minHeight: level > 0 ? 36 : 44,
                         transition: 'all 0.2s ease-in-out',
                         '&:hover': {
                             backgroundColor: isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.15)',
@@ -289,6 +339,9 @@ export function NewSidebar() {
                     </ListItemIcon>
                     <ListItemText
                         primary={item.label}
+                        primaryTypographyProps={{
+                            component: 'div',
+                        }}
                         sx={{
                             '& .MuiListItemText-primary': {
                                 color: '#ffffff',
@@ -313,6 +366,8 @@ export function NewSidebar() {
                     boxSizing: 'border-box',
                     backgroundColor: '#2e4c92',
                     color: '#ffffff',
+                    height: '100vh',
+                    position: 'fixed',
                 },
             }}
         >
@@ -321,18 +376,47 @@ export function NewSidebar() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
+                    overflow: 'hidden',
                 }}
             >
                 {/* Header */}
-                <Box sx={{ padding: 2, textAlign: 'center' }}>
+                <Box 
+                    sx={{ 
+                        padding: 2, 
+                        textAlign: 'center',
+                        flexShrink: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                    }}
+                >
                     <Typography variant="h6" sx={{ color: 'white', fontWeight: 700 }}>
                         HR System
                     </Typography>
                 </Box>
-                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.12)' }} />
+                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.12)', flexShrink: 0 }} />
 
-                {/* Menu Items */}
-                <List sx={{ flexGrow: 1, paddingTop: 1 }}>
+                {/* Menu Items - Scrollable */}
+                <List 
+                    sx={{ 
+                        flexGrow: 1, 
+                        paddingTop: 1,
+                        paddingBottom: 1,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        '&::-webkit-scrollbar': {
+                            width: '8px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                            borderRadius: '4px',
+                            '&:hover': {
+                                backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                            },
+                        },
+                    }}
+                >
                     {menuItems.map(item => renderMenuItem(item)).filter(Boolean)}
                 </List>
             </Box>
