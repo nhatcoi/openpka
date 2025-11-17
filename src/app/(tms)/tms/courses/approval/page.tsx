@@ -374,10 +374,6 @@ useEffect(() => {
     }
   };
 
-  // Check permissions directly from session
-  const permissions = session?.user?.permissions || [];
-  const hasPermission = (permission: string) => permissions.includes(permission);
-
   const getActionButtons = (subject: any) => {
     const buttons = [];
     

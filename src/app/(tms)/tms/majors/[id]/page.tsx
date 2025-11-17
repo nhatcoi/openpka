@@ -8,49 +8,21 @@ import {
   Paper,
   Stack,
   Button,
-  Card,
-  CardContent,
   Chip,
-  IconButton,
-  Tabs,
-  Tab,
   Alert,
   CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  ChipProps,
-  Avatar,
   Divider,
-  Fade,
-  Tooltip,
-  Badge,
+  Breadcrumbs,
+  Link,
 } from '@mui/material';
 import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
-  School as SchoolIcon,
-  BookmarkBorder as BookmarkIcon,
-  Schedule as ScheduleIcon,
-  Language as LanguageIcon,
-  TrendingUp as TrendingUpIcon,
-  Description as DescriptionIcon,
-  Verified as VerifiedIcon,
-  People as PeopleIcon,
-  History as HistoryIcon,
-  Assessment as AssessmentIcon,
-  Info as InfoIcon,
-  AttachMoney as MoneyIcon,
-  CalendarToday as CalendarIcon,
-  Code as CodeIcon,
-  Business as OrgIcon,
-  Timeline as TimelineIcon,
-  CheckCircle as ActiveIcon,
-  EditNote as DraftIcon,
-  Pending as ProposedIcon,
-  PauseCircle as SuspendedIcon,
-  Cancel as ClosedIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 
@@ -63,49 +35,20 @@ interface Major {
   name_en?: string;
   short_name?: string;
   slug?: string;
-  is_moet_standard?: boolean;
   degree_level: string;
-  field_cluster?: string;
   org_unit_id: IdLike;
   duration_years?: number | string;
   total_credits_min?: number | string;
   total_credits_max?: number | string;
   semesters_per_year?: number | string;
-  start_terms?: string;
+  default_quota?: number | string | null;
   status: string;
-  established_at?: string;
   closed_at?: string;
-  description?: string;
+  metadata?: Record<string, any> | null;
   created_by?: IdLike | null;
   updated_by?: IdLike | null;
   created_at?: string;
   updated_at?: string;
-}
-
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`major-tabpanel-${index}`}
-      aria-labelledby={`major-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
 }
 
 export default function MajorDetailPage() {
@@ -150,46 +93,20 @@ export default function MajorDetailPage() {
 
     switch (normalized) {
       case 'ACTIVE':
-        return {
-          color: 'success',
-          label: 'Hoạt động',
-          icon: <ActiveIcon />,
-          bgColor: 'rgba(76, 175, 80, 0.1)',
-          textColor: '#2e7d32'
-        };
+        return { color: 'success' as const, label: 'Hoạt động' };
       case 'SUSPENDED':
-        return {
-          color: 'warning',
-          label: 'Tạm dừng',
-          icon: <SuspendedIcon />,
-          bgColor: 'rgba(255, 152, 0, 0.1)',
-          textColor: '#f57c00'
-        };
+        return { color: 'warning' as const, label: 'Tạm dừng' };
       case 'CLOSED':
-        return {
-          color: 'error',
-          label: 'Đã đóng',
-          icon: <ClosedIcon />,
-          bgColor: 'rgba(244, 67, 54, 0.1)',
-          textColor: '#d32f2f'
-        };
+        return { color: 'error' as const, label: 'Đã đóng' };
       case 'PROPOSED':
-        return {
-          color: 'info',
-          label: 'Đề xuất',
-          icon: <ProposedIcon />,
-          bgColor: 'rgba(33, 150, 243, 0.1)',
-          textColor: '#1976d2'
-        };
+        return { color: 'info' as const, label: 'Đề xuất' };
+      case 'REVIEWING':
+        return { color: 'info' as const, label: 'Đang xem xét' };
+      case 'APPROVED':
+        return { color: 'success' as const, label: 'Đã phê duyệt' };
       case 'DRAFT':
       default:
-        return {
-          color: 'default',
-          label: 'Nháp',
-          icon: <DraftIcon />,
-          bgColor: 'rgba(158, 158, 158, 0.1)',
-          textColor: '#616161'
-        };
+        return { color: 'default' as const, label: 'Nháp' };
     }
   };
 
@@ -307,383 +224,215 @@ export default function MajorDetailPage() {
   const durationYears = parseNumeric(major.duration_years);
   const semestersPerYear = parseNumeric(major.semesters_per_year);
   const creditRangeText = formatCreditRange(major.total_credits_min, major.total_credits_max);
-  const startTerms = major.start_terms || '—';
+  
+  // Get values from metadata
+  const metadata = major.metadata || {};
+  const fieldCluster = metadata.field_cluster || '—';
+  const isMoetStandard = metadata.is_moet_standard || false;
+  const establishedAt = metadata.established_at || null;
+  const description = metadata.description || null;
+  const startTerms = metadata.start_terms || '—';
+  const customMetadataEntries = Object.entries(metadata).filter(
+    ([key]) =>
+      !['field_cluster', 'is_moet_standard', 'established_at', 'description', 'notes', 'start_terms'].includes(
+        key
+      )
+  );
+  const basicInfo = [
+    { label: 'Đơn vị quản lý (ID)', value: String(major.org_unit_id) },
+    { label: 'Slug', value: major.slug || '—' },
+    { label: 'Tên viết tắt', value: major.short_name || '—' },
+    { label: 'Nhóm ngành', value: fieldCluster },
+    { label: 'Chuẩn MOET', value: formatBoolean(isMoetStandard) },
+  ];
+
+  const trainingInfo = [
+    { label: 'Số học kỳ / năm', value: semestersPerYear ?? '—' },
+    { label: 'Tổng tín chỉ', value: creditRangeText },
+    { label: 'Chỉ tiêu mặc định', value: formatNumber(major.default_quota) },
+    { label: 'Kỳ tuyển sinh', value: startTerms },
+  ];
+
+  const timelineInfo = [
+    { label: 'Ngày thành lập', value: formatDate(establishedAt) },
+    { label: 'Ngày đóng', value: formatDate(major.closed_at) },
+    { label: 'Ngày tạo', value: formatDate(major.created_at) },
+    { label: 'Ngày cập nhật', value: formatDate(major.updated_at) },
+  ];
+
+  const renderInfoItems = (
+    items: { label: string; value: React.ReactNode }[],
+    columns: number = 2
+  ) => (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: `repeat(${columns}, 1fr)`,
+        },
+        gap: 2,
+      }}
+    >
+      {items.map((item) => (
+        <Box key={item.label}>
+          <Typography variant="body2" color="text.secondary">
+            {item.label}
+          </Typography>
+          <Typography variant="subtitle1" fontWeight={600}>
+            {item.value}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+
+  const formatMetadataValue = (value: any) => {
+    if (value === null || value === undefined || value === '') return '—';
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  };
 
   const statusConfig = getStatusConfig(major.status);
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#f8fafc', py: 4 }}>
-      <Container maxWidth='lg'>
-        {/* Header */}
-        <Fade in={true} timeout={800}>
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              p: 4, 
-              background: `linear-gradient(135deg, ${statusConfig.bgColor} 0%, rgba(255,255,255,0.95) 100%)`,
-              color: 'text.primary', 
-              borderRadius: 3, 
-              mb: 4,
-              border: '1px solid',
-              borderColor: 'divider',
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: `linear-gradient(45deg, ${statusConfig.bgColor} 0%, transparent 50%)`,
-                opacity: 0.1
-              }
-            }}
-          >
-            <Stack direction="row" alignItems="center" spacing={2} mb={3} position="relative" zIndex={1}>
-              <Tooltip title="Quay lại">
-                <IconButton
-                  onClick={() => router.back()}
-                  sx={{ 
-                    bgcolor: 'rgba(255,255,255,0.9)',
-                    '&:hover': { bgcolor: 'white' },
-                    transition: 'all 0.2s ease-in-out'
-                  }}
-                >
-                  <ArrowBackIcon />
-                </IconButton>
-              </Tooltip>
-              <Stack spacing={1} sx={{ flexGrow: 1 }}>
-                <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-                  {major.name_vi}
-                </Typography>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                  <Typography variant="h6" sx={{ color: 'text.secondary' }}>
-                    {major.code}
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Container maxWidth="lg">
+        <Stack spacing={3}>
+          <Breadcrumbs>
+            <Link
+              color="inherit"
+              href="/tms"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              TMS
+            </Link>
+            <Link
+              color="inherit"
+              href="/tms/majors"
+              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Ngành đào tạo
+            </Link>
+            <Typography color="text.primary">{major.name_vi}</Typography>
+          </Breadcrumbs>
+
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Stack spacing={2}>
+              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} justifyContent="space-between">
+                <Box>
+                  <Typography variant="h4" fontWeight={600}>
+                    {major.name_vi}
                   </Typography>
-                  <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.secondary' }} />
-                  <Typography variant="h6" sx={{ color: 'text.secondary' }}>
-                    {getDegreeLevelText(major.degree_level)}
+                  <Typography variant="body2" color="text.secondary">
+                    {[major.code, getDegreeLevelText(major.degree_level), major.name_en].filter(Boolean).join(' • ')}
                   </Typography>
-                  {major.name_en && (
-                    <>
-                      <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'text.secondary' }} />
-                      <Typography variant="h6" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                        {major.name_en}
-                      </Typography>
-                    </>
-                  )}
+                </Box>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  <Button
+                    variant="outlined"
+                    startIcon={<ArrowBackIcon />}
+                    onClick={() => router.back()}
+                  >
+                    Quay lại
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditIcon />}
+                    onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
+                  >
+                    Chỉnh sửa
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    onClick={() => setDeleteDialog(true)}
+                  >
+                    Xóa
+                  </Button>
+                  <Chip
+                    label={statusConfig.label}
+                    color={statusConfig.color}
+                    sx={{ alignSelf: 'center' }}
+                  />
                 </Stack>
               </Stack>
-              <Stack direction="row" spacing={2}>
-                <Button
-                  variant="contained"
-                  startIcon={<EditIcon />}
-                  sx={{ 
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    px: 3,
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': { transform: 'translateY(-1px)', boxShadow: 3 }
-                  }}
-                  onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
-                >
-                  Chỉnh sửa
-                </Button>
-                <Chip 
-                  icon={statusConfig.icon}
-                  label={statusConfig.label}
-                  sx={{
-                    bgcolor: statusConfig.bgColor,
-                    color: statusConfig.textColor,
-                    fontWeight: 'bold',
-                    border: `1px solid ${statusConfig.textColor}30`,
-                    '& .MuiChip-icon': {
-                      color: statusConfig.textColor
-                    }
-                  }}
-                />
-              </Stack>
+              <Divider />
+              {renderInfoItems(
+                [
+                  { label: 'Thời gian đào tạo', value: durationYears !== null ? `${durationYears} năm` : '—' },
+                  { label: 'Tổng tín chỉ', value: creditRangeText },
+                  { label: 'Kỳ tuyển sinh', value: startTerms },
+                ],
+                3
+              )}
             </Stack>
-
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider', maxWidth: 320 }}>
-              <Stack alignItems="center" spacing={1}>
-                <Avatar sx={{ bgcolor: 'info.light', width: 48, height: 48 }}>
-                  <ScheduleIcon color="info" />
-                </Avatar>
-                <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'info.main' }}>
-                  {durationYears !== null ? durationYears : '—'}
-                </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  Năm đào tạo
-                </Typography>
-              </Stack>
-            </Paper>
           </Paper>
-        </Fade>
 
-        {/* Tabs - simplified */}
-        <Fade in={true} timeout={1000}>
-          <Paper 
-            elevation={0} 
-            sx={{ 
-              mb: 4, 
-              borderRadius: 3,
-              border: '1px solid',
-              borderColor: 'divider',
-              overflow: 'hidden'
-            }}
-          >
-            <Tabs value={0} variant="fullWidth">
-              <Tab icon={<InfoIcon />} iconPosition="start" label="Thông tin chung" />
-            </Tabs>
-
-          {/* General Information */}
-          <TabPanel value={0} index={0}>
-            <Fade in={tabValue === 0} timeout={300}>
-              <Stack spacing={4}>
-                <Stack 
-                  direction={{ xs: 'column', md: 'row' }} 
-                  spacing={3}
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: {
-                      xs: '1fr',
-                      md: 'repeat(2, 1fr)'
-                    },
-                    gap: 3
-                  }}
-                >
-                  <Card 
-                    elevation={0} 
-                    sx={{ 
-                      borderRadius: 3,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
-                    }}
-                  >
-                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Avatar sx={{ bgcolor: 'primary.light', width: 40, height: 40 }}>
-                          <InfoIcon color="primary" />
-                        </Avatar>
-                        <Typography variant="h6" fontWeight="bold" color="text.primary">
-                          Thông tin cơ bản
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <CardContent sx={{ p: 0 }}>
-                      <Stack spacing={0}>
-                        {[
-                          { icon: <BookmarkIcon />, label: 'Bằng cấp', value: getDegreeLevelText(major.degree_level) },
-                          { icon: <OrgIcon />, label: 'Đơn vị quản lý (ID)', value: String(major.org_unit_id) },
-                          { icon: <CodeIcon />, label: 'Mã ngành', value: `${major.code}${major.short_name ? ` • ${major.short_name}` : ''}` },
-                          { icon: <LanguageIcon />, label: 'Slug', value: major.slug || '—' },
-                          { icon: <TrendingUpIcon />, label: 'Nhóm ngành', value: major.field_cluster || '—' },
-                          { icon: <VerifiedIcon />, label: 'Chuẩn MOET', value: formatBoolean(major.is_moet_standard) }
-                        ].map((item, index) => (
-                          <Box key={index}>
-                            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Avatar sx={{ bgcolor: 'grey.100', width: 32, height: 32 }}>
-                                {item.icon}
-                              </Avatar>
-                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                                  {item.label}
-                                </Typography>
-                                <Typography variant="body1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
-                                  {item.value}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            {index < 8 && <Divider />}
-                          </Box>
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-
-                  <Card 
-                    elevation={0} 
-                    sx={{ 
-                      borderRadius: 3,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
-                    }}
-                  >
-                    <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Avatar sx={{ bgcolor: 'info.light', width: 40, height: 40 }}>
-                          <ScheduleIcon color="info" />
-                        </Avatar>
-                        <Typography variant="h6" fontWeight="bold" color="text.primary">
-                          Thông số đào tạo
-                        </Typography>
-                      </Stack>
-                    </Box>
-                    <CardContent sx={{ p: 0 }}>
-                      <Stack spacing={0}>
-                        {[
-                          { icon: <ScheduleIcon />, label: 'Thời gian đào tạo', value: durationYears !== null ? `${durationYears} năm` : '—' },
-                          { icon: <CalendarIcon />, label: 'Số học kỳ / năm', value: semestersPerYear !== null ? semestersPerYear : '—' },
-                          { icon: <TrendingUpIcon />, label: 'Tổng tín chỉ', value: creditRangeText },
-                          { icon: <CalendarIcon />, label: 'Kỳ tuyển sinh', value: startTerms },
-                          { icon: <PeopleIcon />, label: 'Chỉ tiêu mặc định', value: '—' }
-                        ].map((item, index) => (
-                          <Box key={index}>
-                            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <Avatar sx={{ bgcolor: 'grey.100', width: 32, height: 32 }}>
-                                {item.icon}
-                              </Avatar>
-                              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                                <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                                  {item.label}
-                                </Typography>
-                                <Typography variant="body1" fontWeight={600}>
-                                  {item.value}
-                                </Typography>
-                              </Box>
-                            </Box>
-                            {index < 4 && <Divider />}
-                          </Box>
-                        ))}
-                      </Stack>
-                    </CardContent>
-                  </Card>
-                </Stack>
-
-                <Card 
-                  elevation={0} 
-                  sx={{ 
-                    borderRadius: 3,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
-                  }}
-                >
-                  <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                      <Avatar sx={{ bgcolor: 'warning.light', width: 40, height: 40 }}>
-                        <HistoryIcon color="warning" />
-                      </Avatar>
-                      <Typography variant="h6" fontWeight="bold" color="text.primary">
-                        Mốc thời gian
-                      </Typography>
-                    </Stack>
-                  </Box>
-                  <CardContent sx={{ p: 0 }}>
-                    <Stack spacing={0}>
-                      {[
-                        { label: 'Ngày thành lập', value: formatDate(major.established_at) },
-                        { label: 'Ngày đóng', value: formatDate(major.closed_at) },
-                        { label: 'Ngày tạo', value: formatDate(major.created_at) },
-                        { label: 'Ngày cập nhật', value: formatDate(major.updated_at) }
-                      ].map((item, index) => (
-                        <Box key={index}>
-                          <Box sx={{ p: 3 }}>
-                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
-                              {item.label}
-                            </Typography>
-                            <Typography variant="body1" fontWeight={600}>
-                              {item.value}
-                            </Typography>
-                          </Box>
-                          {index < 3 && <Divider />}
-                        </Box>
-                      ))}
-                    </Stack>
-                  </CardContent>
-                </Card>
-
-                {major.description && (
-                  <Stack spacing={3}>
-                    {major.description && (
-                      <Card 
-                        elevation={0} 
-                        sx={{ 
-                          borderRadius: 3,
-                          border: '1px solid',
-                          borderColor: 'divider',
-                          transition: 'all 0.2s ease-in-out',
-                          '&:hover': { transform: 'translateY(-2px)', boxShadow: 2 }
-                        }}
-                      >
-                        <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar sx={{ bgcolor: 'secondary.light', width: 40, height: 40 }}>
-                              <DescriptionIcon color="secondary" />
-                            </Avatar>
-                            <Typography variant="h6" fontWeight="bold" color="text.primary">
-                              Mô tả
-                            </Typography>
-                          </Stack>
-                        </Box>
-                        <CardContent sx={{ p: 3 }}>
-                          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                            {major.description}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </Stack>
-                )}
-
-                {/* Related sections removed for simplification */}
-              </Stack>
-            </Fade>
-          </TabPanel>
-
-          {/* Removed other tabs for simplification */}
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight={600} mb={2}>
+              Thông tin cơ bản
+            </Typography>
+            {renderInfoItems(basicInfo)}
           </Paper>
-        </Fade>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog 
-          open={deleteDialog} 
-          onClose={() => setDeleteDialog(false)}
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              minWidth: 400
-            }
-          }}
-        >
-          <DialogTitle sx={{ pb: 2 }}>
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <Avatar sx={{ bgcolor: 'error.light', width: 40, height: 40 }}>
-                <ClosedIcon color="error" />
-              </Avatar>
-              <Typography variant="h6" fontWeight="bold">
-                Xác nhận xóa
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight={600} mb={2}>
+              Thông tin đào tạo
+            </Typography>
+            {renderInfoItems(trainingInfo)}
+          </Paper>
+
+          <Paper variant="outlined" sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight={600} mb={2}>
+              Mốc thời gian
+            </Typography>
+            {renderInfoItems(timelineInfo)}
+          </Paper>
+
+          {description && (
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <Typography variant="h6" fontWeight={600} mb={1}>
+                Mô tả
               </Typography>
-            </Stack>
-          </DialogTitle>
-          <DialogContent sx={{ pb: 2 }}>
-            <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
-              Bạn có chắc chắn muốn xóa ngành đào tạo <strong>"{major?.name_vi}"</strong> không?
-              <br />
-              Hành động này không thể hoàn tác.
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', lineHeight: 1.7 }}>
+                {description}
+              </Typography>
+            </Paper>
+          )}
+
+          {customMetadataEntries.length > 0 && (
+            <Paper variant="outlined" sx={{ p: 3 }}>
+              <Typography variant="h6" fontWeight={600} mb={2}>
+                Thông tin bổ sung
+              </Typography>
+              {renderInfoItems(
+                customMetadataEntries.map(([key, value]) => ({
+                  label: key,
+                  value: formatMetadataValue(value),
+                }))
+              )}
+            </Paper>
+          )}
+        </Stack>
+
+        <Dialog open={deleteDialog} onClose={() => setDeleteDialog(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary">
+              Bạn có chắc chắn muốn xóa ngành đào tạo “{major?.name_vi}”? Hành động này không thể hoàn tác.
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ p: 3, pt: 2 }}>
-            <Button 
-              onClick={() => setDeleteDialog(false)}
-              sx={{ borderRadius: 2, textTransform: 'none' }}
-            >
-              Hủy
-            </Button>
-            <Button 
-              onClick={handleDelete}
-              color="error"
-              variant="contained"
-              sx={{ borderRadius: 2, textTransform: 'none' }}
-            >
+          <DialogActions>
+            <Button onClick={() => setDeleteDialog(false)}>Hủy</Button>
+            <Button color="error" variant="contained" onClick={handleDelete}>
               Xóa
             </Button>
           </DialogActions>

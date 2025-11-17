@@ -15,19 +15,15 @@ const updateMajorSchema = z.object({
   name_en: z.string().max(255).optional(),
   short_name: z.string().max(100).optional(),
   slug: z.string().max(255).optional(),
-  is_moet_standard: z.boolean().optional(),
   degree_level: z.string().max(32).optional(),
-  field_cluster: z.string().max(64).optional(),
   org_unit_id: z.number().optional(),
   duration_years: z.number().min(0.1).max(10).optional(),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional(),
-  start_terms: z.string().max(64).optional(),
   status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional(),
-  established_at: z.string().optional(),
   closed_at: z.string().optional(),
-  description: z.string().optional(),
+  metadata: z.object({}).passthrough().optional().nullable(), // JSONB field for additional information
 });
 
 // GET /api/tms/majors/[id]
@@ -47,19 +43,15 @@ export const GET = withIdParam(async (id: string) => {
       name_en: true,
       short_name: true,
       slug: true,
-      is_moet_standard: true,
       degree_level: true,
-      field_cluster: true,
       org_unit_id: true,
       duration_years: true,
       total_credits_min: true,
       total_credits_max: true,
       semesters_per_year: true,
-      start_terms: true,
       status: true,
-      established_at: true,
       closed_at: true,
-      description: true,
+      metadata: true,
       created_by: true,
       updated_by: true,
       created_at: true,
@@ -118,15 +110,37 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
     }
   }
 
+  // Prepare update data
+  const updateData: any = {
+    updated_at: new Date(),
+    updated_by: actorId,
+  };
+
+  if (validatedData.code !== undefined) updateData.code = validatedData.code;
+  if (validatedData.name_vi !== undefined) updateData.name_vi = validatedData.name_vi;
+  if (validatedData.name_en !== undefined) updateData.name_en = validatedData.name_en;
+  if (validatedData.short_name !== undefined) updateData.short_name = validatedData.short_name;
+  if (validatedData.slug !== undefined) updateData.slug = validatedData.slug;
+  if (validatedData.degree_level !== undefined) updateData.degree_level = validatedData.degree_level;
+  if (validatedData.org_unit_id !== undefined) updateData.org_unit_id = BigInt(validatedData.org_unit_id);
+  if (validatedData.duration_years !== undefined) updateData.duration_years = validatedData.duration_years;
+  if (validatedData.total_credits_min !== undefined) updateData.total_credits_min = validatedData.total_credits_min;
+  if (validatedData.total_credits_max !== undefined) updateData.total_credits_max = validatedData.total_credits_max;
+  if (validatedData.semesters_per_year !== undefined) updateData.semesters_per_year = validatedData.semesters_per_year;
+  if (validatedData.status !== undefined) updateData.status = validatedData.status;
+  if (validatedData.closed_at !== undefined) {
+    updateData.closed_at = validatedData.closed_at ? new Date(validatedData.closed_at) : null;
+  }
+  if (validatedData.metadata !== undefined) {
+    const metadata = validatedData.metadata && typeof validatedData.metadata === 'object' 
+      ? validatedData.metadata as Record<string, any>
+      : null;
+    updateData.metadata = metadata && Object.keys(metadata).length > 0 ? metadata : null;
+  }
+
   const updated = await prisma.major.update({
     where: { id: majorId },
-    data: {
-      ...validatedData,
-      established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
-      closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
-      updated_at: new Date(),
-      updated_by: actorId,
-    },
+    data: updateData,
     select: {
       id: true,
       code: true,
@@ -134,19 +148,15 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
       name_en: true,
       short_name: true,
       slug: true,
-      is_moet_standard: true,
       degree_level: true,
-      field_cluster: true,
       org_unit_id: true,
       duration_years: true,
       total_credits_min: true,
       total_credits_max: true,
       semesters_per_year: true,
-      start_terms: true,
       status: true,
-      established_at: true,
       closed_at: true,
-      description: true,
+      metadata: true,
       created_by: true,
       updated_by: true,
       created_at: true,
