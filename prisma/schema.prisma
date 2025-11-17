@@ -522,6 +522,7 @@ model Major {
   total_credits_min    Int?                  @db.SmallInt
   total_credits_max    Int?                  @db.SmallInt
   semesters_per_year   Int?                  @default(2) @db.SmallInt
+  default_quota        Int?
   status               String                @default("active") @db.VarChar(32)
   closed_at            DateTime?             @db.Date
   metadata             Json?                // JSONB field for additional information (field_cluster, established_at, description, notes, etc.)

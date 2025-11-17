@@ -21,6 +21,7 @@ const updateMajorSchema = z.object({
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional(),
+  default_quota: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional(),
   closed_at: z.string().optional(),
   metadata: z.object({}).passthrough().optional().nullable(), // JSONB field for additional information
@@ -49,6 +50,7 @@ export const GET = withIdParam(async (id: string) => {
       total_credits_min: true,
       total_credits_max: true,
       semesters_per_year: true,
+      default_quota: true,
       status: true,
       closed_at: true,
       metadata: true,
@@ -127,6 +129,7 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
   if (validatedData.total_credits_min !== undefined) updateData.total_credits_min = validatedData.total_credits_min;
   if (validatedData.total_credits_max !== undefined) updateData.total_credits_max = validatedData.total_credits_max;
   if (validatedData.semesters_per_year !== undefined) updateData.semesters_per_year = validatedData.semesters_per_year;
+  if (validatedData.default_quota !== undefined) updateData.default_quota = validatedData.default_quota;
   if (validatedData.status !== undefined) updateData.status = validatedData.status;
   if (validatedData.closed_at !== undefined) {
     updateData.closed_at = validatedData.closed_at ? new Date(validatedData.closed_at) : null;
@@ -154,6 +157,7 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
       total_credits_min: true,
       total_credits_max: true,
       semesters_per_year: true,
+      default_quota: true,
       status: true,
       closed_at: true,
       metadata: true,

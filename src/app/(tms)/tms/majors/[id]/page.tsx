@@ -250,7 +250,6 @@ export default function MajorDetailPage() {
     { label: 'Số học kỳ / năm', value: semestersPerYear ?? '—' },
     { label: 'Tổng tín chỉ', value: creditRangeText },
     { label: 'Chỉ tiêu mặc định', value: formatNumber(major.default_quota) },
-    { label: 'Kỳ tuyển sinh', value: startTerms },
   ];
 
   const timelineInfo = [
@@ -369,7 +368,7 @@ export default function MajorDetailPage() {
                 [
                   { label: 'Thời gian đào tạo', value: durationYears !== null ? `${durationYears} năm` : '—' },
                   { label: 'Tổng tín chỉ', value: creditRangeText },
-                  { label: 'Kỳ tuyển sinh', value: startTerms },
+              
                 ],
                 3
               )}
