@@ -28,11 +28,19 @@ import {
   Link,
   TextField,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  Stack,
 } from '@mui/material';
 import {
   RefreshCw,
   History,
   Search,
+  X,
+  Eye,
 } from 'lucide-react';
 
 interface HistoryItem {
@@ -40,11 +48,18 @@ interface HistoryItem {
   entity_type: string;
   entity_id: string;
   action: string;
-  field_name?: string;
-  old_value?: string;
-  new_value?: string;
   change_summary?: string;
+  change_details?: {
+    fields?: string[];
+    changes?: Record<string, { old_value: any; new_value: any }>;
+    initial_values?: any;
+    deleted_values?: any;
+    metadata?: any;
+  };
+  actor_id?: string;
   actor_name?: string;
+  user_agent?: string;
+  metadata?: any;
   created_at: string;
 }
 
@@ -59,6 +74,8 @@ export default function AcademicHistoryPage() {
     action: '',
     search: '',
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -120,6 +137,46 @@ export default function AcademicHistoryPage() {
       case 'CURRICULUM_VERSION': return 'Phiên bản chương trình';
       case 'COURSE_VERSION': return 'Phiên bản học phần';
       default: return type;
+    }
+  };
+
+  const handleRowClick = (item: HistoryItem) => {
+    setSelectedItem(item);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setSelectedItem(null);
+  };
+
+  const formatValue = (value: any): string => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  };
+
+  const getEntityUrl = (entityType: string, entityId: string): string | null => {
+    const type = entityType.toUpperCase();
+    const id = entityId;
+    
+    switch (type) {
+      case 'COURSE':
+        return `/tms/courses/${id}`;
+      case 'MAJOR':
+        return `/tms/majors/${id}`;
+      case 'PROGRAM':
+        return `/tms/programs/${id}`;
+      case 'COHORT':
+        return `/tms/cohorts/${id}`;
+      default:
+        return null;
     }
   };
 
@@ -257,7 +314,16 @@ export default function AcademicHistoryPage() {
                   </TableHead>
                   <TableBody>
                     {data.map((item) => (
-                      <TableRow key={item.id}>
+                      <TableRow 
+                        key={item.id}
+                        onClick={() => handleRowClick(item)}
+                        sx={{
+                          cursor: 'pointer',
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                          },
+                        }}
+                      >
                         <TableCell>
                           {new Date(item.created_at).toLocaleString('vi-VN')}
                         </TableCell>
@@ -276,7 +342,10 @@ export default function AcademicHistoryPage() {
                           />
                         </TableCell>
                         <TableCell>
-                          {item.change_summary || item.field_name || '—'}
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <span>{item.change_summary || '—'}</span>
+                            <Eye size={14} color="#666" />
+                          </Box>
                         </TableCell>
                         <TableCell>
                           {item.actor_name || 'Hệ thống'}
@@ -301,6 +370,383 @@ export default function AcademicHistoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* History Detail Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { minHeight: '60vh' }
+        }}
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center" gap={1}>
+              <History size={24} />
+              <Typography variant="h6">Chi tiết lịch sử sửa đổi</Typography>
+            </Box>
+            <Button
+              onClick={handleCloseDialog}
+              sx={{ minWidth: 'auto', p: 0.5 }}
+            >
+              <X size={24} />
+            </Button>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent>
+          {selectedItem && (
+            <Stack spacing={3}>
+              {/* Basic Info */}
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Thông tin cơ bản
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ID
+                    </Typography>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                      {selectedItem.id}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Thời gian
+                    </Typography>
+                    <Typography variant="body2">
+                      {new Date(selectedItem.created_at).toLocaleString('vi-VN', {
+                        dateStyle: 'full',
+                        timeStyle: 'medium',
+                      })}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Loại thực thể
+                    </Typography>
+                    <Box mt={0.5}>
+                      <Chip 
+                        label={getEntityTypeLabel(selectedItem.entity_type)} 
+                        size="small" 
+                        variant="outlined"
+                      />
+                    </Box>
+                  </Box>
+                  <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Hành động
+                    </Typography>
+                    <Box mt={0.5}>
+                      <Chip 
+                        label={selectedItem.action} 
+                        size="small" 
+                        color={getActionColor(selectedItem.action) as any}
+                      />
+                    </Box>
+                  </Box>
+                  <Box sx={{ flex: '1 1 100%' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      ID thực thể
+                    </Typography>
+                    <Box mt={0.5} display="flex" alignItems="center" gap={1}>
+                      <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {selectedItem.entity_id}
+                      </Typography>
+                      {getEntityUrl(selectedItem.entity_type, selectedItem.entity_id) && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          component={Link}
+                          href={getEntityUrl(selectedItem.entity_type, selectedItem.entity_id) || '#'}
+                          target="_blank"
+                        >
+                          Xem chi tiết
+                        </Button>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+
+              {/* Change Details */}
+              {selectedItem.change_details && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Chi tiết thay đổi
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  {selectedItem.change_details.fields && selectedItem.change_details.fields.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Các trường đã thay đổi ({selectedItem.change_details.fields.length})
+                      </Typography>
+                      <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selectedItem.change_details.fields.map((field, idx) => (
+                          <Chip 
+                            key={idx}
+                            label={field} 
+                            size="small" 
+                            variant="outlined"
+                            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {selectedItem.change_details.changes && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" gutterBottom>
+                        Chi tiết từng thay đổi
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        {Object.entries(selectedItem.change_details.changes).map(([field, change]: [string, any]) => (
+                          <Box key={field}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                              {field}
+                            </Typography>
+                            <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="error.main">
+                                  Giá trị cũ:
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    mt: 0.5,
+                                    p: 1,
+                                    bgcolor: 'error.lighter',
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'error.light',
+                                  }}
+                                >
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontFamily: 'monospace',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-word',
+                                      color: 'error.dark',
+                                      fontSize: '0.875rem',
+                                    }}
+                                  >
+                                    {formatValue(change.old_value)}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="caption" color="success.main">
+                                  Giá trị mới:
+                                </Typography>
+                                <Box
+                                  sx={{
+                                    mt: 0.5,
+                                    p: 1,
+                                    bgcolor: 'success.lighter',
+                                    borderRadius: 1,
+                                    border: '1px solid',
+                                    borderColor: 'success.light',
+                                  }}
+                                >
+                                  <Typography 
+                                    variant="body2" 
+                                    sx={{ 
+                                      fontFamily: 'monospace',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-word',
+                                      color: 'success.dark',
+                                      fontSize: '0.875rem',
+                                    }}
+                                  >
+                                    {formatValue(change.new_value)}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  {selectedItem.change_details.initial_values && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" gutterBottom>
+                        Giá trị ban đầu (INSERT)
+                      </Typography>
+                      <Box
+                        sx={{
+                          mt: 0.5,
+                          p: 1.5,
+                          bgcolor: 'info.lighter',
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'info.light',
+                          maxHeight: 300,
+                          overflow: 'auto',
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontFamily: 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            fontSize: '0.875rem',
+                          }}
+                        >
+                          {formatValue(selectedItem.change_details.initial_values)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {selectedItem.change_details.deleted_values && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="caption" color="text.secondary" gutterBottom>
+                        Giá trị đã xóa (DELETE)
+                      </Typography>
+                      <Box
+                        sx={{
+                          mt: 0.5,
+                          p: 1.5,
+                          bgcolor: 'error.lighter',
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'error.light',
+                          maxHeight: 300,
+                          overflow: 'auto',
+                        }}
+                      >
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontFamily: 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            fontSize: '0.875rem',
+                            color: 'error.dark',
+                          }}
+                        >
+                          {formatValue(selectedItem.change_details.deleted_values)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {selectedItem.change_summary && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Tóm tắt thay đổi
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {selectedItem.change_summary}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* Actor Info */}
+              {(selectedItem.actor_id || selectedItem.actor_name) && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Người thực hiện
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                    {selectedItem.actor_id && (
+                      <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          ID người dùng
+                        </Typography>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                          {selectedItem.actor_id}
+                        </Typography>
+                      </Box>
+                    )}
+                    {selectedItem.actor_name && (
+                      <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: 200 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Tên người dùng
+                        </Typography>
+                        <Typography variant="body2">
+                          {selectedItem.actor_name}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* Request Context */}
+              {(selectedItem.user_agent || selectedItem.metadata || selectedItem.change_details?.metadata) && (
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Ngữ cảnh yêu cầu
+                  </Typography>
+                  <Divider sx={{ mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {selectedItem.user_agent && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          User Agent
+                        </Typography>
+                        <Typography variant="body2" sx={{ wordBreak: 'break-word', mt: 0.5 }}>
+                          {selectedItem.user_agent}
+                        </Typography>
+                      </Box>
+                    )}
+                    {(selectedItem.metadata || selectedItem.change_details?.metadata) && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Metadata
+                        </Typography>
+                        <Box
+                          sx={{
+                            mt: 0.5,
+                            p: 1.5,
+                            bgcolor: 'grey.50',
+                            borderRadius: 1,
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            maxHeight: 200,
+                            overflow: 'auto',
+                          }}
+                        >
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontFamily: 'monospace',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontSize: '0.875rem',
+                            }}
+                          >
+                            {formatValue(selectedItem.metadata || selectedItem.change_details?.metadata)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        
+        <DialogActions>
+          <Button onClick={handleCloseDialog} variant="contained">
+            Đóng
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }

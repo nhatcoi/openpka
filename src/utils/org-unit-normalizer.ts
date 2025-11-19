@@ -54,8 +54,8 @@ export function isValidStatus(status?: string): boolean {
   if (!status) return false;
   
   const validStatuses = [
-    'DRAFT', 'REVIEW', 'APPROVED', 'ACTIVE', 
-    'INACTIVE', 'ARCHIVED', 'REJECTED'
+    'DRAFT', 'REVIEWING', 'APPROVED', 'ACTIVE', 
+    'INACTIVE', 'ARCHIVED', 'REJECTED', 'SUSPENDED'
   ];
   
   return validStatuses.includes(status.toUpperCase());

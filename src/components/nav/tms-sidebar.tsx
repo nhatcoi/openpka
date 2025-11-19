@@ -55,6 +55,7 @@ const menuItems: MenuItem[] = [
         href: '/tms/dashboard',
         permission: 'tms.program.view',
     },
+
     {
         key: 'program-management',
         label: 'Quản lý chương trình đào tạo',
@@ -96,13 +97,6 @@ const menuItems: MenuItem[] = [
                 href: '/tms/programs/framework',
                 permission: 'tms.program.view',
             },
-            {
-                key: 'programs-review',
-                label: 'Phê duyệt chương trình',
-                icon: <VisibilityIcon />,
-                href: '/tms/programs/review',
-                permission: 'tms.major.approve',
-            },
         ],
     },
     {
@@ -126,11 +120,11 @@ const menuItems: MenuItem[] = [
                 permission: 'tms.course.create',
             },
             {
-                key: 'courses-approval',
-                label: 'Phê duyệt học phần',
-                icon: <ApprovalIcon />,
-                href: '/tms/courses/approval',
-                permission: 'tms.course.approve',
+                key: 'courses-syllabus',
+                label: 'Xây dựng giáo trình',
+                icon: <BookOnlineIcon />,
+                href: '/tms/courses/build-syllabus',
+                permission: 'tms.course.update',
             },
         ],
     },
@@ -153,13 +147,6 @@ const menuItems: MenuItem[] = [
                 icon: <AddIcon />,
                 href: '/tms/majors/create',
                 permission: 'tms.major.create',
-            },
-            {
-                key: 'majors-review',
-                label: 'Phê duyệt ngành đào tạo',
-                icon: <VisibilityIcon />,
-                href: '/tms/majors/review',
-                permission: 'tms.major.approve',
             },
         ],
     },
@@ -191,6 +178,13 @@ const menuItems: MenuItem[] = [
                 permission: 'tms.program.view',
             },
         ],
+    },
+    {
+        key: 'review',
+        label: 'Trung tâm phê duyệt',
+        icon: <ApprovalIcon />,
+        href: '/tms/review',
+        permission: 'tms.program.approve',
     },
     {
         key: 'history',

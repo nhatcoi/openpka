@@ -65,9 +65,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         // Legacy workflow data removed - using unified workflow system
         contents: {
           select: { prerequisites: true, passing_grade: true }
-        },
-        audits: {
-          select: { created_by: true, created_at: true }
         }
       },
       orderBy: { created_at: 'desc' },
@@ -105,10 +102,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         assessment_methods: course.contents?.[0]?.assessment_methods || null,
         passing_grade: course.contents?.[0]?.passing_grade ? parseFloat(course.contents[0].passing_grade.toString()) : null,
         
-        // Flatten audit data
-        created_by: course.audits?.[0]?.created_by?.toString() || null,
-        created_at: course.audits?.[0]?.created_at || course.created_at,
-        
         // OrgUnit data
         OrgUnit: course.OrgUnit ? {
           ...course.OrgUnit,
@@ -117,8 +110,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         
         // Remove nested arrays for cleaner response
         workflows: undefined,
-        contents: undefined,
-        audits: undefined
+        contents: undefined
       }));
 
   return {
@@ -189,22 +181,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       }
     });
 
-    // 4. Create CourseAudit record
-    const lastAudit = await tx.courseAudit.findFirst({
-      orderBy: { id: 'desc' }
-    });
-    const nextAuditId = lastAudit ? lastAudit.id + BigInt(1) : BigInt(1);
-    
-    const audit = await tx.courseAudit.create({
-      data: {
-        id: nextAuditId,
-        course_id: course.id,
-        created_by: BigInt(1), // Demo user
-        updated_by: BigInt(1),
-      }
-    });
-
-    return { course, workflow, content, audit };
+    return { course, workflow, content };
   }).catch((error) => {
     if (error.code === 'P2002') {
       if (error.meta?.target?.includes('org_unit_id') && error.meta?.target?.includes('code')) {

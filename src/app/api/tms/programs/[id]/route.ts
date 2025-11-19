@@ -14,6 +14,7 @@ import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { selectProgramDetail } from '@/lib/api/selects/program';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 const CONTEXT_GET = 'get program';
 const CONTEXT_UPDATE = 'update program';
@@ -49,7 +50,7 @@ export const GET = withIdParam(async (id: string) => {
   };
 }, CONTEXT_GET);
 
-export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
+export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
@@ -61,6 +62,10 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
   }
 
   const payload = body as UpdateProgramInput;
+
+  // Get request context and actor info for history tracking
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
 
   const numericUserId = Number(session.user.id);
   const actorId = Number.isNaN(numericUserId) ? BigInt(1) : BigInt(numericUserId);
@@ -136,6 +141,19 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   const result = await db.$transaction(async (tx) => {
     const programBigInt = BigInt(programId);
+
+    // IMPORTANT: Set history context FIRST before any other queries
+    // This ensures session variables are available when triggers fire
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        program_id: programId,
+        status: data.status,
+        workflow_action: payload.workflow_action,
+      },
+    });
 
     await tx.program.update({
       where: { id: programBigInt },

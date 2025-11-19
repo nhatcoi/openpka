@@ -290,11 +290,11 @@ export default function MajorsPage() {
             <Button
               variant="outlined"
               startIcon={<RateReviewIcon />}
-              onClick={() => router.push('/tms/majors/review')}
+              onClick={() => router.push('/tms/review')}
               color="primary"
               size="small"
             >
-              Phê duyệt ngành đào tạo
+              Trung tâm phê duyệt
             </Button>
             <Button
               variant="contained"

@@ -2,27 +2,52 @@ import { NextRequest } from 'next/server';
 import { withErrorHandling, withBody } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 import { serializeBigInt } from '@/utils/serialize';
+import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
 
 export const POST = withBody(
-  async (body: unknown) => {
+  async (body: unknown, request: Request) => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new Error('Unauthorized');
+    }
+
     const data = body as Record<string, unknown>;
 
-    const requiredFields = ['code', 'name', 'campus_id', 'owner_org_id', 'requester_id'];
+    const requiredFields = ['code', 'name'];
     for (const field of requiredFields) {
       if (!data[field]) {
         throw new Error(`Missing required field: ${field}`);
       }
     }
 
+    // Get actor info and request context
+    const actorId = BigInt(session.user.id);
+    const requestContext = getRequestContext(request);
+    const actorInfo = await getActorInfo(session.user.id, db);
+
     // transaction
     const result = await db.$transaction(async (tx) => {
+      // Set history context first
+      await setHistoryContext(tx, {
+        actorId: actorInfo.actorId,
+        actorName: actorInfo.actorName,
+        userAgent: requestContext.userAgent || undefined,
+        metadata: {
+          action: 'create_org_unit',
+          code: data.code,
+          name: data.name,
+        },
+      });
+
       // Tạo draft
       const orgUnit = await tx.orgUnit.create({
         data: {
           code: data.code as string,
           name: data.name as string,
           type: data.type && data.type !== '' ? (data.type as string).toUpperCase() : null,
-          campus_id: BigInt(data.campus_id as string),
           parent_id: data.parent_id ? BigInt(data.parent_id as string) : null,
           description: (data.description as string) || null,
           status: 'DRAFT',
@@ -32,48 +57,24 @@ export const POST = withBody(
         },
       });
 
-      // tạo structure request
-      const orgStructureRequest = await tx.orgStructureRequest.create({
-        data: {
-          request_type: 'created',
-          status: 'SUBMITTED',
-          requester_id: BigInt(data.requester_id as string),
-          target_org_unit_id: orgUnit.id,
-          owner_org_id: BigInt(data.owner_org_id as string),
-          payload: data.request_details ? (() => {
-            if (typeof data.request_details === 'string') {
-              try {
-                return JSON.parse(data.request_details as string);
-              } catch {
-                return { description: data.request_details };
-              }
-            }
-            return data.request_details;
-          })() : {},
-          attachments: data.attachments ? JSON.stringify(data.attachments) : '[]',
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      });
-
-      // tạo history
-      const orgUnitHistory = await tx.orgUnitHistory.create({
-        data: {
-          org_unit_id: orgUnit.id,
-          change_type: 'created',
-          old_name: null,
-          new_name: orgUnit.name,
-          details: {
+      // Tạo workflow instance
+      let workflowInstance = null;
+      try {
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'ORG_UNIT',
+          entityId: orgUnit.id,
+          initiatedBy: actorId,
+          metadata: {
+            org_unit_id: orgUnit.id.toString(),
             code: orgUnit.code,
-            type: orgUnit.type,
-            status: orgUnit.status,
-            campus_id: orgUnit.campus_id?.toString(),
-            description: orgUnit.description,
-            planned_establishment_date: orgUnit.planned_establishment_date,
+            name: orgUnit.name,
+            request_details: data.request_details || {},
           },
-          changed_at: new Date(),
-        },
-      });
+        }) as any;
+      } catch (error) {
+        console.error('Failed to create workflow instance:', error);
+        // Continue without workflow if creation fails
+      }
 
       // tạo relation với parent
       let orgUnitRelation = null;
@@ -98,20 +99,11 @@ export const POST = withBody(
           ...orgUnit,
           id: orgUnit.id.toString(),
           parent_id: orgUnit.parent_id?.toString(),
-          campus_id: orgUnit.campus_id?.toString(),
         },
-        orgStructureRequest: {
-          ...orgStructureRequest,
-          id: orgStructureRequest.id.toString(),
-          target_org_unit_id: orgStructureRequest.target_org_unit_id?.toString(),
-          requester_id: orgStructureRequest.requester_id?.toString(),
-          owner_org_id: orgStructureRequest.owner_org_id?.toString(),
-        },
-        orgUnitHistory: {
-          ...orgUnitHistory,
-          id: orgUnitHistory.id.toString(),
-          org_unit_id: orgUnitHistory.org_unit_id.toString(),
-        },
+        workflowInstance: workflowInstance ? {
+          ...workflowInstance,
+          id: workflowInstance.id?.toString(),
+        } : null,
         orgUnitRelation: orgUnitRelation ? {
           ...orgUnitRelation,
           parent_id: orgUnitRelation.parent_id.toString(),
@@ -171,9 +163,7 @@ export const GET = withErrorHandling(
     const units = await db.orgUnit.findMany({
       where: { status },
       include: {
-        org_structure_request: true,
         org_unit_attachments: true,
-        campus: true,
       },
       orderBy: { created_at: 'desc' },
     });

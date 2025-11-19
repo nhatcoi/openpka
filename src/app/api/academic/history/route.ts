@@ -94,12 +94,12 @@ export const GET = async (request: NextRequest) => {
           entity_type,
           entity_id::text,
           action,
-          field_name,
-          old_value,
-          new_value,
           change_summary,
+          change_details,
           actor_id::text,
           actor_name,
+          user_agent,
+          metadata,
           created_at
         FROM academic.academic_history 
         WHERE 1=1 ${whereClause}

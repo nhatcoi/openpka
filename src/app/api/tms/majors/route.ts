@@ -19,10 +19,8 @@ const createMajorSchema = z.object({
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional().default(2),
-  default_quota: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional().default('DRAFT'),
   closed_at: z.string().optional(),
-  metadata: z.object({}).passthrough().optional().nullable(), // JSONB field for additional information
 });
 
 const MAJOR_SELECT = {
@@ -38,10 +36,8 @@ const MAJOR_SELECT = {
   total_credits_min: true,
   total_credits_max: true,
   semesters_per_year: true,
-  default_quota: true,
   status: true,
   closed_at: true,
-  metadata: true,
   created_by: true,
   updated_by: true,
   created_at: true,
@@ -132,11 +128,6 @@ export const POST = withBody(async (body: unknown) => {
     throw new Error('Major code already exists for this organization unit');
   }
 
-  // Prepare metadata from additional fields
-  const metadata: Record<string, any> = validatedData.metadata && typeof validatedData.metadata === 'object' 
-    ? validatedData.metadata as Record<string, any>
-    : {};
-  
   // Create major
   const major = await prisma.major.create({
     data: {
@@ -151,10 +142,8 @@ export const POST = withBody(async (body: unknown) => {
       total_credits_min: validatedData.total_credits_min,
       total_credits_max: validatedData.total_credits_max,
       semesters_per_year: validatedData.semesters_per_year,
-      default_quota: validatedData.default_quota,
       status: validatedData.status || 'DRAFT',
       closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
-      metadata: Object.keys(metadata).length > 0 ? metadata : null,
       created_by: BigInt(session.user.id),
     },
     select: MAJOR_SELECT,

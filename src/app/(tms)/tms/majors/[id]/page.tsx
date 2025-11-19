@@ -228,13 +228,12 @@ export default function MajorDetailPage() {
   // Get values from metadata
   const metadata = major.metadata || {};
   const fieldCluster = metadata.field_cluster || '—';
-  const isMoetStandard = metadata.is_moet_standard || false;
   const establishedAt = metadata.established_at || null;
   const description = metadata.description || null;
   const startTerms = metadata.start_terms || '—';
   const customMetadataEntries = Object.entries(metadata).filter(
     ([key]) =>
-      !['field_cluster', 'is_moet_standard', 'established_at', 'description', 'notes', 'start_terms'].includes(
+      !['field_cluster', 'established_at', 'description', 'notes', 'start_terms'].includes(
         key
       )
   );
@@ -243,7 +242,6 @@ export default function MajorDetailPage() {
     { label: 'Slug', value: major.slug || '—' },
     { label: 'Tên viết tắt', value: major.short_name || '—' },
     { label: 'Nhóm ngành', value: fieldCluster },
-    { label: 'Chuẩn MOET', value: formatBoolean(isMoetStandard) },
   ];
 
   const trainingInfo = [

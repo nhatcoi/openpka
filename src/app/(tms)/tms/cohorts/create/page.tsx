@@ -31,7 +31,6 @@ import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
   HelpOutline as HelpOutlineIcon,
-  Info as InfoIcon,
 } from '@mui/icons-material';
 import { 
   CohortStatus, 
@@ -310,9 +309,8 @@ export default function CreateCohortPage() {
         </Alert>
       )}
 
-      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={3}>
-        <Box sx={{ flex: 2 }}>
-          <form onSubmit={handleSubmit}>
+      <Box>
+        <form onSubmit={handleSubmit}>
             {/* Basic Information */}
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -573,49 +571,8 @@ export default function CreateCohortPage() {
                 </Button>
               </Stack>
             </Paper>
-          </form>
-        </Box>
-
-        {/* Sidebar with help info */}
-        <Box sx={{ flex: 1, minWidth: 300 }}>
-          <Paper sx={{ p: 3, position: 'sticky', top: 20 }}>
-            <Typography variant="h6" gutterBottom>
-              <InfoIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Thông tin hữu ích
-            </Typography>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Mã khóa học
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Tự động tạo dựa trên năm tuyển sinh và học kỳ. 
-                  VD: K2024A (khóa 2024 học kỳ Fall).
-                </Typography>
-              </Box>
-              
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Chương trình đào tạo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Có thể chọn trực tiếp mà không cần chọn ngành trước.
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Chỉ tiêu
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Chỉ tiêu dự kiến: số sinh viên dự kiến tuyển sinh.
-                  Chỉ tiêu thực tế: số sinh viên thực tế đã tuyển sinh.
-                </Typography>
-              </Box>
-            </Stack>
-          </Paper>
-        </Box>
-      </Stack>
+        </form>
+      </Box>
 
       {/* Success Snackbar */}
       <Snackbar

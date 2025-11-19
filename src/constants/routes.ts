@@ -78,8 +78,6 @@ export const API_ROUTES = {
         UNITS_AUDIT: '/api/org/units/audit',
         UNITS_HISTORY: (id: string) => `/api/org/units/${id}/history`,
         UNITS_STATUS: (id: string) => `/api/org/units/${id}/status`,
-        STRUCTURE_REQUESTS: '/api/org/structure-requests',
-        STRUCTURE_REQUESTS_BY_ID: (id: string) => `/api/org/structure-requests/${id}`,
         INITIAL_UNITS: '/api/org/initial-units',
         HISTORY: '/api/org/history',
         HISTORY_BY_ID: (id: string) => `/api/org/history/${id}`,
@@ -112,10 +110,7 @@ export const ORG_ROUTES = {
     
     // Unit creation workflow
     UNIT_CREATE: {
-        DRAFT: '/org/unit/create/draft',
-        REVIEW: '/org/unit/create/review',
-        APPROVE: '/org/unit/create/approve',
-        ACTIVATE: '/org/unit/create/activate',
+        REVIEW: '/org/unit/review',
         AUDIT: '/org/unit/create/audit',
     },
 };

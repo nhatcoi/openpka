@@ -21,10 +21,9 @@ const updateMajorSchema = z.object({
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional(),
-  default_quota: z.number().min(0).optional(),
   status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional(),
   closed_at: z.string().optional(),
-  metadata: z.object({}).passthrough().optional().nullable(), // JSONB field for additional information
+  workflow_notes: z.string().optional(),
 });
 
 // GET /api/tms/majors/[id]
@@ -50,10 +49,8 @@ export const GET = withIdParam(async (id: string) => {
       total_credits_min: true,
       total_credits_max: true,
       semesters_per_year: true,
-      default_quota: true,
       status: true,
       closed_at: true,
-      metadata: true,
       created_by: true,
       updated_by: true,
       created_at: true,
@@ -69,7 +66,7 @@ export const GET = withIdParam(async (id: string) => {
 }, 'fetch major');
 
 // PUT /api/tms/majors/[id]
-export const PUT = withIdAndBody(async (id: string, body: unknown) => {
+export const PUT = withIdAndBody(async (id: string, body: unknown, request: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
@@ -87,10 +84,15 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
   const validatedData = validateSchema(updateMajorSchema, body);
   const numericUserId = Number(session.user.id);
   const actorId = Number.isNaN(numericUserId) ? BigInt(1) : BigInt(numericUserId);
+  const majorBigInt = BigInt(majorId);
 
   // Check if major exists
   const existingMajor = await prisma.major.findUnique({
-    where: { id: majorId }
+    where: { id: majorId },
+    select: {
+      id: true,
+      status: true,
+    }
   });
 
   if (!existingMajor) {
@@ -112,63 +114,117 @@ export const PUT = withIdAndBody(async (id: string, body: unknown) => {
     }
   }
 
-  // Prepare update data
-  const updateData: any = {
-    updated_at: new Date(),
-    updated_by: actorId,
-  };
+  // Get request context and actor info for history tracking
+  const { getRequestContext, getActorInfo, setHistoryContext } = await import('@/lib/db-history-context');
+  const requestContext = getRequestContext(request as any);
+  const actorInfo = await getActorInfo(session.user.id, prisma);
 
-  if (validatedData.code !== undefined) updateData.code = validatedData.code;
-  if (validatedData.name_vi !== undefined) updateData.name_vi = validatedData.name_vi;
-  if (validatedData.name_en !== undefined) updateData.name_en = validatedData.name_en;
-  if (validatedData.short_name !== undefined) updateData.short_name = validatedData.short_name;
-  if (validatedData.slug !== undefined) updateData.slug = validatedData.slug;
-  if (validatedData.degree_level !== undefined) updateData.degree_level = validatedData.degree_level;
-  if (validatedData.org_unit_id !== undefined) updateData.org_unit_id = BigInt(validatedData.org_unit_id);
-  if (validatedData.duration_years !== undefined) updateData.duration_years = validatedData.duration_years;
-  if (validatedData.total_credits_min !== undefined) updateData.total_credits_min = validatedData.total_credits_min;
-  if (validatedData.total_credits_max !== undefined) updateData.total_credits_max = validatedData.total_credits_max;
-  if (validatedData.semesters_per_year !== undefined) updateData.semesters_per_year = validatedData.semesters_per_year;
-  if (validatedData.default_quota !== undefined) updateData.default_quota = validatedData.default_quota;
-  if (validatedData.status !== undefined) updateData.status = validatedData.status;
-  if (validatedData.closed_at !== undefined) {
-    updateData.closed_at = validatedData.closed_at ? new Date(validatedData.closed_at) : null;
-  }
-  if (validatedData.metadata !== undefined) {
-    const metadata = validatedData.metadata && typeof validatedData.metadata === 'object' 
-      ? validatedData.metadata as Record<string, any>
-      : null;
-    updateData.metadata = metadata && Object.keys(metadata).length > 0 ? metadata : null;
-  }
+  // Use transaction to update major and create approval history
+  const result = await prisma.$transaction(async (tx) => {
+    // IMPORTANT: Set history context FIRST before any other queries
+    // This ensures session variables are available when triggers fire
+    await setHistoryContext(tx, {
+      ...(actorInfo.actorId !== null && { actorId: actorInfo.actorId }),
+      ...(actorInfo.actorName !== null && { actorName: actorInfo.actorName }),
+      ...(requestContext.userAgent && { userAgent: requestContext.userAgent }),
+      metadata: {
+        major_id: majorId,
+        status: validatedData.status,
+      },
+    });
 
-  const updated = await prisma.major.update({
-    where: { id: majorId },
-    data: updateData,
-    select: {
-      id: true,
-      code: true,
-      name_vi: true,
-      name_en: true,
-      short_name: true,
-      slug: true,
-      degree_level: true,
-      org_unit_id: true,
-      duration_years: true,
-      total_credits_min: true,
-      total_credits_max: true,
-      semesters_per_year: true,
-      default_quota: true,
-      status: true,
-      closed_at: true,
-      metadata: true,
-      created_by: true,
-      updated_by: true,
-      created_at: true,
-      updated_at: true,
+    // Prepare update data
+    const updateData: any = {
+      updated_at: new Date(),
+      updated_by: actorId,
+    };
+
+    if (validatedData.code !== undefined) updateData.code = validatedData.code;
+    if (validatedData.name_vi !== undefined) updateData.name_vi = validatedData.name_vi;
+    if (validatedData.name_en !== undefined) updateData.name_en = validatedData.name_en;
+    if (validatedData.short_name !== undefined) updateData.short_name = validatedData.short_name;
+    if (validatedData.slug !== undefined) updateData.slug = validatedData.slug;
+    if (validatedData.degree_level !== undefined) updateData.degree_level = validatedData.degree_level;
+    if (validatedData.org_unit_id !== undefined) updateData.org_unit_id = BigInt(validatedData.org_unit_id);
+    if (validatedData.duration_years !== undefined) updateData.duration_years = validatedData.duration_years;
+    if (validatedData.total_credits_min !== undefined) updateData.total_credits_min = validatedData.total_credits_min;
+    if (validatedData.total_credits_max !== undefined) updateData.total_credits_max = validatedData.total_credits_max;
+    if (validatedData.semesters_per_year !== undefined) updateData.semesters_per_year = validatedData.semesters_per_year;
+    if (validatedData.status !== undefined) updateData.status = validatedData.status;
+    if (validatedData.closed_at !== undefined) {
+      updateData.closed_at = validatedData.closed_at ? new Date(validatedData.closed_at) : null;
     }
+
+    const updated = await tx.major.update({
+      where: { id: majorId },
+      data: updateData,
+      select: {
+        id: true,
+        code: true,
+        name_vi: true,
+        name_en: true,
+        short_name: true,
+        slug: true,
+        degree_level: true,
+        org_unit_id: true,
+        duration_years: true,
+        total_credits_min: true,
+        total_credits_max: true,
+        semesters_per_year: true,
+        status: true,
+        closed_at: true,
+        created_by: true,
+        updated_by: true,
+        created_at: true,
+        updated_at: true,
+      }
+    });
+
+    // If status was directly provided, persist an approval history entry
+    const directStatus = (body as any).status as MajorStatus | undefined;
+    if (directStatus) {
+      // Ensure workflow instance exists
+      let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('MAJOR', majorBigInt);
+      if (!workflowInstance) {
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'MAJOR',
+          entityId: majorBigInt,
+          initiatedBy: actorId,
+          metadata: { major_id: majorId },
+        }) as any;
+      }
+
+      const mapStatusToAction = (s: MajorStatus): string => {
+        switch (s) {
+          case MajorStatus.REVIEWING:
+            return 'REVIEW';
+          case MajorStatus.APPROVED:
+            return 'APPROVE';
+          case MajorStatus.REJECTED:
+            return 'REJECT';
+          case MajorStatus.PUBLISHED:
+            return 'PUBLISH';
+          case MajorStatus.DRAFT:
+          default:
+            return 'RETURN';
+        }
+      };
+
+      await tx.approvalRecord.create({
+        data: {
+          workflow_instance_id: BigInt((workflowInstance as any).id),
+          approver_id: actorId,
+          action: mapStatusToAction(directStatus),
+          comments: (body as any).workflow_notes || null,
+          approved_at: new Date(),
+        },
+      });
+    }
+
+    return updated;
   });
 
-  return { data: updated, message: 'Major updated successfully' };
+  return { data: result, message: 'Major updated successfully' };
 }, 'update major');
 
 // DELETE /api/tms/majors/[id]
@@ -189,7 +245,10 @@ export const DELETE = withIdParam(async (id: string) => {
 
   // Check if major exists
   const existingMajor = await prisma.major.findUnique({
-    where: { id: majorId }
+    where: { id: majorId },
+    select: {
+      id: true,
+    }
   });
 
   if (!existingMajor) {

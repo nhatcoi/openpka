@@ -11,6 +11,7 @@ import {
   normalizeCoursePriority,
 } from '@/constants/courses';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 // GET /api/tms/courses/[id] - Lấy chi tiết course
 const getCourseById = async (id: string, request: Request) => {
@@ -55,15 +56,6 @@ const getCourseById = async (id: string, request: Request) => {
           updated_at: true
         }
       },
-      audits: {
-        select: {
-          id: true,
-          created_by: true,
-          updated_by: true,
-          created_at: true,
-          updated_at: true
-        }
-      },
       // Legacy approval history removed - using unified workflow system
       instructor_qualifications: {
         select: {
@@ -79,16 +71,9 @@ const getCourseById = async (id: string, request: Request) => {
       CourseVersion: {
         include: {
           CourseSyllabus: {
-            orderBy: { week_number: 'asc' },
             select: {
               id: true,
-              week_number: true,
-              topic: true,
-              teaching_methods: true,
-              materials: true,
-              assignments: true,
-              duration_hours: true,
-              is_exam_week: true,
+              syllabus_data: true,
               created_by: true,
               created_at: true
             }
@@ -232,7 +217,24 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
 
   // Remove role-to-stage mapping: we will store reviewer_role exactly as current user role
 
+  // Get request context and actor info for history tracking
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
+
   const result = await db.$transaction(async (tx) => {
+    // IMPORTANT: Set history context FIRST before any other queries
+    // This ensures session variables are available when triggers fire
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        course_id: courseId,
+        status: resolvedStatus,
+        workflow_stage: resolvedWorkflowStage,
+      },
+    });
+
     // 1. Update main course record
     const updatedCourse = await tx.course.update({
       where: { id: BigInt(courseId) },
@@ -276,14 +278,49 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       });
     }
 
-    // 4. Update CourseAudit record
-    const updatedAudit = await tx.courseAudit.updateMany({
-      where: { course_id: BigInt(courseId) },
-      data: {
-        updated_by: BigInt(session.user.id),
-        updated_at: new Date(),
+    // 4. If status was directly provided, persist an approval history entry
+    const courseBigInt = BigInt(courseId);
+    const actorId = BigInt(session.user.id);
+    const directStatus = resolvedStatus;
+    if (directStatus) {
+      // Ensure workflow instance exists
+      let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', courseBigInt);
+      if (!workflowInstance) {
+        workflowInstance = await academicWorkflowEngine.createWorkflow({
+          entityType: 'COURSE',
+          entityId: courseBigInt,
+          initiatedBy: actorId,
+          metadata: { course_id: courseId },
+        }) as any;
       }
-    });
+
+      const mapStatusToAction = (s: CourseStatus): string => {
+        switch (s) {
+          case CourseStatus.REVIEWING:
+          case CourseStatus.SUBMITTED:
+            return 'REVIEW';
+          case CourseStatus.APPROVED:
+            return 'APPROVE';
+          case CourseStatus.REJECTED:
+            return 'REJECT';
+          case CourseStatus.PUBLISHED:
+            return 'PUBLISH';
+          case CourseStatus.DRAFT:
+          default:
+            return 'RETURN';
+        }
+      };
+
+      await tx.approvalRecord.create({
+        data: {
+          workflow_instance_id: BigInt((workflowInstance as any).id),
+          approver_id: actorId,
+          action: mapStatusToAction(directStatus),
+          comments: (courseData as any).workflow_notes || null,
+          approved_at: new Date(),
+        },
+      });
+    }
 
     // 5. Update syllabus if provided
     if (courseData.syllabus && Array.isArray(courseData.syllabus)) {
@@ -307,19 +344,28 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         where: { course_version_id: courseVersion.id }
       });
 
-      // Create new syllabus entries for this version
+      // Create new syllabus entry with all weeks in JSONB format
       if (courseData.syllabus.length > 0) {
-        await tx.courseSyllabus.createMany({
-          data: courseData.syllabus.map((week: any) => ({
-            course_version_id: courseVersion!.id,
-            week_number: week.week,
-            topic: week.topic,
-            teaching_methods: null,
+        const syllabusWeeks = courseData.syllabus
+          .map((week: any, index: number) => ({
+            week_number: week.week ?? week.week_number ?? (index + 1),
+            topic: week.topic ?? '',
+            teaching_methods: week.teaching_methods ?? null,
             materials: week.materials ?? null,
             assignments: week.assignments ?? null,
-            duration_hours: week.duration ?? 3,
-            is_exam_week: week.isExamWeek ?? false
+            duration_hours: String(week.duration ?? week.duration_hours ?? 3),
+            is_exam_week: week.isExamWeek ?? week.is_exam_week ?? false
           }))
+          .filter((week: any) => week.week_number != null && week.week_number > 0)
+          .sort((a: any, b: any) => a.week_number - b.week_number);
+
+        await tx.courseSyllabus.create({
+          data: {
+            course_version_id: courseVersion.id,
+            syllabus_data: syllabusWeeks,
+            created_by: BigInt(session.user.id),
+            created_at: new Date(),
+          }
         });
       }
     }
@@ -406,7 +452,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     }
 
-    return { updatedCourse, updatedContent, updatedAudit };
+    return { updatedCourse, updatedContent };
   }).catch((error) => {
     if (error.code === 'P2002') {
       // Unique constraint violation
@@ -448,7 +494,7 @@ const deleteCourse = async (id: string, request: Request) => {
     throw new Error('Course not found');
   }
 
-  // Delete course (cascade will handle related records in course_contents, course_audits, etc.)
+  // Delete course (cascade will handle related records in course_contents, etc.)
   await db.course.delete({
     where: { id: BigInt(courseId) }
   });

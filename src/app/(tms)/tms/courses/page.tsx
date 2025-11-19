@@ -25,10 +25,6 @@ import {
   TextField,
   InputAdornment,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Avatar,
   Badge,
   Alert,
@@ -54,9 +50,6 @@ import {
   Send as SendIcon,
   Reply as ReplyIcon,
   Publish as PublishIcon,
-  Person as PersonIcon,
-  AccessTime as AccessTimeIcon,
-  Comment as CommentIcon,
   Assignment as AssignmentIcon,
   Assessment as AssessmentIcon,
   School as SchoolIcon,
@@ -128,8 +121,6 @@ export default function CoursesPage() {
   const [selectedStatus, setSelectedStatus] = useState<CourseStatus | 'all'>('all');
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [openDialog, setOpenDialog] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -206,8 +197,7 @@ export default function CoursesPage() {
   const filteredCourses = courses;
 
   const handleViewDetails = (course: Course) => {
-    setSelectedCourse(course);
-    setOpenDialog(true);
+    router.push(`/tms/courses/${course.id}`);
   };
 
   const handleEditCourse = (course: Course) => {
@@ -246,7 +236,6 @@ export default function CoursesPage() {
 
   const handleWorkflowAction = (action: string, subjectId: number) => {
     console.log(`Performing ${action} on subject ${subjectId}`);
-    setOpenDialog(false);
   };
 
   const getActionButtons = (subject: any) => {
@@ -567,7 +556,7 @@ export default function CoursesPage() {
                         size="small"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleViewDetails(course);
+                          router.push(`/tms/courses/${course.id}`);
                         }}
                       >
                         <VisibilityIcon />
@@ -617,125 +606,6 @@ export default function CoursesPage() {
         )}
       </Paper>
 
-      {/* Course Details Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Chi tiết học phần: {selectedCourse?.code} - {selectedCourse?.name_vi}
-        </DialogTitle>
-        <DialogContent>
-          {selectedCourse && (
-            <Box>
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Thông tin cơ bản
-                </Typography>
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2 }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Mã học phần:</Typography>
-                    <Typography variant="body1">{selectedCourse.code}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Tên học phần:</Typography>
-                    <Typography variant="body1">{selectedCourse.name_vi}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Khoa:</Typography>
-                    <Typography variant="body1">{selectedCourse.OrgUnit?.name || 'N/A'}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Danh mục:</Typography>
-                    <Typography variant="body1">Kiến thức chuyên ngành</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Tín chỉ:</Typography>
-                    <Typography variant="body1">{selectedCourse.credits}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Loại:</Typography>
-                    <Typography variant="body1">{getCourseTypeLabel(selectedCourse.type)}</Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Trạng thái:</Typography>
-                    <Chip
-                      label={getStatusLabel(selectedCourse.status)}
-                      color={getStatusColor(selectedCourse.status) as any}
-                      size="small"
-                    />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Giai đoạn:</Typography>
-                    <Typography variant="body1">{getWorkflowStageLabel(selectedCourse.workflow_stage)}</Typography>
-                  </Box>
-                </Box>
-              </Box>
-
-              {selectedCourse.status === CourseStatus.REJECTED && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2">Lý do từ chối:</Typography>
-                  <Typography variant="body2">N/A</Typography>
-                </Alert>
-              )}
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Lịch sử phê duyệt
-                </Typography>
-                <List>
-                  <ListItem>
-                    <ListItemIcon>
-                      <PersonIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Tạo mới"
-                      secondary={`Bởi N/A vào ${selectedCourse.created_at ? new Date(selectedCourse.created_at).toLocaleDateString() : 'N/A'}`}
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <AccessTimeIcon />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Đang chờ duyệt"
-                      secondary={`Tại ${getWorkflowStageLabel(selectedCourse.workflow_stage)}`}
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box>
-                <Typography variant="h6" gutterBottom>
-                  Ghi chú và bình luận
-                </Typography>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Thêm ghi chú..."
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Button startIcon={<CommentIcon />} size="small">
-                          Thêm
-                        </Button>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Đóng</Button>
-          <Button variant="contained" onClick={() => setOpenDialog(false)}>
-            Thực hiện thao tác
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Success Snackbar */}
       <Snackbar

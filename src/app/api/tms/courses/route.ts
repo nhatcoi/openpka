@@ -71,9 +71,6 @@ export const GET = withErrorHandling(
             // Legacy workflow data removed - using unified workflow system
             contents: listMode ? undefined : {
             select: { prerequisites: true, passing_grade: true }
-            },
-            audits: listMode ? undefined : {
-            select: { created_by: true, created_at: true }
             }
         },
         orderBy: { created_at: 'desc' },
@@ -181,24 +178,7 @@ export const POST = withBody(
         }
       });
 
-      // 4. Create CourseAudit record
-      const lastAudit = await tx.courseAudit.findFirst({
-        orderBy: { id: 'desc' }
-      });
-      const nextAuditId = lastAudit ? lastAudit.id + BigInt(1) : BigInt(1);
-      
-      const audit = await tx.courseAudit.create({
-        data: {
-          id: nextAuditId,
-          course_id: course.id,
-          created_by: userId,
-          updated_by: userId,
-          created_at: new Date(),
-          updated_at: new Date(),
-        }
-      });
-
-      // 5. Create CourseVersion record (Version 1)
+      // 4. Create CourseVersion record (Version 1)
       const courseVersion = await tx.courseVersion.create({
         data: {
           course_id: course.id,
@@ -223,7 +203,6 @@ export const POST = withBody(
               course_id: course.id,
               prerequisite_course_id: BigInt(prereqId),
               prerequisite_type: CoursePrerequisiteType.PRIOR,
-              min_grade: 5.0,
               description: "Prerequisite course",
               created_at: new Date(),
             }
@@ -232,35 +211,40 @@ export const POST = withBody(
         }
       }
 
-      // 7. Create CourseSyllabus records if provided
-      let syllabusEntries = [];
+      // 7. Create CourseSyllabus record with all weeks in JSONB format if provided
+      let syllabusEntry = null;
       if (courseData.syllabus && Array.isArray(courseData.syllabus) && courseData.syllabus.length > 0) {
-        for (const week of courseData.syllabus) {
-          const syllabusEntry = await tx.courseSyllabus.create({
+        const syllabusWeeks = courseData.syllabus
+          .map((week: any) => ({
+            week_number: week.week || week.week_number || 0,
+            topic: week.topic || '',
+            teaching_methods: week.teaching_methods || null,
+            materials: week.materials || null,
+            assignments: week.assignments || null,
+            duration_hours: String(week.duration_hours || week.duration || 3),
+            is_exam_week: week.is_exam_week || false
+          }))
+          .filter((week: any) => week.week_number > 0)
+          .sort((a: any, b: any) => a.week_number - b.week_number);
+
+        if (syllabusWeeks.length > 0) {
+          syllabusEntry = await tx.courseSyllabus.create({
             data: {
               course_version_id: courseVersion.id,
-              week_number: week.week,
-              topic: week.topic,
-              teaching_methods: week.teaching_methods || null,
-              materials: week.materials,
-              assignments: week.assignments,
-              duration_hours: week.duration_hours || 3.0,
-              is_exam_week: week.is_exam_week || false,
+              syllabus_data: syllabusWeeks,
               created_by: BigInt(1), // Default admin user
               created_at: new Date(),
             }
           });
-          syllabusEntries.push(syllabusEntry);
         }
       }
 
       return { 
         course, 
         content, 
-        audit, 
         courseVersion, 
         prerequisites, 
-        syllabusEntries 
+        syllabusEntry 
       };
     }).catch((error) => {
       if (error.code === 'P2002') {
@@ -274,7 +258,7 @@ export const POST = withBody(
           throw new Error('Đơn vị tổ chức không hợp lệ.');
         }
       }
-      throw error; // Re-throw other errors
+      throw error;
     });
 
     return {

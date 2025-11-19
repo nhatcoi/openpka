@@ -19,10 +19,6 @@ import {
   Stack,
   Chip,
   Snackbar,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Skeleton,
   Breadcrumbs,
   Link,
@@ -30,8 +26,6 @@ import {
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  HelpOutline as HelpOutlineIcon,
-  Info as InfoIcon,
 } from '@mui/icons-material';
 import { 
   CohortStatus, 
@@ -99,7 +93,6 @@ export default function EditCohortPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [majors, setMajors] = useState<Major[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
@@ -322,22 +315,13 @@ export default function EditCohortPage() {
         <Typography color="text.primary">Chỉnh sửa</Typography>
       </Breadcrumbs>
 
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
-            Quay lại
-          </Button>
-          <Typography variant="h4" component="h1">
-            Chỉnh sửa khóa học
-          </Typography>
-        </Stack>
-        <Button
-          variant="outlined"
-          startIcon={<HelpOutlineIcon />}
-          onClick={() => setHelpDialogOpen(true)}
-        >
-          Hướng dẫn
+      <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()}>
+          Quay lại
         </Button>
+        <Typography variant="h4" component="h1">
+          Chỉnh sửa khóa học
+        </Typography>
       </Stack>
 
       {/* Error Alert */}
@@ -347,9 +331,8 @@ export default function EditCohortPage() {
         </Alert>
       )}
 
-      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={3}>
-        <Box sx={{ flex: 2 }}>
-          <form onSubmit={handleSubmit}>
+      <Box>
+        <form onSubmit={handleSubmit}>
             {/* Basic Information */}
             <Paper sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -610,49 +593,8 @@ export default function EditCohortPage() {
                 </Button>
               </Stack>
             </Paper>
-          </form>
-        </Box>
-
-        {/* Sidebar with help info */}
-        <Box sx={{ flex: 1, minWidth: 300 }}>
-          <Paper sx={{ p: 3, position: 'sticky', top: 20 }}>
-            <Typography variant="h6" gutterBottom>
-              <InfoIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-              Thông tin hữu ích
-            </Typography>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Mã khóa học
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Tự động tạo dựa trên năm tuyển sinh và học kỳ. 
-                  VD: K2024A (khóa 2024 học kỳ Fall).
-                </Typography>
-              </Box>
-              
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Chương trình đào tạo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Có thể chọn trực tiếp mà không cần chọn ngành trước.
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle2" color="primary" gutterBottom>
-                  Chỉ tiêu
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Chỉ tiêu dự kiến: số sinh viên dự kiến tuyển sinh.
-                  Chỉ tiêu thực tế: số sinh viên thực tế đã tuyển sinh.
-                </Typography>
-              </Box>
-            </Stack>
-          </Paper>
-        </Box>
-      </Stack>
+        </form>
+      </Box>
 
       {/* Success Snackbar */}
       <Snackbar
@@ -661,49 +603,6 @@ export default function EditCohortPage() {
         onClose={() => setSuccessMessage(null)}
         message={successMessage}
       />
-
-      {/* Help Dialog */}
-      <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Hướng dẫn chỉnh sửa khóa học</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Các bước chỉnh sửa khóa học:
-              </Typography>
-              <Typography variant="body2" component="div">
-                1. <strong>Thông tin cơ bản:</strong> Chỉnh sửa mã, tên khóa học, năm học và học kỳ tuyển sinh
-                <br />
-                2. <strong>Thông tin học thuật:</strong> Cập nhật ngành, chương trình đào tạo và đơn vị quản lý
-                <br />
-                3. <strong>Thông tin chỉ tiêu:</strong> Cập nhật chỉ tiêu dự kiến và thực tế
-                <br />
-                4. <strong>Thông tin thời gian:</strong> Cập nhật ngày bắt đầu và dự kiến tốt nghiệp
-                <br />
-                5. <strong>Trạng thái:</strong> Cập nhật trạng thái khóa học và mô tả
-              </Typography>
-            </Box>
-            
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Lưu ý quan trọng:
-              </Typography>
-              <Typography variant="body2" component="div">
-                • Mã khóa học phải duy nhất trong hệ thống
-                <br />
-                • Năm tuyển sinh phải hợp lệ (2020-2030)
-                <br />
-                • Chỉ tiêu phải là số dương
-                <br />
-                • Ngày tốt nghiệp phải sau ngày bắt đầu học
-              </Typography>
-            </Box>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setHelpDialogOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
     </Container>
   );
 }

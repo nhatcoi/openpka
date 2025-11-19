@@ -28,6 +28,7 @@ export const GET = withErrorHandling(
     const order = searchParams.get('order') as 'asc' | 'desc' || 'desc';
     const fromDate = searchParams.get('fromDate');
     const toDate = searchParams.get('toDate');
+    const parent_id = searchParams.get('parent_id');
     const include_children = searchParams.get('include_children') === 'true';
     const include_employees = searchParams.get('include_employees') === 'true';
     const include_parent = searchParams.get('include_parent') === 'true';
@@ -49,6 +50,10 @@ export const GET = withErrorHandling(
     
     if (type) {
       where.type = type as any;
+    }
+    
+    if (parent_id) {
+      where.parent_id = BigInt(parent_id);
     }
     
     if (fromDate || toDate) {
@@ -153,16 +158,53 @@ export const POST = withBody(
     if (!name || !code) {
       throw new Error('Name and code are required');
     }
+
+    const codeUpper = (code as string).toUpperCase();
+    const nameStr = name as string;
+
+    // Check for duplicate code (case-insensitive)
+    const existingByCode = await db.orgUnit.findFirst({
+      where: {
+        code: codeUpper,
+      },
+    });
+
+    if (existingByCode) {
+      throw new Error(`Mã đơn vị "${codeUpper}" đã tồn tại, vui lòng nhập mã khác.`);
+    }
+
+    // Check for duplicate name
+    const existingByName = await db.orgUnit.findFirst({
+      where: {
+        name: nameStr,
+      },
+    });
+
+    if (existingByName) {
+      throw new Error(`Tên đơn vị "${nameStr}" đã tồn tại, vui lòng nhập tên khác.`);
+    }
     
-    const newUnit = await db.orgUnit.create({
-      data: {
-        name: name as string,
-        code: (code as string).toUpperCase(),
-        description: description as string || null,
-        type: type ? (type as string).toUpperCase() : null,
-        status: status ? (status as string).toUpperCase() : null,
-        parent_id: parent_id ? BigInt(parent_id as string) : null,
-      } as any,
+    const parentIdBigInt = parent_id ? BigInt(parent_id as string) : null;
+
+    const newUnit = await db.$transaction(async (tx) => {
+      const unit = await tx.orgUnit.create({
+        data: {
+          name: nameStr,
+          code: codeUpper,
+          description: description as string || null,
+          type: type ? (type as string).toUpperCase() : null,
+          status: status ? (status as string).toUpperCase() : null,
+          parent_id: parentIdBigInt,
+        } as any,
+      });
+
+      // Đồng bộ OrgUnitRelation nếu có parent_id
+      if (parentIdBigInt) {
+        const { syncRelationFromParentId } = await import('@/lib/org/unit-relation-sync');
+        await syncRelationFromParentId(unit.id, parentIdBigInt, tx);
+      }
+
+      return unit;
     });
     
     return newUnit;
