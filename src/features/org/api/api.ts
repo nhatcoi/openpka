@@ -46,6 +46,7 @@ export interface PaginationParams {
   search?: string;
   type?: string;
   status?: string;
+  parent_id?: string;
   include_employees?: boolean;
   include_children?: boolean;
   include_parent?: boolean;
