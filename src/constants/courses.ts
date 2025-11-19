@@ -1,5 +1,3 @@
-// Centralized course-related enums and helpers
-
 export enum CoursePrerequisiteType {
     PREREQUISITE = 'prerequisite',
     PRIOR = 'prior',
@@ -63,22 +61,6 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     WorkflowStage.ACADEMIC_OFFICE,
     WorkflowStage.ACADEMIC_BOARD,
 ];
-
-export const COURSE_PERMISSIONS = {
-    // New permissions structure
-    VIEW: 'tms.course.view',
-    CREATE: 'tms.course.create',
-    UPDATE: 'tms.course.update',
-    DELETE: 'tms.course.delete',
-    APPROVE: 'tms.course.approve',
-    PUBLISH: 'tms.course.publish',
-    // Legacy aliases for backward compatibility
-    READ: 'tms.course.view',
-    WRITE: 'tms.course.create', // Use CREATE for write operations
-    REVIEW: 'tms.course.approve',
-    REJECT: 'tms.course.approve',
-    MANAGE: 'tms.course.view', // Use VIEW for manage
-} as const;
 
 export function normalizeCoursePriority(priority?: string | null): CoursePriority {
     switch ((priority || '').toUpperCase()) {
@@ -158,21 +140,38 @@ export function getWorkflowStageLabel(stage: WorkflowStage | string): string {
     }
 }
 
+export function getCourseStageFromStatus(status?: CourseStatus | string | null): WorkflowStage {
+    const normalized = (status || '').toUpperCase();
+
+    switch (normalized) {
+        case CourseStatus.DRAFT:
+            return WorkflowStage.FACULTY;
+        case CourseStatus.SUBMITTED:
+        case CourseStatus.REVIEWING:
+            return WorkflowStage.ACADEMIC_OFFICE;
+        case CourseStatus.APPROVED:
+            return WorkflowStage.ACADEMIC_OFFICE;
+        case CourseStatus.PUBLISHED:
+            return WorkflowStage.ACADEMIC_BOARD;
+        case CourseStatus.REJECTED:
+            return WorkflowStage.ACADEMIC_OFFICE;
+        default:
+            return WorkflowStage.FACULTY;
+    }
+}
+
+export function computeCourseStepIndex(status: CourseStatus | string): number {
+    const stage = getCourseStageFromStatus(status);
+    const index = WORKFLOW_STAGES.indexOf(stage);
+    return index >= 0 ? index : 0;
+}
+
 export function getPriorityLabel(priority: CoursePriority | string): string {
     switch ((priority || '').toUpperCase()) {
         case CoursePriority.HIGH: return 'Cao';
         case CoursePriority.LOW: return 'Thấp';
         case CoursePriority.MEDIUM:
         default: return 'Trung bình';
-    }
-}
-
-export function getPriorityColor(priority: CoursePriority | string): 'error' | 'warning' | 'success' | 'default' {
-    switch ((priority || '').toUpperCase()) {
-        case CoursePriority.HIGH: return 'error';
-        case CoursePriority.MEDIUM: return 'warning';
-        case CoursePriority.LOW: return 'success';
-        default: return 'default';
     }
 }
 

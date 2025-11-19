@@ -115,3 +115,67 @@ export const COHORT_DEFAULTS = {
   INTAKE_TERM: CohortIntakeTerm.FALL,
   IS_ACTIVE: true,
 } as const;
+
+// Cohort workflow stages (mapped to statuses)
+export enum CohortWorkflowStage {
+  DRAFT = 'DRAFT',
+  REVIEWING = 'reviewing',
+  APPROVED = 'approved',
+  PUBLISHED = 'published',
+}
+
+export const COHORT_WORKFLOW_STAGES: CohortWorkflowStage[] = [
+  CohortWorkflowStage.DRAFT,
+  CohortWorkflowStage.REVIEWING,
+  CohortWorkflowStage.APPROVED,
+  CohortWorkflowStage.PUBLISHED,
+];
+
+export function getCohortWorkflowStageLabel(stage: CohortWorkflowStage | string): string {
+  switch (stage) {
+    case CohortWorkflowStage.DRAFT:
+      return 'Soạn thảo';
+    case CohortWorkflowStage.REVIEWING:
+      return 'Đang xem xét';
+    case CohortWorkflowStage.APPROVED:
+      return 'Đã phê duyệt';
+    case CohortWorkflowStage.PUBLISHED:
+      return 'Đã công bố';
+    default:
+      return stage;
+  }
+}
+
+// Map cohort status to workflow stage
+export function getCohortStageFromStatus(status: CohortStatus | string): CohortWorkflowStage {
+  switch (status) {
+    case CohortStatus.PLANNING:
+      return CohortWorkflowStage.DRAFT;
+    case CohortStatus.RECRUITING:
+      return CohortWorkflowStage.REVIEWING;
+    case CohortStatus.ACTIVE:
+      return CohortWorkflowStage.APPROVED;
+    case CohortStatus.GRADUATED:
+      return CohortWorkflowStage.PUBLISHED;
+    case CohortStatus.SUSPENDED:
+    default:
+      return CohortWorkflowStage.DRAFT;
+  }
+}
+
+// Compute step index for progress bar
+export function computeCohortStepIndex(status: CohortStatus | string): number {
+  const stage = getCohortStageFromStatus(status);
+  switch (stage) {
+    case CohortWorkflowStage.DRAFT:
+      return 0;
+    case CohortWorkflowStage.REVIEWING:
+      return 1;
+    case CohortWorkflowStage.APPROVED:
+      return 2;
+    case CohortWorkflowStage.PUBLISHED:
+      return 3;
+    default:
+      return 0;
+  }
+}
