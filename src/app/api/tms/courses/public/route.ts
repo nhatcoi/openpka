@@ -2,11 +2,13 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { withErrorHandling } from '@/lib/api/api-handler';
 import {
-  CourseStatus,
+  CourseWorkflowStage,
+} from '@/constants/workflow-statuses';
+import {
   CourseType,
-  WorkflowStage,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // Public API endpoints không cần authentication để demo
 
@@ -35,8 +37,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   }
   
   // Filter by course status and workflow stage
-  if (normalizedStatus && (Object.values(CourseStatus) as string[]).includes(normalizedStatus)) {
-    where.status = normalizedStatus as CourseStatus;
+  if (normalizedStatus) {
+    where.status = normalizedStatus;
   }
   // Note: Legacy workflow filtering removed - use unified workflow system instead
   // if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
@@ -65,9 +67,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         // Legacy workflow data removed - using unified workflow system
         contents: {
           select: { prerequisites: true, passing_grade: true }
-        },
-        audits: {
-          select: { created_by: true, created_at: true }
         }
       },
       orderBy: { created_at: 'desc' },
@@ -95,8 +94,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         credits: parseFloat(course.credits.toString()),
         
         // Flatten workflow data
-        status: (course.workflows?.[0]?.status || CourseStatus.DRAFT) as CourseStatus,
-        workflow_stage: (course.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY) as WorkflowStage,
+        status: (course.workflows?.[0]?.status || WorkflowStatus.DRAFT) as string,
+        workflow_stage: (course.workflows?.[0]?.workflow_stage || CourseWorkflowStage.FACULTY) as CourseWorkflowStage,
         workflow_priority: normalizeCoursePriority(course.workflows?.[0]?.priority).toLowerCase(),
         
         // Flatten content data
@@ -104,10 +103,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         learning_objectives: course.contents?.[0]?.learning_objectives || null,
         assessment_methods: course.contents?.[0]?.assessment_methods || null,
         passing_grade: course.contents?.[0]?.passing_grade ? parseFloat(course.contents[0].passing_grade.toString()) : null,
-        
-        // Flatten audit data
-        created_by: course.audits?.[0]?.created_by?.toString() || null,
-        created_at: course.audits?.[0]?.created_at || course.created_at,
         
         // OrgUnit data
         OrgUnit: course.OrgUnit ? {
@@ -117,8 +112,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         
         // Remove nested arrays for cleaner response
         workflows: undefined,
-        contents: undefined,
-        audits: undefined
+        contents: undefined
       }));
 
   return {
@@ -189,22 +183,7 @@ export const POST = withErrorHandling(async (request: NextRequest) => {
       }
     });
 
-    // 4. Create CourseAudit record
-    const lastAudit = await tx.courseAudit.findFirst({
-      orderBy: { id: 'desc' }
-    });
-    const nextAuditId = lastAudit ? lastAudit.id + BigInt(1) : BigInt(1);
-    
-    const audit = await tx.courseAudit.create({
-      data: {
-        id: nextAuditId,
-        course_id: course.id,
-        created_by: BigInt(1), // Demo user
-        updated_by: BigInt(1),
-      }
-    });
-
-    return { course, workflow, content, audit };
+    return { course, workflow, content };
   }).catch((error) => {
     if (error.code === 'P2002') {
       if (error.meta?.target?.includes('org_unit_id') && error.meta?.target?.includes('code')) {

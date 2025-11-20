@@ -9,20 +9,12 @@ import {
   AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
-import { PermissionGuard, AdminOnly, OrgUnitViewOnly, OrgUnitAdminOnly } from '@/components/auth/PermissionGuard';
 import { usePermissions } from '@/lib/auth/permission-utils';
 import { UserPermissionInfo } from '@/components/auth/UserPermissionInfo';
 
 export default function PermissionsPage() {
   const { data: session, status } = useSession();
-  const { 
-    canReadOrgUnits, 
-    canCreateOrgUnits, 
-    canUpdateOrgUnits, 
-    canDeleteOrgUnits, 
-    canAdminOrgUnits,
-    isAdmin 
-  } = usePermissions();
+  const { hasPermission } = usePermissions();
 
   if (status === 'loading') {
     return (
@@ -41,6 +33,17 @@ export default function PermissionsPage() {
       </Container>
     );
   }
+
+  // Check permissions directly
+  const isAdmin = hasPermission('admin');
+  const canViewUnits = hasPermission('org_unit.unit.view');
+  const canCreateUnits = hasPermission('org_unit.unit.create');
+  const canUpdateUnits = hasPermission('org_unit.unit.update');
+  const canDeleteUnits = hasPermission('org_unit.unit.delete');
+  const canAdminUnits = hasPermission('org_unit.admin') || hasPermission('org_unit.type.admin');
+  const canCreate = hasPermission('org_unit.create');
+  const canUpdate = hasPermission('org_unit.update');
+  const canDelete = hasPermission('org_unit.delete');
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -65,17 +68,15 @@ export default function PermissionsPage() {
           <Typography variant="h6" gutterBottom>
             Chỉ Admin mới thấy
           </Typography>
-          <AdminOnly 
-            fallback={
-              <Alert severity="info">
-                Bạn cần quyền admin để thấy nội dung này
-              </Alert>
-            }
-          >
+          {isAdmin ? (
             <Button variant="contained" startIcon={<AdminIcon />}>
               Cài đặt hệ thống
             </Button>
-          </AdminOnly>
+          ) : (
+            <Alert severity="info">
+              Bạn cần quyền admin để thấy nội dung này
+            </Alert>
+          )}
         </Box>
 
         {/* Org Unit Read Only */}
@@ -83,13 +84,7 @@ export default function PermissionsPage() {
           <Typography variant="h6" gutterBottom>
             Chỉ người có quyền xem đơn vị
           </Typography>
-          <OrgUnitViewOnly 
-            fallback={
-              <Alert severity="warning">
-                Bạn cần quyền xem đơn vị để thấy các nút này
-              </Alert>
-            }
-          >
+          {canViewUnits ? (
             <Stack direction="row" spacing={2}>
               <Button variant="outlined" startIcon={<ViewIcon />}>
                 Xem danh sách đơn vị
@@ -98,7 +93,11 @@ export default function PermissionsPage() {
                 Xem sơ đồ tổ chức
               </Button>
             </Stack>
-          </OrgUnitViewOnly>
+          ) : (
+            <Alert severity="warning">
+              Bạn cần quyền xem đơn vị để thấy các nút này
+            </Alert>
+          )}
         </Box>
 
         {/* Org Unit Admin Only */}
@@ -106,13 +105,7 @@ export default function PermissionsPage() {
           <Typography variant="h6" gutterBottom>
             Chỉ người có quyền quản trị đơn vị
           </Typography>
-          <OrgUnitAdminOnly 
-            fallback={
-              <Alert severity="warning">
-                Bạn cần quyền quản trị đơn vị để thấy các nút này
-              </Alert>
-            }
-          >
+          {canAdminUnits ? (
             <Stack direction="row" spacing={2}>
               <Button variant="contained" startIcon={<AddIcon />}>
                 Tạo đơn vị mới
@@ -124,7 +117,11 @@ export default function PermissionsPage() {
                 Xóa đơn vị
               </Button>
             </Stack>
-          </OrgUnitAdminOnly>
+          ) : (
+            <Alert severity="warning">
+              Bạn cần quyền quản trị đơn vị để thấy các nút này
+            </Alert>
+          )}
         </Box>
 
         {/* Custom Permission Check */}
@@ -132,38 +129,32 @@ export default function PermissionsPage() {
           <Typography variant="h6" gutterBottom>
             Kiểm tra quyền tùy chỉnh
           </Typography>
-          
-          <PermissionGuard permission="org_unit.create">
-            <Button variant="contained" startIcon={<AddIcon />} sx={{ mr: 2 }}>
-              Tạo đơn vị (org_unit.create)
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard permission="org_unit.update">
-            <Button variant="outlined" startIcon={<EditIcon />} sx={{ mr: 2 }}>
-              Sửa đơn vị (org_unit.update)
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard permission="org_unit.delete">
-            <Button variant="outlined" color="error" startIcon={<DeleteIcon />}>
-              Xóa đơn vị (org_unit.delete)
-            </Button>
-          </PermissionGuard>
-
-          <PermissionGuard 
-            permissions={['org_unit.create', 'org_unit.update', 'org_unit.delete']}
-            requireAll={true}
-            fallback={
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Bạn cần đầy đủ quyền tạo, sửa, xóa đơn vị để thấy nút "Quản lý đầy đủ"
-              </Alert>
-            }
-          >
+          <Stack direction="row" spacing={2} flexWrap="wrap">
+            {canCreate && (
+              <Button variant="contained" startIcon={<AddIcon />}>
+                Tạo đơn vị (org_unit.create)
+              </Button>
+            )}
+            {canUpdate && (
+              <Button variant="outlined" startIcon={<EditIcon />}>
+                Sửa đơn vị (org_unit.update)
+              </Button>
+            )}
+            {canDelete && (
+              <Button variant="outlined" color="error" startIcon={<DeleteIcon />}>
+                Xóa đơn vị (org_unit.delete)
+              </Button>
+            )}
+          </Stack>
+          {canCreate && canUpdate && canDelete ? (
             <Button variant="contained" color="secondary" sx={{ mt: 2 }}>
               Quản lý đầy đủ đơn vị
             </Button>
-          </PermissionGuard>
+          ) : (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Bạn cần đầy đủ quyền tạo, sửa, xóa đơn vị để thấy nút "Quản lý đầy đủ"
+            </Alert>
+          )}
         </Box>
 
         {/* Current Permission Status */}
@@ -173,22 +164,22 @@ export default function PermissionsPage() {
           </Typography>
           <Stack spacing={1}>
             <Typography variant="body2">
-              • Xem đơn vị: {canReadOrgUnits() ? '✅' : '❌'}
+              • Xem đơn vị (org_unit.unit.view): {canViewUnits ? '✅' : '❌'}
             </Typography>
             <Typography variant="body2">
-              • Tạo đơn vị: {canCreateOrgUnits() ? '✅' : '❌'}
+              • Tạo đơn vị (org_unit.unit.create): {canCreateUnits ? '✅' : '❌'}
             </Typography>
             <Typography variant="body2">
-              • Sửa đơn vị: {canUpdateOrgUnits() ? '✅' : '❌'}
+              • Sửa đơn vị (org_unit.unit.update): {canUpdateUnits ? '✅' : '❌'}
             </Typography>
             <Typography variant="body2">
-              • Xóa đơn vị: {canDeleteOrgUnits() ? '✅' : '❌'}
+              • Xóa đơn vị (org_unit.unit.delete): {canDeleteUnits ? '✅' : '❌'}
             </Typography>
             <Typography variant="body2">
-              • Quản trị đơn vị: {canAdminOrgUnits() ? '✅' : '❌'}
+              • Quản trị đơn vị (org_unit.admin): {canAdminUnits ? '✅' : '❌'}
             </Typography>
             <Typography variant="body2">
-              • Admin: {isAdmin() ? '✅' : '❌'}
+              • Admin: {isAdmin ? '✅' : '❌'}
             </Typography>
           </Stack>
         </Box>

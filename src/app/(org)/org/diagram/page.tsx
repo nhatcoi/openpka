@@ -38,7 +38,6 @@ interface OrgUnit {
   status: string | null;
   effective_from: string | null;
   effective_to: string | null;
-  campus_id?: string | null;
 }
 
 interface OrgTreeNode {

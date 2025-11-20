@@ -1,7 +1,8 @@
 import { withIdParam } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 import { selectProgramDetail } from '@/lib/api/selects/program';
-import { ProgramPriority, ProgramStatus } from '@/constants/programs';
+import { ProgramPriority } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { CurriculumStatus, normalizeCurriculumStatus } from '@/constants/curriculum';
 import { parseCurriculumStructure } from '@/lib/curriculum/structure';
 
@@ -50,7 +51,7 @@ export const GET = withIdParam(async (id: string) => {
 
   const programPayload = {
     ...programFields,
-    status: (programFields.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (programFields.status ?? WorkflowStatus.DRAFT) as string,
     stats: {
       student_count: programFields._count?.StudentAcademicProgress ?? 0,
       block_count: programFields._count?.ProgramBlock ?? 0,

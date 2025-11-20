@@ -3,6 +3,7 @@ import {db} from '@/lib/db';
 import {logEmployeeActivity, getActorInfo} from '@/lib/audit-logger';
 import {getServerSession} from 'next-auth';
 import {authOptions} from '@/lib/auth/auth';
+import {requirePermission} from '@/lib/auth/api-permissions';
 import {getToken} from 'next-auth/jwt';
 
 export async function GET(
@@ -10,6 +11,11 @@ export async function GET(
     {params}: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+            requirePermission(session, 'hr.employee.view');
+        }
+        
         const resolvedParams = await params;
         const {id} = await params;
         const employeeId = BigInt(id);
@@ -99,6 +105,14 @@ export async function PUT(
     {params}: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        // Check permission
+        requirePermission(session, 'hr.employee.update');
+        
         const resolvedParams = await params;
         const {id} = await params;
         const employeeId = BigInt(id);
@@ -187,6 +201,14 @@ export async function DELETE(
     {params}: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        // Check permission
+        requirePermission(session, 'hr.employee.delete');
+        
         const resolvedParams = await params;
         const {id} = await params;
         const employeeId = BigInt(id);

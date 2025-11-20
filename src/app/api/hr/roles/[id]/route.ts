@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db } from '@/lib/db';
 import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 import { getToken } from 'next-auth/jwt';
@@ -8,6 +11,11 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        if (session?.user?.id) {
+            requirePermission(session, 'hr.rbac.view');
+        }
+        
         const resolvedParams = await params;
         const { id } = await params;
         const roleId = BigInt(id);
@@ -148,6 +156,14 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        // Check permission
+        requirePermission(session, 'hr.rbac.delete');
+        
         const resolvedParams = await params;
         const { id } = await params;
         const roleId = BigInt(id);

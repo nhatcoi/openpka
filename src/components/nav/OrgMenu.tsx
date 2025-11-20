@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { 
   List, 
   ListItem, 
@@ -21,7 +22,7 @@ import {
 } from '@mui/icons-material';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { useSession } from 'next-auth/react';
 
 interface MenuItem {
   key: string;
@@ -92,7 +93,14 @@ const menuItems: MenuItem[] = [
 
 export function OrgMenu() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const permissions = session?.user?.permissions || [];
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+
+  const hasPermission = (permission?: string) => {
+    if (!permission) return true;
+    return permissions.includes(permission);
+  };
 
   const handleItemClick = (item: MenuItem) => {
     if (item.href) {
@@ -110,12 +118,13 @@ export function OrgMenu() {
     const isExpanded = expandedItems.includes(item.key);
     const hasChildren = item.children && item.children.length > 0;
 
+    // Check permission
+    if (!hasPermission(item.permission)) {
+      return null;
+    }
+
     return (
-      <PermissionGuard
-        key={item.key}
-        permission={item.permission}
-        fallback={null}
-      >
+      <React.Fragment key={item.key}>
         <ListItem disablePadding>
           <ListItemButton
             onClick={() => handleItemClick(item)}
@@ -142,7 +151,7 @@ export function OrgMenu() {
             </List>
           </Collapse>
         )}
-      </PermissionGuard>
+      </React.Fragment>
     );
   };
 

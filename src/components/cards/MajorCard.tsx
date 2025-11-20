@@ -24,12 +24,12 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { 
-  MajorStatus, 
   getMajorStatusColor, 
   getMajorStatusLabel,
   formatMajorDuration,
   formatMajorCredits
 } from '@/constants/majors';
+import { WorkflowStatus, normalizeWorkflowStatusFromResource } from '@/constants/workflow-statuses';
 
 interface Major {
   id: number;
@@ -96,32 +96,21 @@ interface MajorCardProps {
 }
 
 // Helper functions for status
+const STATUS_ICON_MAP: Record<WorkflowStatus, JSX.Element> = {
+  [WorkflowStatus.DRAFT]: <DraftIcon />,
+  [WorkflowStatus.REVIEWING]: <ProposedIcon />,
+  [WorkflowStatus.APPROVED]: <ActiveIcon />,
+  [WorkflowStatus.REJECTED]: <ClosedIcon />,
+  [WorkflowStatus.PUBLISHED]: <ActiveIcon />,
+  [WorkflowStatus.ARCHIVED]: <SuspendedIcon />,
+};
+
 const getStatusConfig = (status: string) => {
   const color = getMajorStatusColor(status);
   const label = getMajorStatusLabel(status);
-  
-  let icon = <DraftIcon />;
-  switch (status) {
-    case MajorStatus.ACTIVE: 
-      icon = <ActiveIcon />;
-      break;
-    case MajorStatus.DRAFT: 
-      icon = <DraftIcon />;
-      break;
-    case MajorStatus.PROPOSED: 
-      icon = <ProposedIcon />;
-      break;
-    case MajorStatus.SUSPENDED: 
-      icon = <SuspendedIcon />;
-      break;
-    case MajorStatus.CLOSED: 
-    case MajorStatus.ARCHIVED:
-      icon = <ClosedIcon />;
-      break;
-    default: 
-      icon = <DraftIcon />;
-  }
-  
+  const normalized = normalizeWorkflowStatusFromResource('major', status);
+  const icon = STATUS_ICON_MAP[normalized] ?? <DraftIcon />;
+
   return { color, label, icon };
 };
 

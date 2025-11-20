@@ -10,7 +10,7 @@ const AssignmentCreate = z.object({
   job_position_id: z.string().optional(),
   start_date: z.string().min(1),
   end_date: z.string().optional(),
-  assignment_type: z.enum(['admin', 'academic', 'support', 'management']).default('admin'),
+  assignment_type: z.enum(['admin', 'academic', 'support']).default('admin'),
   is_primary: z.boolean().default(true),
   allocation: z.number().min(0).max(1).default(1.0),
 });

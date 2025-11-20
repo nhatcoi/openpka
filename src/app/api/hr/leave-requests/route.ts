@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db } from '@/lib/db';
 import { serializeBigIntArray } from '@/utils/serialize';
 
@@ -45,9 +46,12 @@ export async function GET(request: NextRequest) {
 
         const currentEmployee = currentUser.Employee[0];
 
+        // Check permission
+        requirePermission(session, 'hr.leave_request.view');
+        
         // Kiểm tra quyền admin dựa trên permissions
-        const isAdmin = session.user.permissions?.includes('leave_request.update') ||
-            session.user.permissions?.includes('employee.update');
+        const isAdmin = session.user.permissions?.includes('hr.leave_request.approve') ||
+            session.user.permissions?.includes('hr.employee.update');
 
         let whereClause: { [key: string]: unknown } = {};
 

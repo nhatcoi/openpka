@@ -10,8 +10,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormControlLabel,
-  Switch,
+  IconButton,
   Alert,
   CircularProgress,
   Button,
@@ -19,35 +18,31 @@ import {
   Stack,
   Chip,
   Snackbar,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   ArrowBack as ArrowBackIcon,
-  HelpOutline as HelpOutlineIcon,
-  Info as InfoIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import {
   MajorDegreeLevel,
-  MajorSpecializationModel,
   MajorFieldCluster,
-  MajorStartTerm,
   MAJOR_DEGREE_LEVELS,
-  MAJOR_SPECIALIZATION_MODELS,
   MAJOR_FIELD_CLUSTERS,
-  MAJOR_START_TERMS,
   getMajorDegreeLevelLabel,
-  getMajorSpecializationModelLabel,
   getMajorFieldClusterLabel,
-  getMajorStartTermLabel,
   getMajorStatusLabel,
   getMajorStatusColor
 } from '@/constants/majors';
+import { WORKFLOW_STATUS_OPTIONS } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 
 interface OrgUnit {
   id: number;
@@ -64,24 +59,16 @@ interface MajorData {
   name_en: string;
   short_name: string;
   slug: string;
-  national_code: string;
-  is_moet_standard: boolean;
   degree_level: string;
-  field_cluster: string;
-  specialization_model: string;
   org_unit_id: number;
-  parent_major_id: number | null;
   duration_years: number;
   total_credits_min: number;
   total_credits_max: number;
   semesters_per_year: number;
-  start_terms: string;
   default_quota: number;
   status: string;
-  established_at: string;
   closed_at: string;
-  description: string;
-  notes: string;
+  metadata?: Record<string, any> | null;
 }
 
 interface MajorFormData {
@@ -90,24 +77,16 @@ interface MajorFormData {
   name_en: string;
   short_name: string;
   slug: string;
-  national_code: string;
-  is_moet_standard: boolean;
   degree_level: MajorDegreeLevel;
-  field_cluster: MajorFieldCluster;
-  specialization_model: MajorSpecializationModel;
   org_unit_id: number;
-  parent_major_id: number | null;
   duration_years: number;
   total_credits_min: number;
   total_credits_max: number;
   semesters_per_year: number;
-  start_terms: MajorStartTerm;
   default_quota: number;
   status: string;
-  established_at: string;
   closed_at: string;
-  description: string;
-  notes: string;
+  metadata: Record<string, any>; // JSONB field for additional information
 }
 
 export default function EditMajorPage(): JSX.Element {
@@ -123,7 +102,9 @@ export default function EditMajorPage(): JSX.Element {
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [redirecting, setRedirecting] = useState(false);
-  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
+  const [customFieldDialogOpen, setCustomFieldDialogOpen] = useState(false);
+  const [customFieldKey, setCustomFieldKey] = useState('');
+  const [customFieldValue, setCustomFieldValue] = useState('');
 
   // Form data
   const [formData, setFormData] = useState<MajorFormData>({
@@ -132,24 +113,21 @@ export default function EditMajorPage(): JSX.Element {
     name_en: '',
     short_name: '',
     slug: '',
-    national_code: '',
-    is_moet_standard: false,
     degree_level: MajorDegreeLevel.BACHELOR,
-    field_cluster: MajorFieldCluster.CNTT,
-    specialization_model: MajorSpecializationModel.NONE,
     org_unit_id: 0,
-    parent_major_id: null,
     duration_years: 4,
     total_credits_min: 120,
     total_credits_max: 150,
     semesters_per_year: 2,
-    start_terms: MajorStartTerm.FALL,
     default_quota: 100,
     status: 'DRAFT',
-    established_at: '',
     closed_at: '',
-    description: '',
-    notes: '',
+    metadata: {
+      field_cluster: '',
+      established_at: '',
+      description: '',
+      notes: '',
+    },
   });
 
   // Fetch data
@@ -160,7 +138,7 @@ export default function EditMajorPage(): JSX.Element {
         setError(null);
 
         // Fetch major data
-        const majorResponse = await fetch(`/api/tms/majors/${majorId}`);
+        const majorResponse = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(majorId));
         const majorResult = await majorResponse.json();
 
         if (!majorResult.success) {
@@ -171,34 +149,35 @@ export default function EditMajorPage(): JSX.Element {
         setMajorData(major);
 
         // Populate form with major data
+        const metadata = major.metadata || {};
         setFormData({
           code: major.code || '',
           name_vi: major.name_vi || '',
           name_en: major.name_en || '',
           short_name: major.short_name || '',
           slug: major.slug || '',
-          national_code: major.national_code || '',
-          is_moet_standard: major.is_moet_standard || false,
           degree_level: major.degree_level || MajorDegreeLevel.BACHELOR,
-          field_cluster: major.field_cluster || MajorFieldCluster.CNTT,
-          specialization_model: major.specialization_model || MajorSpecializationModel.NONE,
           org_unit_id: Number(major.org_unit_id) || 0,
-          parent_major_id: major.parent_major_id ? Number(major.parent_major_id) : null,
           duration_years: Number(major.duration_years) || 4,
           total_credits_min: major.total_credits_min || 120,
           total_credits_max: major.total_credits_max || 150,
           semesters_per_year: major.semesters_per_year || 2,
-          start_terms: major.start_terms || MajorStartTerm.FALL,
           default_quota: major.default_quota || 100,
           status: major.status || 'DRAFT',
-          established_at: major.established_at ? new Date(major.established_at).toISOString().split('T')[0] : '',
           closed_at: major.closed_at ? new Date(major.closed_at).toISOString().split('T')[0] : '',
-          description: major.description || '',
-          notes: major.notes || '',
+          metadata: {
+            field_cluster: metadata.field_cluster || '',
+            established_at: metadata.established_at || '',
+            description: metadata.description || '',
+            notes: metadata.notes || '',
+            ...Object.keys(metadata)
+              .filter(key => !['field_cluster', 'established_at', 'description', 'notes'].includes(key))
+              .reduce((acc, key) => ({ ...acc, [key]: metadata[key] }), {}),
+          },
         });
 
         // Fetch org units
-        const orgResponse = await fetch('/api/tms/majors/org-units');
+        const orgResponse = await fetch(API_ROUTES.TMS.MAJORS_ORG_UNITS);
         const orgResult = await orgResponse.json();
 
         if (orgResult.success) {
@@ -226,6 +205,42 @@ export default function EditMajorPage(): JSX.Element {
     }));
   };
 
+  const handleMetadataChange = (key: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      metadata: {
+        ...prev.metadata,
+        [key]: value
+      }
+    }));
+  };
+
+  const handleAddCustomField = () => {
+    setCustomFieldKey('');
+    setCustomFieldValue('');
+    setCustomFieldDialogOpen(true);
+  };
+
+  const handleConfirmCustomField = () => {
+    if (!customFieldKey.trim()) {
+      setError('Vui lòng nhập tên thông tin');
+      return;
+    }
+    handleMetadataChange(customFieldKey.trim(), customFieldValue);
+    setCustomFieldDialogOpen(false);
+  };
+
+  const handleRemoveCustomField = (key: string) => {
+    setFormData(prev => {
+      const newMetadata = { ...prev.metadata };
+      delete newMetadata[key];
+      return {
+        ...prev,
+        metadata: newMetadata
+      };
+    });
+  };
+
   // Handle form submission
   const handleSubmit = async () => {
     try {
@@ -238,13 +253,27 @@ export default function EditMajorPage(): JSX.Element {
         return;
       }
 
+      // Clean metadata - remove empty values
+      const cleanedMetadata: Record<string, any> = {};
+      Object.keys(formData.metadata).forEach(key => {
+        const value = formData.metadata[key];
+        if (value !== null && value !== undefined && value !== '') {
+          cleanedMetadata[key] = value;
+        }
+      });
+
+      const payload = {
+        ...formData,
+        metadata: Object.keys(cleanedMetadata).length > 0 ? cleanedMetadata : undefined,
+      };
+
       // Submit update request
-      const response = await fetch(`/api/tms/majors/${majorId}`, {
+      const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(majorId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const result = await response.json();
@@ -309,13 +338,6 @@ export default function EditMajorPage(): JSX.Element {
               Chỉnh sửa ngành đào tạo
             </Typography>
           </Stack>
-          <Button
-              variant="outlined"
-              startIcon={<HelpOutlineIcon />}
-              onClick={() => setHelpDialogOpen(true)}
-          >
-            Hướng dẫn
-          </Button>
         </Stack>
 
         {majorData && (
@@ -433,32 +455,12 @@ export default function EditMajorPage(): JSX.Element {
                   </FormControl>
                 </Stack>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <TextField
-                      fullWidth
-                      label="Mã quốc gia"
-                      value={formData.national_code}
-                      onChange={(e) => handleInputChange('national_code', e.target.value)}
-                      placeholder="VD: 7480101"
-                  />
-
-                  <TextField
-                      fullWidth
-                      label="Slug"
-                      value={formData.slug}
-                      onChange={(e) => handleInputChange('slug', e.target.value)}
-                      placeholder="VD: cong-nghe-thong-tin"
-                  />
-                </Stack>
-
-                <FormControlLabel
-                    control={
-                      <Switch
-                          checked={formData.is_moet_standard}
-                          onChange={(e) => handleInputChange('is_moet_standard', e.target.checked)}
-                      />
-                    }
-                    label="Chuẩn MOET"
+                <TextField
+                    fullWidth
+                    label="Slug"
+                    value={formData.slug}
+                    onChange={(e) => handleInputChange('slug', e.target.value)}
+                    placeholder="VD: cong-nghe-thong-tin"
                 />
               </Stack>
             </Paper>
@@ -509,110 +511,87 @@ export default function EditMajorPage(): JSX.Element {
                   />
                 </Stack>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl fullWidth>
-                    <InputLabel>Học kỳ bắt đầu</InputLabel>
-                    <Select
-                        value={formData.start_terms}
-                        label="Học kỳ bắt đầu"
-                        onChange={(e) => handleInputChange('start_terms', e.target.value)}
-                    >
-                      {MAJOR_START_TERMS.map((term) => (
-                          <MenuItem key={term} value={term}>
-                            {getMajorStartTermLabel(term)}
-                          </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                      fullWidth
-                      label="Chỉ tiêu mặc định"
-                      type="number"
-                      value={formData.default_quota}
-                      onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
-                      inputProps={{ min: 0 }}
-                  />
-                </Stack>
+                <TextField
+                    fullWidth
+                    label="Chỉ tiêu"
+                    type="number"
+                    value={formData.default_quota}
+                    onChange={(e) => handleInputChange('default_quota', parseInt(e.target.value))}
+                    inputProps={{ min: 0 }}
+                />
               </Stack>
             </Paper>
 
-            {/* Additional Information */}
+            {/* Status */}
             <Paper sx={{ p: 3, mt: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Thông tin bổ sung
+                Trạng thái
               </Typography>
+              <FormControl fullWidth>
+                <InputLabel>Trạng thái</InputLabel>
+                <Select
+                    value={formData.status}
+                    label="Trạng thái"
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                >
+                  {WORKFLOW_STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Paper>
+
+            {/* Metadata - Additional Information */}
+            <Paper sx={{ p: 3, mt: 3 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+                <Typography variant="h6">
+                  Thông tin bổ sung
+                </Typography>
+                <Button
+                    startIcon={<AddIcon />}
+                    size="small"
+                    variant="outlined"
+                    onClick={handleAddCustomField}
+                >
+                  Thêm field
+                </Button>
+              </Stack>
               <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl fullWidth>
-                    <InputLabel>Nhóm ngành</InputLabel>
-                    <Select
-                        value={formData.field_cluster}
-                        label="Nhóm ngành"
-                        onChange={(e) => handleInputChange('field_cluster', e.target.value)}
-                    >
-                      <MenuItem value="">Chọn nhóm ngành</MenuItem>
-                      {MAJOR_FIELD_CLUSTERS.map((cluster) => (
-                          <MenuItem key={cluster} value={cluster}>
-                            {getMajorFieldClusterLabel(cluster)}
-                          </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                {/* Default fields */}
+                <FormControl fullWidth>
+                  <InputLabel>Nhóm ngành</InputLabel>
+                  <Select
+                      value={formData.metadata.field_cluster || ''}
+                      label="Nhóm ngành"
+                      onChange={(e) => handleMetadataChange('field_cluster', e.target.value)}
+                  >
+                    <MenuItem value="">Chọn nhóm ngành</MenuItem>
+                    {MAJOR_FIELD_CLUSTERS.map((cluster) => (
+                        <MenuItem key={cluster} value={cluster}>
+                          {getMajorFieldClusterLabel(cluster)}
+                        </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
-                  <FormControl fullWidth>
-                    <InputLabel>Mô hình chuyên ngành</InputLabel>
-                    <Select
-                        value={formData.specialization_model}
-                        label="Mô hình chuyên ngành"
-                        onChange={(e) => handleInputChange('specialization_model', e.target.value)}
-                    >
-                      {MAJOR_SPECIALIZATION_MODELS.map((model) => (
-                          <MenuItem key={model} value={model}>
-                            {getMajorSpecializationModelLabel(model)}
-                          </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <TextField
-                      fullWidth
-                      label="Ngày thành lập"
-                      type="date"
-                      value={formData.established_at}
-                      onChange={(e) => handleInputChange('established_at', e.target.value)}
-                      InputLabelProps={{ shrink: true }}
-                  />
-
-                  <FormControl fullWidth>
-                    <InputLabel>Trạng thái</InputLabel>
-                    <Select
-                        value={formData.status}
-                        label="Trạng thái"
-                        onChange={(e) => handleInputChange('status', e.target.value)}
-                    >
-                      <MenuItem value="DRAFT">Nháp</MenuItem>
-                      <MenuItem value="PROPOSED">Đề xuất</MenuItem>
-                      <MenuItem value="REVIEWING">Đang xem xét</MenuItem>
-                      <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
-                      <MenuItem value="REJECTED">Bị từ chối</MenuItem>
-                      <MenuItem value="PUBLISHED">Đã công bố</MenuItem>
-                      <MenuItem value="ACTIVE">Hoạt động</MenuItem>
-                      <MenuItem value="SUSPENDED">Tạm dừng</MenuItem>
-                      <MenuItem value="CLOSED">Đã đóng</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
+                <TextField
+                    fullWidth
+                    label="Ngày thành lập"
+                    type="date"
+                    value={formData.metadata.established_at || ''}
+                    onChange={(e) => handleMetadataChange('established_at', e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                />
 
                 <TextField
                     fullWidth
                     label="Mô tả"
                     multiline
                     rows={3}
-                    value={formData.description}
-                    onChange={(e) => handleInputChange('description', e.target.value)}
+                    value={formData.metadata.description || ''}
+                    onChange={(e) => handleMetadataChange('description', e.target.value)}
                 />
 
                 <TextField
@@ -620,9 +599,31 @@ export default function EditMajorPage(): JSX.Element {
                     label="Ghi chú"
                     multiline
                     rows={2}
-                    value={formData.notes}
-                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                    value={formData.metadata.notes || ''}
+                    onChange={(e) => handleMetadataChange('notes', e.target.value)}
                 />
+
+                {/* Custom fields */}
+                {Object.keys(formData.metadata)
+                    .filter(key => !['field_cluster', 'established_at', 'description', 'notes'].includes(key))
+                    .map((key) => (
+                        <Box key={key} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                          <TextField
+                              fullWidth
+                              label={`Field: ${key}`}
+                              value={formData.metadata[key] || ''}
+                              onChange={(e) => handleMetadataChange(key, e.target.value)}
+                              placeholder="Nhập giá trị"
+                          />
+                          <IconButton
+                              color="error"
+                              onClick={() => handleRemoveCustomField(key)}
+                              sx={{ mt: 1 }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Box>
+                    ))}
               </Stack>
             </Paper>
           </Box>
@@ -704,84 +705,29 @@ export default function EditMajorPage(): JSX.Element {
           </Box>
         </Stack>
 
-        {/* Help Dialog */}
-        <Dialog
-            open={helpDialogOpen}
-            onClose={() => setHelpDialogOpen(false)}
-            maxWidth="md"
-            fullWidth
-        >
-          <DialogTitle>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <InfoIcon color="primary" />
-              <Typography variant="h6">Hướng dẫn chỉnh sửa ngành đào tạo</Typography>
-            </Stack>
-          </DialogTitle>
-          <DialogContent>
-            <Stack spacing={2}>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Thông tin cơ bản
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Mã ngành: Mã định danh duy nhất cho ngành đào tạo (VD: CNTT, KT, NN)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Tên ngành: Tên đầy đủ của ngành đào tạo bằng tiếng Việt và tiếng Anh
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Đơn vị quản lý: Khoa/Viện/Bộ môn chịu trách nhiệm quản lý ngành
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Thông tin đào tạo
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Thời gian đào tạo: Số năm học (có thể là số thập phân như 4.5 năm)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Số tín chỉ: Tối thiểu và tối đa số tín chỉ sinh viên cần tích lũy
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Học kỳ bắt đầu: Học kỳ mà ngành bắt đầu tuyển sinh
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Thông tin bổ sung
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Nhóm ngành: Phân loại ngành theo lĩnh vực (CNTT, Kinh tế, Xã hội...)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Mô hình chuyên ngành: Cách tổ chức chuyên ngành (không, track, concentration...)
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Trạng thái: Trạng thái hiện tại của ngành trong quy trình phê duyệt
-                </Typography>
-              </Box>
-
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                  Lưu ý
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Thay đổi sẽ được lưu trực tiếp vào cơ sở dữ liệu
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Hãy kiểm tra kỹ thông tin trước khi cập nhật
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  • Một số thay đổi có thể cần phê duyệt từ cấp trên
-                </Typography>
-              </Box>
-            </Stack>
+        {/* Custom Field Dialog */}
+        <Dialog open={customFieldDialogOpen} onClose={() => setCustomFieldDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Thêm thông tin bổ sung</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              autoFocus
+              label="Tên thông tin"
+              value={customFieldKey}
+              onChange={(e) => setCustomFieldKey(e.target.value)}
+              placeholder="Ví dụ: chuẩn kiểm định"
+            />
+            <TextField
+              label="Giá trị"
+              value={customFieldValue}
+              onChange={(e) => setCustomFieldValue(e.target.value)}
+              placeholder="Ví dụ: AUN-QA"
+            />
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setHelpDialogOpen(false)}>Đóng</Button>
+            <Button onClick={() => setCustomFieldDialogOpen(false)}>Hủy</Button>
+            <Button variant="contained" onClick={handleConfirmCustomField}>
+              Thêm
+            </Button>
           </DialogActions>
         </Dialog>
 

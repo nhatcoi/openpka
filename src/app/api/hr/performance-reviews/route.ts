@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db } from '@/lib/db';
 import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 
 export async function GET(request: NextRequest) {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+        requirePermission(session, 'hr.performance_review.view');
+    }
     try {
         const { searchParams } = new URL(request.url);
         const employeeId = searchParams.get('employeeId') || searchParams.get('employee_id');
@@ -58,6 +65,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        // Check permission
+        requirePermission(session, 'hr.performance_review.create');
+        
         const body = await request.json();
         const {
             employee_id,

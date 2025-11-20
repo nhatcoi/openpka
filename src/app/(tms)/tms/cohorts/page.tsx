@@ -1,123 +1,225 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
-  Card,
-  CardContent,
-  Typography,
   Button,
+  Chip,
+  CircularProgress,
+  Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  Snackbar,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
-  Chip,
-  IconButton,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  MenuItem,
-  Grid,
-  Alert,
-  CircularProgress,
-  Pagination,
-  InputAdornment,
+  Tooltip,
+  Typography,
   Breadcrumbs,
   Link,
-  Container,
+  Card,
+  CardContent,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as ViewIcon,
+  Edit as EditIcon,
+  Refresh as RefreshIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
+  Visibility as VisibilityIcon,
+  Groups as GroupsIcon,
+  Note as DraftIcon,
+  Pending as PendingIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Publish as PublishIcon,
+  Archive as ArchiveIcon,
+  NewReleases as NewReleasesIcon,
+  Category as CategoryIcon,
+  Link as LinkIcon,
+  EventAvailable as EventAvailableIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
-import { 
-  CohortStatus, 
-  CohortIntakeTerm,
-  getCohortStatusLabel, 
+import { useRouter } from 'next/navigation';
+import {
+  COHORT_WORKFLOW_STATUS_OPTIONS,
+  getCohortStatusLabel,
   getCohortStatusColor,
   getCohortIntakeTermLabel,
-  COHORT_STATUSES,
-  COHORT_INTAKE_TERMS 
+  getRawCohortStatuses,
 } from '@/constants/cohorts';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
+import {
+  CohortApiResponseItem,
+  CohortListApiResponse,
+  CohortListItem,
+  mapCohortResponse,
+} from './cohort-utils';
 
-interface Cohort {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  academic_year: string;
-  intake_year: number;
-  intake_term: string;
-  major_id?: string;
-  program_id?: string;
-  org_unit_id?: string;
-  planned_quota?: number;
-  actual_quota?: number;
-  start_date?: string;
-  expected_graduation_date?: string;
-  status: CohortStatus;
-  is_active: boolean;
-  description?: string;
-  created_at: string;
-  updated_at: string;
+interface PaginationState {
+  page: number;
+  totalPages: number;
+  totalItems: number;
 }
 
-export default function CohortsPage() {
-  const router = useRouter();
-  const [cohorts, setCohorts] = useState<Cohort[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CohortStatus | ''>('');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
+const DEFAULT_COHORT_PAGE_SIZE = 10;
 
-  // Fetch cohorts data
-  const fetchCohorts = async () => {
+export default function CohortsPage(): JSX.Element {
+  const router = useRouter();
+  const [cohorts, setCohorts] = useState<CohortListItem[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
+  const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; cohort: CohortListItem | null }>({
+    open: false,
+    cohort: null,
+  });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+  const [stats, setStats] = useState<{
+    total: number;
+    pending: number;
+    reviewing: number;
+    approved: number;
+    rejected: number;
+    published: number;
+    archived: number;
+    newThisMonth: number;
+    active: number;
+    withMajor: number;
+    withProgram: number;
+    withStudents: number;
+    totalPlannedQuota: number;
+    totalActualQuota: number;
+    avgPlannedQuota: number;
+    avgActualQuota: number;
+    byAcademicYear: Record<string, number>;
+    byIntakeTerm: Record<string, number>;
+  } | null>(null);
+  const [statsLoading, setStatsLoading] = useState<boolean>(false);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      const response = await fetch(API_ROUTES.TMS.COHORTS_STATS);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setStats(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch cohort stats', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  const fetchCohorts = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
+
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-        ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: statusFilter }),
+        page: pagination.page.toString(),
+        limit: String(DEFAULT_COHORT_PAGE_SIZE),
       });
 
-      const response = await fetch(`/api/cohorts?${params}`);
-      if (!response.ok) {
-        throw new Error('Không thể tải danh sách khóa học');
+      if (selectedStatus !== 'all') {
+        const rawStatuses = getRawCohortStatuses(selectedStatus);
+        if (rawStatuses.length > 0) {
+          params.set('status', rawStatuses[0]);
+        }
       }
 
-      const data = await response.json();
-      setCohorts(data.cohorts || []);
-      setTotalPages(data.totalPages || 1);
+      if (searchTerm) {
+        params.set('search', searchTerm);
+      }
+
+      const response = await fetch(`${API_ROUTES.TMS.COHORTS}?${params.toString()}`);
+      const result = (await response.json()) as CohortListApiResponse;
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Không thể tải danh sách khóa học');
+      }
+
+      const items: CohortApiResponseItem[] = result.cohorts ?? [];
+      const mapped = items.map(mapCohortResponse);
+
+      setCohorts(mapped);
+      setPagination((prev) => ({
+        ...prev,
+        totalPages: result.pagination?.totalPages ?? 1,
+        totalItems: result.pagination?.total ?? mapped.length,
+      }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra');
+      const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, searchTerm, selectedStatus]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchCohorts();
-  }, [page, searchTerm, statusFilter]);
+  }, [fetchCohorts]);
 
-  const handleDelete = async (cohort: Cohort) => {
+  const handleSearch = () => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setSearchTerm(searchValue.trim());
+  };
+
+  const handleResetFilters = () => {
+    setSelectedStatus('all');
+    setSearchValue('');
+    setSearchTerm('');
+    setPagination({ page: 1, totalItems: 0, totalPages: 1 });
+  };
+
+  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
+    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleDelete = async (cohortId: string) => {
     try {
-      const response = await fetch(`/api/cohorts/${cohort.id}`, {
+      const response = await fetch(API_ROUTES.TMS.COHORTS_BY_ID(cohortId), {
         method: 'DELETE',
       });
 
@@ -125,247 +227,591 @@ export default function CohortsPage() {
         throw new Error('Không thể xóa khóa học');
       }
 
-      setDeleteDialogOpen(false);
-      setSelectedCohort(null);
-      fetchCohorts(); // Refresh list
+      setSnackbar({ open: true, message: 'Đã xóa khóa học thành công', severity: 'success' });
+      setDeleteDialog({ open: false, cohort: null });
+      fetchCohorts();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi xóa');
+      const message = err instanceof Error ? err.message : 'Không thể xóa khóa học';
+      setSnackbar({ open: true, message, severity: 'error' });
     }
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
-  };
-
-  const filteredCohorts = cohorts.filter(cohort => {
-    const matchesSearch = !searchTerm || 
-      cohort.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cohort.name_vi.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = !statusFilter || cohort.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const isEmpty = useMemo(() => !loading && cohorts.length === 0, [loading, cohorts.length]);
 
   return (
-    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/tms"
-          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-        >
-          TMS
-        </Link>
-        <Typography color="text.primary">Khóa học</Typography>
-      </Breadcrumbs>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Container maxWidth={false} sx={{ px: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Typography color="text.primary">Khóa học</Typography>
+        </Breadcrumbs>
 
-      {/* Header */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" component="h1">
-          Quản lý khóa học
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => router.push('/tms/cohorts/create')}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white',
+            borderRadius: 2,
+            mb: 4,
+          }}
         >
-          Tạo khóa học mới
-        </Button>
-      </Box>
-
-      {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                placeholder="Tìm kiếm theo mã hoặc tên khóa học..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                select
-                label="Trạng thái"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as CohortStatus | '')}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+            <Box>
+              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Quản lý khóa học
+              </Typography>
+              <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+                Theo dõi, tạo mới và cập nhật thông tin khóa học trong hệ thống
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={fetchCohorts}
+                disabled={loading}
+                color="inherit"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
               >
-                <MenuItem value="">Tất cả</MenuItem>
-                {COHORT_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {getCohortStatusLabel(status)}
+                Làm mới
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: 'white',
+                  color: '#f5576c',
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+                }}
+                onClick={() => router.push('/tms/cohorts/create')}
+              >
+                Tạo khóa học mới
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* stats */}
+        {stats && (
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <GroupsIcon color="primary" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.total || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Tổng số
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <DraftIcon color="action" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.pending || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Bản nháp
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PendingIcon color="warning" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.reviewing || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Đang xem xét
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CheckCircleIcon color="success" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.approved || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Đã phê duyệt
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CancelIcon color="error" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.rejected || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Từ chối
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PublishIcon color="info" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.published || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Đã xuất bản
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <NewReleasesIcon color="primary" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.newThisMonth || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Mới trong tháng
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <EventAvailableIcon color="success" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.active || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Đang hoạt động
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PeopleIcon color="secondary" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.withStudents || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Có sinh viên
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2, mb: 3 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <CategoryIcon color="secondary" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.withMajor || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Có ngành học
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <LinkIcon color="secondary" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.withProgram || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Có chương trình
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <PeopleIcon color="info" sx={{ fontSize: 32 }} />
+                    <Box>
+                      {statsLoading ? (
+                        <Skeleton variant="text" width={60} height={32} />
+                      ) : (
+                        <Typography variant="h5" component="div">
+                          {stats.totalPlannedQuota || 0}
+                        </Typography>
+                      )}
+                      <Typography variant="body2" color="text.secondary">
+                        Tổng chỉ tiêu kế hoạch
+                      </Typography>
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+
+            {stats.byAcademicYear && Object.keys(stats.byAcademicYear).length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Thống kê theo năm học
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                  {Object.entries(stats.byAcademicYear)
+                    .sort(([a], [b]) => b.localeCompare(a))
+                    .map(([academicYear, count]) => (
+                      <Card key={academicYear}>
+                        <CardContent>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <CategoryIcon color="action" sx={{ fontSize: 28 }} />
+                            <Box>
+                              {statsLoading ? (
+                                <Skeleton variant="text" width={60} height={28} />
+                              ) : (
+                                <Typography variant="h6" component="div">
+                                  {count || 0}
+                                </Typography>
+                              )}
+                              <Typography variant="body2" color="text.secondary">
+                                {academicYear}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    ))}
+                </Box>
+              </Box>
+            )}
+
+            {stats.byIntakeTerm && Object.keys(stats.byIntakeTerm).length > 0 && (
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                  Thống kê theo kỳ nhập học
+                </Typography>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2 }}>
+                  {Object.entries(stats.byIntakeTerm).map(([term, count]) => (
+                    <Card key={term}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <CategoryIcon color="action" sx={{ fontSize: 28 }} />
+                          <Box>
+                            {statsLoading ? (
+                              <Skeleton variant="text" width={60} height={28} />
+                            ) : (
+                              <Typography variant="h6" component="div">
+                                {count || 0}
+                              </Typography>
+                            )}
+                            <Typography variant="body2" color="text.secondary">
+                              {getCohortIntakeTermLabel(term) || term}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </Box>
+              </Box>
+            )}
+          </>
+        )}
+
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <TextField
+              placeholder="Tìm kiếm theo tên hoặc mã khóa học"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flexGrow: 1, minWidth: 220 }}
+            />
+
+            <FormControl sx={{ minWidth: 160 }}>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select value={selectedStatus} label="Trạng thái" onChange={handleStatusChange}>
+                <MenuItem value="all">Tất cả</MenuItem>
+                {COHORT_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
                   </MenuItem>
                 ))}
-              </TextField>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+              </Select>
+            </FormControl>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={handleSearch} disabled={loading}>
+                Tìm kiếm
+              </Button>
+              <Button variant="text" onClick={handleResetFilters} disabled={loading}>
+                Xóa bộ lọc
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
-      {/* Cohorts Table */}
-      <Card>
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Mã khóa</TableCell>
-                <TableCell>Tên khóa học</TableCell>
-                <TableCell>Năm học</TableCell>
-                <TableCell>Năm tuyển sinh</TableCell>
-                <TableCell>Học kỳ</TableCell>
-                <TableCell>Chỉ tiêu</TableCell>
-                <TableCell>Trạng thái</TableCell>
-                <TableCell>Ngày tạo</TableCell>
-                <TableCell align="center">Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredCohorts.length === 0 ? (
+        <Paper sx={{ p: 0, overflow: 'hidden' }}>
+          <TableContainer sx={{ width: '100%' }}>
+            <Table sx={{ width: '100%' }}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
-                    <Typography variant="body2" color="text.secondary">
-                      Không có dữ liệu khóa học
-                    </Typography>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Mã khóa</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Tên khóa học</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Năm học</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Năm tuyển sinh</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Học kỳ</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Chỉ tiêu
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Trạng thái
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Thao tác
                   </TableCell>
                 </TableRow>
-              ) : (
-                filteredCohorts.map((cohort) => (
+              </TableHead>
+              <TableBody>
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={28} />
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {error && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <Alert severity="error" action={
+                        <Button color="inherit" size="small" onClick={fetchCohorts}>
+                          Thử lại
+                        </Button>
+                      }>
+                        {error}
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {isEmpty && (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <Alert severity="info">Không tìm thấy khóa học phù hợp.</Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!loading && !error && cohorts.map((cohort) => (
                   <TableRow key={cohort.id} hover>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{cohort.code}</TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
-                        {cohort.code}
+                      <Typography variant="subtitle2" fontWeight="medium">
+                        {cohort.nameVi}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2" fontWeight="medium">
-                          {cohort.name_vi}
+                      {cohort.nameEn && (
+                        <Typography variant="body2" color="text.secondary">
+                          {cohort.nameEn}
                         </Typography>
-                        {cohort.name_en && (
-                          <Typography variant="caption" color="text.secondary">
-                            {cohort.name_en}
-                          </Typography>
-                        )}
-                      </Box>
+                      )}
                     </TableCell>
-                    <TableCell>{cohort.academic_year}</TableCell>
-                    <TableCell>{cohort.intake_year}</TableCell>
+                    <TableCell>{cohort.academicYear}</TableCell>
+                    <TableCell>{cohort.intakeYear}</TableCell>
                     <TableCell>
-                      {getCohortIntakeTermLabel(cohort.intake_term)}
+                      {getCohortIntakeTermLabel(cohort.intakeTerm)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="center">
                       <Typography variant="body2">
-                        {cohort.actual_quota || 0}/{cohort.planned_quota || 0}
+                        {cohort.actualQuota || 0} / {cohort.plannedQuota || 0}
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="center">
                       <Chip
                         label={getCohortStatusLabel(cohort.status)}
                         color={getCohortStatusColor(cohort.status)}
                         size="small"
                       />
                     </TableCell>
-                    <TableCell>
-                      {new Date(cohort.created_at).toLocaleDateString('vi-VN')}
-                    </TableCell>
                     <TableCell align="center">
-                      <Box display="flex" gap={1} justifyContent="center">
+                      <Stack direction="row" spacing={1} justifyContent="center">
                         <Tooltip title="Xem chi tiết">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/tms/cohorts/${cohort.id}`)}
-                          >
-                            <ViewIcon />
+                          <IconButton size="small" color="primary" onClick={() => router.push(`/tms/cohorts/${cohort.id}`)}>
+                            <VisibilityIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Chỉnh sửa">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/tms/cohorts/${cohort.id}/edit`)}
-                          >
-                            <EditIcon />
+                          <IconButton size="small" color="secondary" onClick={() => router.push(`/tms/cohorts/${cohort.id}/edit`)}>
+                            <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Xóa">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => {
-                              setSelectedCohort(cohort);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <DeleteIcon />
+                          <IconButton size="small" color="error" onClick={() => setDeleteDialog({ open: true, cohort })}>
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </Box>
+                      </Stack>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Box display="flex" justifyContent="center" p={2}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Hiển thị {cohorts.length} / {pagination.totalItems} khóa học
+            </Typography>
             <Pagination
-              count={totalPages}
-              page={page}
-              onChange={handlePageChange}
               color="primary"
+              page={pagination.page}
+              count={Math.max(pagination.totalPages, 1)}
+              onChange={handlePageChange}
             />
           </Box>
-        )}
-      </Card>
+        </Paper>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Xác nhận xóa khóa học</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Bạn có chắc chắn muốn xóa khóa học "{selectedCohort?.name_vi}" không?
-            Hành động này không thể hoàn tác.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Hủy</Button>
-          <Button
-            onClick={() => selectedCohort && handleDelete(selectedCohort)}
-            color="error"
-            variant="contained"
+        <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, cohort: null })}>
+          <DialogTitle>Xác nhận xóa</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Bạn có chắc chắn muốn xóa khóa học "{deleteDialog.cohort?.nameVi}"? Hành động này không thể hoàn tác.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDeleteDialog({ open: false, cohort: null })}>
+              Hủy
+            </Button>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={() => deleteDialog.cohort && handleDelete(deleteDialog.cohort.id)}
+            >
+              Xóa
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          <Alert
+            onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
           >
-            Xóa
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </Box>
   );
 }

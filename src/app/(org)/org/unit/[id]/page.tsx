@@ -9,8 +9,6 @@ import {
   CardContent,
   Stack,
   Button,
-  Chip,
-  Avatar,
   Alert,
   AlertTitle,
   CircularProgress,
@@ -19,34 +17,29 @@ import {
   Tabs,
   Tab,
   Paper,
-  IconButton,
-  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  History as HistoryIcon,
   Business as BusinessIcon,
-  Group as GroupIcon,
-  AccountTree as AccountTreeIcon,
   Person as PersonIcon,
   Assessment as AssessmentIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/api';
 import { API_ROUTES } from '@/constants/routes';
-import { 
-  getStatusColor, 
-  getTypeColor, 
-  getTypeIcon
-} from '@/utils/org-unit-utils';
+import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import {
+  getTypeNameFromApi,
+  getStatusNameFromApi,
+} from '@/utils/org-data-converters';
 
-// Import tab components
 import BasicInfoTab from './components/BasicInfoTab';
-import RelationsTab from './components/RelationsTab';
 import PersonnelTab from './components/PersonnelTab';
-import HistoryTab from './components/HistoryTab';
 import ReportsTab from './components/ReportsTab';
 
 interface TabPanelProps {
@@ -89,10 +82,16 @@ export default function UnitDetailPage() {
   
   const [tabValue, setTabValue] = useState(0);
   const [unit, setUnit] = useState<OrgUnit | null>(null);
+  const [childUnits, setChildUnits] = useState<OrgUnit[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch unit data
+  const {
+    types: apiTypes,
+    statuses: apiStatuses,
+  } = useOrgTypesStatuses();
+
   const fetchUnitData = async () => {
     try {
       setIsLoading(true);
@@ -113,14 +112,39 @@ export default function UnitDetailPage() {
     }
   };
 
-  // Fetch data on mount
+  const fetchChildUnits = async () => {
+    if (!unitId) return;
+    
+    try {
+      setIsLoadingChildren(true);
+      const url = new URL(API_ROUTES.ORG.UNITS, window.location.origin);
+      url.searchParams.set('parent_id', unitId);
+      url.searchParams.set('size', '100');
+      url.searchParams.set('sort', 'name');
+      url.searchParams.set('order', 'asc');
+      
+      const response = await fetch(url.toString());
+      const data = await response.json();
+      
+      if (data.success) {
+        const items = data.data?.items || data.data || [];
+        setChildUnits(Array.isArray(items) ? items : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch child units:', err);
+    } finally {
+      setIsLoadingChildren(false);
+    }
+  };
+
   React.useEffect(() => {
     if (unitId) {
       fetchUnitData();
+      fetchChildUnits();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unitId]);
 
-  // Update unit function
   const updateUnit = async (data: { name?: string; description?: string; [key: string]: unknown }) => {
     try {
       const response = await fetch(API_ROUTES.ORG.UNITS_BY_ID(unitId), {
@@ -144,12 +168,12 @@ export default function UnitDetailPage() {
   const handleUpdateUnit = async (updateData: Partial<OrgUnit>) => {
     if (!unit?.id) throw new Error('Unit ID not found');
     
-    await updateUnit(updateData);
-  };
-
-
-  const handleDelete = () => {
-    console.log('Delete unit:', unit?.id);
+    const cleanedData: { [key: string]: unknown; name?: string; description?: string } = {
+      ...updateData,
+      description: updateData.description === null ? undefined : updateData.description,
+    };
+    
+    await updateUnit(cleanedData);
   };
 
   const handleBack = () => {
@@ -170,7 +194,7 @@ export default function UnitDetailPage() {
 
   if (error) {
     return (
-      <Box>
+      <Box sx={{ py: 4, px: 3 }}>
         <Alert severity="error" sx={{ mb: 3 }}>
           <AlertTitle>Lỗi</AlertTitle>
           {error || 'Failed to fetch unit details'}
@@ -184,7 +208,7 @@ export default function UnitDetailPage() {
 
   if (!unit) {
     return (
-      <Box>
+      <Box sx={{ py: 4, px: 3 }}>
         <Alert severity="warning" sx={{ mb: 3 }}>
           <AlertTitle>Không tìm thấy</AlertTitle>
           Không tìm thấy đơn vị với ID: {unitId}
@@ -197,8 +221,7 @@ export default function UnitDetailPage() {
   }
 
   return (
-    <Box>
-      {/* Breadcrumbs */}
+    <Box sx={{ py: 4, px: 3, width: '100%' }}>
       <Breadcrumbs sx={{ mb: 3 }}>
         <Link
           component="button"
@@ -211,8 +234,28 @@ export default function UnitDetailPage() {
         <Typography color="text.primary">{unit.name}</Typography>
       </Breadcrumbs>
 
-      {/* Header */}
       <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+        <Box
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 1,
+            backgroundColor: '#2e4c92',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <BusinessIcon sx={{ color: 'white', fontSize: 24 }} />
+        </Box>
+        <Box sx={{ flexGrow: 1 }}>
+          <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold' }}>
+            {unit.name}
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Chi tiết đơn vị tổ chức
+          </Typography>
+        </Box>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={handleBack}
@@ -220,80 +263,166 @@ export default function UnitDetailPage() {
         >
           Quay lại
         </Button>
-        <Box sx={{ flexGrow: 1 }} />
-        <Stack direction="row" spacing={1}>
-
-        </Stack>
       </Stack>
 
-      {/* Unit Header Card */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Stack direction="row" alignItems="center" spacing={3}>
-            <Avatar
-              sx={{
-                width: 80,
-                height: 80,
-                backgroundColor: getTypeColor(unit.type),
-                fontSize: 32,
-              }}
-            >
-              {React.createElement(getTypeIcon(unit.type))}
-            </Avatar>
-            <Box sx={{ flexGrow: 1 }}>
-              <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-                <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+          <Stack spacing={2}>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <BusinessIcon color="primary" />
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Tên đơn vị
+                </Typography>
+                <Typography variant="body1" fontWeight="medium">
                   {unit.name}
                 </Typography>
-                <Chip
-                  label={unit.code}
-                  size="small"
-                  variant="outlined"
-                  sx={{ fontSize: '0.875rem' }}
-                />
-              </Stack>
-              
-              <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-                <Chip
-                  label={unit.type || 'Chưa xác định'}
-                  size="small"
-                  sx={{
-                    backgroundColor: getTypeColor(unit.type || ''),
-                    color: 'white',
-                    fontSize: '0.75rem',
-                  }}
-                />
-                <Chip
-                  label={unit.status || 'Chưa xác định'}
-                  size="small"
-                  sx={{
-                    backgroundColor: getStatusColor(unit.status || ''),
-                    color: 'white',
-                    fontSize: '0.75rem',
-                  }}
-                />
-                {unit.effective_from && (
-                  <Chip
-                    label={`Từ ${new Date(unit.effective_from).toLocaleDateString('vi-VN')}`}
-                    size="small"
-                    variant="outlined"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                )}
-              </Stack>
+              </Box>
+            </Stack>
 
-              {unit.description && (
-                <Typography variant="body1" color="text.secondary">
-                  {unit.description}
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <BusinessIcon color="primary" />
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Mã đơn vị
                 </Typography>
-              )}
-            </Box>
+                <Typography variant="body1">
+                  {unit.code}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <BusinessIcon color="primary" />
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Loại
+                </Typography>
+                <Typography variant="body1">
+                  {getTypeNameFromApi(unit.type, apiTypes) || unit.type || '—'}
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <BusinessIcon color="primary" />
+              <Box>
+                <Typography variant="body2" color="text.secondary">
+                  Trạng thái
+                </Typography>
+                <Typography variant="body1">
+                  {getStatusNameFromApi(unit.status, apiStatuses) || unit.status || '—'}
+                </Typography>
+              </Box>
+            </Stack>
+
+            {unit.description && (
+              <Stack direction="row" alignItems="flex-start" spacing={2}>
+                <BusinessIcon color="primary" sx={{ mt: 0.5 }} />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Mô tả
+                  </Typography>
+                  <Typography variant="body1">
+                    {unit.description}
+                  </Typography>
+                </Box>
+              </Stack>
+            )}
+
+            {unit.effective_from && (
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <BusinessIcon color="primary" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Ngày hiệu lực từ
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(unit.effective_from).toLocaleDateString('vi-VN')}
+                  </Typography>
+                </Box>
+              </Stack>
+            )}
+
+            {unit.effective_to && (
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <BusinessIcon color="primary" />
+                <Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Ngày hiệu lực đến
+                  </Typography>
+                  <Typography variant="body1">
+                    {new Date(unit.effective_to).toLocaleDateString('vi-VN')}
+                  </Typography>
+                </Box>
+              </Stack>
+            )}
+
           </Stack>
         </CardContent>
       </Card>
 
-      {/* Tabs */}
-      <Paper sx={{ width: '100%' }}>
+      {childUnits.length > 0 && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium' }}>
+              Đơn vị trực thuộc ({childUnits.length})
+            </Typography>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Tên đơn vị</TableCell>
+                    <TableCell>Mã đơn vị</TableCell>
+                    <TableCell>Loại</TableCell>
+                    <TableCell>Trạng thái</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {childUnits.map((child) => (
+                    <TableRow
+                      key={child.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => router.push(`/org/unit/${child.id}`)}
+                    >
+                      <TableCell>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: 'primary.main',
+                            textDecoration: 'none',
+                            '&:hover': {
+                              textDecoration: 'underline',
+                            },
+                          }}
+                        >
+                          {child.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{child.code}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {getTypeNameFromApi(child.type, apiTypes) || child.type || '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {getStatusNameFromApi(child.status, apiStatuses) || child.status || '—'}
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      <Paper>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs 
             value={tabValue} 
@@ -308,24 +437,14 @@ export default function UnitDetailPage() {
               {...a11yProps(0)} 
             />
             <Tab 
-              icon={<AccountTreeIcon />} 
-              label="Quan hệ" 
-              {...a11yProps(1)} 
-            />
-            <Tab 
               icon={<PersonIcon />} 
               label="Nhân sự" 
-              {...a11yProps(2)} 
-            />
-            <Tab 
-              icon={<HistoryIcon />} 
-              label="Lịch sử thay đổi" 
-              {...a11yProps(3)} 
+              {...a11yProps(1)} 
             />
             <Tab 
               icon={<AssessmentIcon />} 
               label="Báo cáo" 
-              {...a11yProps(4)} 
+              {...a11yProps(2)} 
             />
           </Tabs>
         </Box>
@@ -335,19 +454,11 @@ export default function UnitDetailPage() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          <RelationsTab unitId={unitId} />
+          <PersonnelTab unit={unit as any} />
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <PersonnelTab unit={unit} />
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={3}>
-          <HistoryTab unitId={unitId} />
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={4}>
-          <ReportsTab unit={unit} />
+          <ReportsTab unit={unit as any} />
         </TabPanel>
       </Paper>
     </Box>

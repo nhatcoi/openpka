@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db } from '@/lib/db';
 
 // GET - Lấy danh sách tất cả bằng cấp
 export async function GET() {
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+        requirePermission(session, 'hr.qualification.view');
+    }
     try {
         const qualifications = await db.Qualification.findMany({
             orderBy: {
@@ -36,6 +43,14 @@ export async function GET() {
 // POST - Tạo bằng cấp mới
 export async function POST(request: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        
+        // Check permission
+        requirePermission(session, 'hr.qualification.create');
+        
         const body = await request.json();
         const { code, title } = body;
 

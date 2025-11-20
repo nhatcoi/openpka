@@ -58,6 +58,7 @@ import {
 } from '@mui/icons-material';
 import { useDocuments } from '@/hooks/use-documents';
 import { Document, ENTITY_TYPES, DOCUMENT_TYPES } from '@/types/documents';
+import { API_ROUTES } from '@/constants/routes';
 import { 
   getFileTypeFromMime, 
   formatFileSize, 
@@ -142,7 +143,7 @@ export default function DocumentsPage() {
       formData.append('description', uploadForm.description);
       formData.append('folder', uploadForm.folder);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch(API_ROUTES.UPLOAD, {
         method: 'POST',
         body: formData,
       });
@@ -255,7 +256,7 @@ export default function DocumentsPage() {
         // Fallback for org_unit if no permission
         if (entityType === 'org_unit') {
           // Try to get org units from majors data
-          const majorsResponse = await fetch('/api/tms/majors');
+          const majorsResponse = await fetch(API_ROUTES.TMS.MAJORS);
           const majorsResult = await majorsResponse.json();
           if (majorsResult.success && majorsResult.data?.items) {
             const orgUnits = majorsResult.data.items
@@ -322,7 +323,7 @@ export default function DocumentsPage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ py: 4, px: 3, width: '100%' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">

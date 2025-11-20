@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Autocomplete, Box, Container, Stack, TextField, Typography, Breadcrumbs, Link } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { API_ROUTES } from '@/constants/routes';
 
 interface ProgramOption {
   id: string;
@@ -21,7 +22,7 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
     const loadPrograms = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/tms/programs?limit=200');
+        const response = await fetch(`${API_ROUTES.TMS.PROGRAMS}?limit=200`);
         const result = await response.json();
         const items = Array.isArray(result?.data?.items) ? result.data.items : [];
         const mappedPrograms: ProgramOption[] = items.map((program: any) => ({

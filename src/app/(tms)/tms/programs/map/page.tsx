@@ -18,10 +18,6 @@ import {
   IconButton,
   InputAdornment,
   InputLabel,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   MenuItem,
   Pagination,
   Paper,
@@ -44,16 +40,12 @@ import {
   Link,
 } from '@mui/material';
 import {
-  Add as AddIcon,
-  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon,
-  HelpOutline as HelpOutlineIcon,
-  Info as InfoIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { ProgramBlockType, getProgramBlockTypeLabel } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -193,16 +185,6 @@ interface PaginationState {
   totalItems: number;
 }
 
-type FormMode = 'create' | 'edit';
-
-interface MappingFormState {
-  programId: string;
-  courseId: string;
-  blockId: string | null;
-  groupId: string | null;
-  isRequired: boolean;
-  displayOrder: number | '';
-}
 
 const REQUIRED_OPTIONS = [
   { value: 'all', label: 'Tất cả' },
@@ -234,21 +216,6 @@ export default function ProgramCourseMapPage(): JSX.Element {
     message: '',
     severity: 'success',
   });
-  const [helpDialogOpen, setHelpDialogOpen] = useState(false);
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<FormMode>('create');
-  const [formState, setFormState] = useState<MappingFormState>({
-    programId: '',
-    courseId: '',
-    blockId: null,
-    groupId: null,
-    isRequired: true,
-    displayOrder: '',
-  });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSubmitting, setFormSubmitting] = useState(false);
-  const [editingMapping, setEditingMapping] = useState<ProgramCourseMapListItem | null>(null);
 
   const [availableCourses, setAvailableCourses] = useState<CourseOption[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
@@ -267,12 +234,25 @@ export default function ProgramCourseMapPage(): JSX.Element {
   const [leftListIds, setLeftListIds] = useState<string[]>([]);
   const [draggingCourseId, setDraggingCourseId] = useState<string | null>(null);
   const [existingCourseIds, setExistingCourseIds] = useState<Set<string>>(new Set());
+  
+  // Constraints state: Map<courseId, constraints JSON>
+  const [courseConstraints, setCourseConstraints] = useState<Record<string, {
+    courses: Array<{
+      course_id: string;
+      code: string;
+      name: string;
+      type: string;
+    }>;
+  }>>({});
+  const [editingConstraintsCourseId, setEditingConstraintsCourseId] = useState<string | null>(null);
+  const [constraintsDialogOpen, setConstraintsDialogOpen] = useState(false);
+  const [newConstraintType, setNewConstraintType] = useState<string>('PRIOR');
 
   const loadBulkBlockOptions = useCallback(async (_programId?: string) => {
     try {
       // Use templates mode to fetch available block templates
       const paramsBlk = new URLSearchParams({ templates: 'true', limit: '200' });
-      const resBlk = await fetch(`/api/tms/program-blocks?${paramsBlk.toString()}`);
+      const resBlk = await fetch(`${API_ROUTES.TMS.PROGRAM_BLOCK_TEMPLATES}?${paramsBlk.toString()}`);
       const jsonBlk = await resBlk.json();
       if (resBlk.ok && jsonBlk?.success) {
         const itemsBlk = Array.isArray(jsonBlk.data?.items) ? jsonBlk.data.items : Array.isArray(jsonBlk.data) ? jsonBlk.data : [];
@@ -291,11 +271,42 @@ export default function ProgramCourseMapPage(): JSX.Element {
     }
   }, []);
 
+  // Load course prerequisites and initialize constraints
+  const loadCoursePrerequisites = useCallback(async (courseId: string) => {
+    try {
+      const response = await fetch(API_ROUTES.TMS.COURSES_BY_ID(courseId));
+      const result = await response.json();
+      if (response.ok && result?.success && result.data) {
+        const course = result.data;
+        const prerequisites = course.prerequisites || [];
+        // Convert prerequisites to constraints format
+        const constraints = {
+          courses: prerequisites.map((prereq: any) => ({
+            course_id: prereq.prerequisite_course?.id?.toString() || prereq.prerequisite_course_id?.toString() || '',
+            code: prereq.prerequisite_course?.code || '',
+            name: prereq.prerequisite_course?.name_vi || prereq.prerequisite_course?.name_en || '',
+            type: prereq.prerequisite_type || 'PRIOR',
+          })).filter((c: any) => c.course_id),
+        };
+        setCourseConstraints((prev) => ({
+          ...prev,
+          [courseId]: constraints,
+        }));
+      }
+    } catch (err) {
+      // Initialize empty constraints if load fails
+      setCourseConstraints((prev) => ({
+        ...prev,
+        [courseId]: { courses: [] },
+      }));
+    }
+  }, []);
+
   const loadGroupOptions = useCallback(async (programId?: string) => {
     try {
       const params = new URLSearchParams({ limit: '200' });
       if (programId) params.set('programId', programId);
-      const res = await fetch(`/api/tms/program-groups?${params.toString()}`);
+      const res = await fetch(`${API_ROUTES.TMS.PROGRAM_GROUPS}?${params.toString()}`);
       const json = await res.json();
       if (res.ok && json?.success) {
         const items = Array.isArray(json.data?.items) ? json.data.items : [];
@@ -308,44 +319,32 @@ export default function ProgramCourseMapPage(): JSX.Element {
     }
   }, []);
 
-  const loadExistingCourseIds = useCallback(async (programId: string) => {
+  const loadExistingCourseIds = useCallback(async (programId: string, updateState = true): Promise<Set<string>> => {
     try {
       const params = new URLSearchParams({ programId, limit: '10000' });
-      const res = await fetch(`/api/tms/program-course-map?${params.toString()}`);
+      const res = await fetch(`${API_ROUTES.TMS.PROGRAM_COURSE_MAP}?${params.toString()}`);
       const json = await res.json();
       if (res.ok && json?.success) {
         const items = Array.isArray(json.data?.items) ? json.data.items : [];
         const ids = new Set<string>(items
           .map((it: any) => it?.courseId?.toString?.() ?? it?.course?.id?.toString?.())
           .filter((v: any) => typeof v === 'string' && v.length > 0));
-        setExistingCourseIds(ids);
-      } else {
-        setExistingCourseIds(new Set());
-      }
-    } catch {
-      setExistingCourseIds(new Set());
-    }
-  }, []);
-
-  const loadExistingCourseIdsAndReturn = useCallback(async (programId: string): Promise<Set<string>> => {
-    try {
-      const params = new URLSearchParams({ programId, limit: '10000' });
-      const res = await fetch(`/api/tms/program-course-map?${params.toString()}`);
-      const json = await res.json();
-      if (res.ok && json?.success) {
-        const items = Array.isArray(json.data?.items) ? json.data.items : [];
-        const ids = new Set<string>(items
-          .map((it: any) => it?.courseId?.toString?.() ?? it?.course?.id?.toString?.())
-          .filter((v: any) => typeof v === 'string' && v.length > 0));
-        setExistingCourseIds(ids);
+        if (updateState) {
+          setExistingCourseIds(ids);
+        }
         return ids;
-      } else {
-        setExistingCourseIds(new Set());
-        return new Set();
       }
+      const emptySet = new Set<string>();
+      if (updateState) {
+        setExistingCourseIds(emptySet);
+      }
+      return emptySet;
     } catch {
-      setExistingCourseIds(new Set());
-      return new Set();
+      const emptySet = new Set<string>();
+      if (updateState) {
+        setExistingCourseIds(emptySet);
+      }
+      return emptySet;
     }
   }, []);
 
@@ -358,7 +357,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
   const fetchPrograms = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/programs/list?limit=200');
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAMS_LIST}?limit=200`);
       const result: ProgramListApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -378,7 +377,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
         setSelectedProgramId(options[0].id);
       }
     } catch (err) {
-      console.error('Failed to load program list', err);
+      // Silently fail - user can retry with refresh button
     }
   }, [selectedProgramId]);
 
@@ -390,7 +389,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
     try {
       const params = new URLSearchParams({ programId, limit: '200' });
-      const response = await fetch(`/api/tms/program-blocks?${params.toString()}`);
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAM_BLOCK_TEMPLATES}?${params.toString()}`);
       const result: ProgramBlockListResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -408,7 +407,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
       setProgramBlocks(mapped);
     } catch (err) {
-      console.error('Failed to load program blocks', err);
+      setProgramBlocks([]);
     }
   }, []);
 
@@ -494,7 +493,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
   const fetchCourses = useCallback(async () => {
     try {
       setLoadingCourses(true);
-      const response = await fetch('/api/tms/courses?limit=200&list=true&status=APPROVED,PUBLISHED');
+      const response = await fetch(`${API_ROUTES.TMS.COURSES}?limit=200&list=true&status=PUBLISHED`);
       const result: CourseListApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -512,7 +511,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
       setAvailableCourses(mapped);
     } catch (err) {
-      console.error('Failed to load courses', err);
+      setAvailableCourses([]);
     } finally {
       setLoadingCourses(false);
     }
@@ -573,133 +572,161 @@ export default function ProgramCourseMapPage(): JSX.Element {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+  const handlePageChange = useCallback((_: React.ChangeEvent<unknown>, newPage: number) => {
     setPagination((prev) => ({ ...prev, page: newPage }));
-  };
+  }, []);
 
-  const openCreateDialog = () => {
+  const handleOpenBulkDialog = useCallback(async () => {
     if (!selectedProgramId) {
-      setSnackbar({ open: true, message: 'Vui lòng chọn chương trình trước khi thêm học phần.', severity: 'error' });
+      setSnackbar({ open: true, message: 'Vui lòng chọn chương trình trước khi gán hàng loạt.', severity: 'error' });
       return;
     }
-
-    setDialogMode('create');
-    setEditingMapping(null);
-    setFormError(null);
-    setFormState({
-      programId: selectedProgramId,
-      courseId: '',
-      blockId: null,
-      groupId: null,
-      isRequired: true,
-      displayOrder: pagination.totalItems + 1,
-    });
-    setDialogOpen(true);
+    setBulkSelectedCourses([]);
+    setBulkBlockId(null);
+    setBulkGroupId(null);
+    setBulkRequired(true);
+    setBulkStartOrder(pagination.totalItems + 1);
+    
+    const existingIds = await loadExistingCourseIds(selectedProgramId, false);
+    const initialLeft = availableCourses
+      .filter((c) => !existingIds.has(c.id))
+      .map((c) => c.id);
+    setLeftListIds(initialLeft);
+    
+    await Promise.all([
+      loadGroupOptions(selectedProgramId),
+      loadBulkBlockOptions(selectedProgramId),
+    ]);
+    
+    setBulkDialogOpen(true);
     if (availableCourses.length === 0) {
       fetchCourses();
     }
-    loadGroupOptions(selectedProgramId);
-  };
+  }, [selectedProgramId, pagination.totalItems, availableCourses, loadExistingCourseIds, loadGroupOptions, loadBulkBlockOptions, fetchCourses]);
 
-  const openEditDialog = (mapping: ProgramCourseMapListItem) => {
-    setDialogMode('edit');
-    setEditingMapping(mapping);
-    setFormError(null);
-    setFormState({
-      programId: mapping.programId,
-      courseId: mapping.courseId,
-      blockId: mapping.blockId,
-      groupId: mapping.groupId || null,
-      isRequired: mapping.isRequired,
-      displayOrder: mapping.displayOrder,
-    });
-    setDialogOpen(true);
-    if (availableCourses.length === 0) {
-      fetchCourses();
-    }
-    loadGroupOptions(mapping.programId);
-  };
-
-  const closeDialog = () => {
-    if (formSubmitting) return;
-    setDialogOpen(false);
-    setFormState({ programId: selectedProgramId, courseId: '', blockId: null, groupId: null, isRequired: true, displayOrder: '' });
-    setEditingMapping(null);
-    setFormError(null);
-  };
-
-  const selectedCourse = useMemo(
-      () => availableCourses.find((course) => course.id === formState.courseId) ?? null,
-      [availableCourses, formState.courseId],
-  );
-
-  const mappedCourseIds = useMemo(() => new Set(mappings.map((item) => item.courseId)), [mappings]);
-
-  const courseOptionsForForm = useMemo(() => {
-    if (!formState.programId) return [];
-    return availableCourses.filter((course) => dialogMode === 'edit' || !existingCourseIds.has(course.id));
-  }, [availableCourses, dialogMode, existingCourseIds, formState.programId]);
-
-  const isFormValid = useMemo(() => {
-    return Boolean(formState.programId && formState.courseId && (formState.displayOrder === '' || Number(formState.displayOrder) > 0));
-  }, [formState.courseId, formState.displayOrder, formState.programId]);
-
-  const handleSubmitForm = async () => {
-    if (!isFormValid) {
-      setFormError('Vui lòng chọn học phần và nhập thứ tự hợp lệ.');
-      return;
-    }
-
-    setFormSubmitting(true);
-    setFormError(null);
-
-    const payload = {
-      program_id: formState.programId,
-      course_id: formState.courseId,
-      block_id: formState.blockId ?? null,
-      group_id: formState.groupId ?? null,
-      is_required: formState.isRequired,
-      display_order: formState.displayOrder === '' ? undefined : Number(formState.displayOrder),
-    };
-
+  const handleBulkSubmit = useCallback(async () => {
     try {
-      const endpoint = dialogMode === 'edit' && editingMapping ? `/api/tms/program-course-map/${editingMapping.id}` : '/api/tms/program-course-map';
-      const method = dialogMode === 'edit' ? 'PUT' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
+      setBulkFormSubmitting(true);
+      const payload = {
+        program_id: selectedProgramId,
+        block_id: bulkBlockId ?? null,
+        group_id: bulkGroupId ?? null,
+        items: bulkSelectedCourses.map((cid, idx) => ({
+          course_id: cid,
+          is_required: bulkRequired,
+          display_order: bulkStartOrder === '' ? undefined : Number(bulkStartOrder) + idx,
+          constraints: courseConstraints[cid] || null,
+        })),
+      };
+      const response = await fetch(API_ROUTES.TMS.PROGRAM_COURSE_MAP_BULK, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể lưu bản đồ học phần');
+        throw new Error(result.error || 'Không thể gán học phần hàng loạt');
       }
-
-      setSnackbar({
-        open: true,
-        message: dialogMode === 'edit' ? 'Cập nhật bản đồ học phần thành công' : 'Đã thêm học phần vào chương trình',
-        severity: 'success',
-      });
-      setDialogOpen(false);
-      setEditingMapping(null);
+      setSnackbar({ open: true, message: 'Đã gán học phần hàng loạt', severity: 'success' });
+      setBulkDialogOpen(false);
+      setBulkSelectedCourses([]);
+      setCourseConstraints({});
       fetchMappings();
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Không thể lưu bản đồ học phần';
-      setFormError(message);
+      const message = err instanceof Error ? err.message : 'Không thể gán học phần hàng loạt';
+      setSnackbar({ open: true, message, severity: 'error' });
     } finally {
-      setFormSubmitting(false);
+      setBulkFormSubmitting(false);
     }
-  };
+  }, [selectedProgramId, bulkBlockId, bulkGroupId, bulkSelectedCourses, bulkRequired, bulkStartOrder, courseConstraints, fetchMappings]);
+
+  const handleRemoveCourse = useCallback((courseId: string) => {
+    setBulkSelectedCourses((prev) => prev.filter((x) => x !== courseId));
+    setCourseConstraints((prev) => {
+      const updated = { ...prev };
+      delete updated[courseId];
+      return updated;
+    });
+  }, []);
+
+  const handleEditConstraints = useCallback((courseId: string) => {
+    if (!courseConstraints[courseId]) {
+      loadCoursePrerequisites(courseId);
+    }
+    setEditingConstraintsCourseId(courseId);
+    setConstraintsDialogOpen(true);
+  }, [courseConstraints, loadCoursePrerequisites]);
+
+  const handleRemoveConstraint = useCallback((courseId: string, index: number) => {
+    setCourseConstraints((prev) => {
+      const updated = { ...prev };
+      if (updated[courseId]) {
+        updated[courseId] = {
+          courses: updated[courseId].courses.filter((_: any, i: number) => i !== index),
+        };
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleUpdateConstraintType = useCallback((courseId: string, index: number, newType: string) => {
+    setCourseConstraints((prev) => {
+      const updated = { ...prev };
+      if (updated[courseId]) {
+        updated[courseId] = {
+          courses: updated[courseId].courses.map((item: any, i: number) =>
+            i === index ? { ...item, type: newType } : item
+          ),
+        };
+      }
+      return updated;
+    });
+  }, []);
+
+  const handleAddConstraint = useCallback((courseId: string, newCourse: CourseOption) => {
+    setCourseConstraints((prev) => {
+      const updated = { ...prev };
+      if (!updated[courseId]) {
+        updated[courseId] = { courses: [] };
+      }
+      updated[courseId] = {
+        courses: [
+          ...updated[courseId].courses,
+          {
+            course_id: newCourse.id,
+            code: newCourse.code,
+            name: newCourse.name,
+            type: newConstraintType,
+          },
+        ],
+      };
+      return updated;
+    });
+  }, [newConstraintType]);
+
+  const handleDragDropReorder = useCallback((dragIndex: number, dropIndex: number) => {
+    if (dragIndex === null || dragIndex === dropIndex) return;
+    const updated = [...bulkSelectedCourses];
+    const [moved] = updated.splice(dragIndex, 1);
+    updated.splice(dropIndex, 0, moved);
+    setBulkSelectedCourses(updated);
+    setBulkDragIndex(null);
+  }, [bulkSelectedCourses]);
+
+  const handleAddCourseToList = useCallback((courseId: string) => {
+    if (!bulkSelectedCourses.includes(courseId)) {
+      setBulkSelectedCourses((prev) => [...prev, courseId]);
+      loadCoursePrerequisites(courseId);
+    }
+  }, [bulkSelectedCourses, loadCoursePrerequisites]);
+
 
   const handleDelete = async (mapping: ProgramCourseMapListItem) => {
     const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa học phần "${mapping.course?.code ?? mapping.courseId}" khỏi chương trình này?`);
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/tms/program-course-map/${mapping.id}`, { method: 'DELETE' });
+      const response = await fetch(API_ROUTES.TMS.PROGRAM_COURSE_MAP_BY_ID(mapping.id), { method: 'DELETE' });
       const result = await response.json();
 
       if (!response.ok || !result.success) {
@@ -744,14 +771,6 @@ export default function ProgramCourseMapPage(): JSX.Element {
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              startIcon={<HelpOutlineIcon />}
-              onClick={() => setHelpDialogOpen(true)}
-              color="primary"
-            >
-              Hướng dẫn
-            </Button>
             <Tooltip title="Làm mới">
             <span>
               <IconButton onClick={fetchMappings} disabled={loading}>
@@ -759,35 +778,8 @@ export default function ProgramCourseMapPage(): JSX.Element {
               </IconButton>
             </span>
             </Tooltip>
-            <Button variant="outlined" onClick={async () => {
-              if (!selectedProgramId) {
-                setSnackbar({ open: true, message: 'Vui lòng chọn chương trình trước khi gán hàng loạt.', severity: 'error' });
-                return;
-              }
-              setBulkSelectedCourses([]);
-              setBulkBlockId(null);
-              setBulkGroupId(null);
-              setBulkRequired(true);
-              setBulkStartOrder(pagination.totalItems + 1);
-              // init left list excluding already-mapped courses (load full set)
-              const existingIds = await loadExistingCourseIdsAndReturn(selectedProgramId);
-              const initialLeft = availableCourses
-                .filter((c) => !existingIds.has(c.id))
-                .map((c) => c.id);
-              setLeftListIds(initialLeft);
-              await Promise.all([
-                loadGroupOptions(selectedProgramId),
-                loadBulkBlockOptions(selectedProgramId),
-              ]);
-              setBulkDialogOpen(true);
-              if (availableCourses.length === 0) {
-                fetchCourses();
-              }
-            }} disabled={!selectedProgramId}>
-              Gán hàng loạt
-            </Button>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} disabled={!selectedProgramId}>
-              Thêm học phần
+            <Button variant="outlined" onClick={handleOpenBulkDialog} disabled={!selectedProgramId}>
+              Gán học phần
             </Button>
           </Stack>
         </Stack>
@@ -910,7 +902,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
                         <Box sx={{ py: 6 }}>
                           <Typography>Chưa có học phần nào được gán cho chương trình.</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Hãy nhấn &quot;Thêm học phần&quot; để bắt đầu xây dựng bản đồ học phần.
+                            Hãy nhấn &quot;Gán hàng loạt&quot; để bắt đầu xây dựng bản đồ học phần.
                           </Typography>
                         </Box>
                       </TableCell>
@@ -948,13 +940,8 @@ export default function ProgramCourseMapPage(): JSX.Element {
                             />
                           </TableCell>
                           <TableCell align="right">
-                            <Tooltip title="Chỉnh sửa">
-                              <IconButton onClick={() => openEditDialog(mapping)}>
-                                <EditIcon />
-                              </IconButton>
-                            </Tooltip>
                             <Tooltip title="Xóa">
-                              <IconButton onClick={() => handleDelete(mapping)}>
+                              <IconButton onClick={() => handleDelete(mapping)} color="error">
                                 <DeleteIcon />
                               </IconButton>
                             </Tooltip>
@@ -972,7 +959,18 @@ export default function ProgramCourseMapPage(): JSX.Element {
         </Paper>
 
         {/* Bulk assign dialog */}
-        <Dialog open={bulkDialogOpen} onClose={() => { if (!bulkFormSubmitting) setBulkDialogOpen(false); }} fullWidth maxWidth="md">
+        <Dialog 
+          open={bulkDialogOpen} 
+          onClose={() => { 
+            if (!bulkFormSubmitting) {
+              setBulkDialogOpen(false);
+              setBulkSelectedCourses([]);
+              setCourseConstraints({});
+            }
+          }} 
+          fullWidth 
+          maxWidth="md"
+        >
           <DialogTitle>Gán học phần hàng loạt cho một khối</DialogTitle>
           <DialogContent dividers>
             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 1 }}>
@@ -1066,9 +1064,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
                                 key={cid}
                                 draggable
                                 onDragStart={() => setDraggingCourseId(cid)}
-                                onDoubleClick={() => {
-                                  if (!bulkSelectedCourses.includes(cid)) setBulkSelectedCourses((prev) => [...prev, cid]);
-                                }}
+                                onDoubleClick={() => handleAddCourseToList(cid)}
                                 sx={{
                                   px: 1.5,
                                   py: 1,
@@ -1100,17 +1096,18 @@ export default function ProgramCourseMapPage(): JSX.Element {
                     sx={{ p: 1, minHeight: 360, maxHeight: 360, overflow: 'auto' }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => {
-                      if (!draggingCourseId) return;
-                      if (!bulkSelectedCourses.includes(draggingCourseId)) {
-                        setBulkSelectedCourses((prev) => [...prev, draggingCourseId]);
+                      if (draggingCourseId) {
+                        handleAddCourseToList(draggingCourseId);
+                        setDraggingCourseId(null);
                       }
-                      setDraggingCourseId(null);
                     }}
                 >
                   <Stack spacing={1}>
                     {bulkSelectedCourses.map((cid, idx) => {
                       const course = availableCourses.find((c) => c.id === cid);
                       const label = course ? `${course.code} — ${course.name}` : cid;
+                      const constraints = courseConstraints[cid];
+                      const constraintsCount = constraints?.courses?.length || 0;
                       return (
                           <Box
                               key={cid}
@@ -1118,12 +1115,9 @@ export default function ProgramCourseMapPage(): JSX.Element {
                               onDragStart={() => setBulkDragIndex(idx)}
                               onDragOver={(e) => e.preventDefault()}
                               onDrop={() => {
-                                if (bulkDragIndex === null || bulkDragIndex === idx) return;
-                                const updated = [...bulkSelectedCourses];
-                                const [moved] = updated.splice(bulkDragIndex, 1);
-                                updated.splice(idx, 0, moved);
-                                setBulkSelectedCourses(updated);
-                                setBulkDragIndex(null);
+                                if (bulkDragIndex !== null && bulkDragIndex !== idx) {
+                                  handleDragDropReorder(bulkDragIndex, idx);
+                                }
                               }}
                               sx={{
                                 px: 1.5,
@@ -1136,9 +1130,26 @@ export default function ProgramCourseMapPage(): JSX.Element {
                                 '&:active': { cursor: 'grabbing' },
                               }}
                           >
-                            <Stack direction="row" justifyContent="space-between" alignItems="center">
-                              <Typography variant="body2">{idx + 1}. {label}</Typography>
-                              <Button size="small" onClick={() => setBulkSelectedCourses((prev) => prev.filter((x) => x !== cid))}>Bỏ</Button>
+                            <Stack spacing={0.5}>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Typography variant="body2">{idx + 1}. {label}</Typography>
+                                <Stack direction="row" spacing={1}>
+                                  <Button
+                                      size="small"
+                                      onClick={() => handleEditConstraints(cid)}
+                                  >
+                                    Điều kiện {constraintsCount > 0 && `(${constraintsCount})`}
+                                  </Button>
+                                  <Button size="small" onClick={() => handleRemoveCourse(cid)}>Bỏ</Button>
+                                </Stack>
+                              </Stack>
+                              {constraintsCount > 0 && (
+                                  <Box sx={{ pl: 2, pt: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      Điều kiện: {constraints.courses.map((c: any) => `${c.code} - ${c.name}`).join(', ')}
+                                    </Typography>
+                                  </Box>
+                              )}
                             </Stack>
                           </Box>
                       );
@@ -1156,27 +1167,27 @@ export default function ProgramCourseMapPage(): JSX.Element {
                     <Stack spacing={0.5}>
                       <Typography variant="body2" fontWeight={600}>Khối</Typography>
                       <Box sx={{ pl: 2 }}>
-                        {bulkBlockId ? (
-                            (() => {
-                              const blk = bulkBlockOptions.find((b) => b.id === bulkBlockId);
-                              return <Typography variant="body2">{blk ? `${blk.code} — ${blk.title} (${getProgramBlockTypeLabel(blk.blockType)})` : '—'}</Typography>;
-                            })()
-                        ) : (
+                        {(() => {
+                          const blk = bulkBlockId ? bulkBlockOptions.find((b) => b.id === bulkBlockId) : null;
+                          return blk ? (
+                            <Typography variant="body2">{`${blk.code} — ${blk.title} (${getProgramBlockTypeLabel(blk.blockType)})`}</Typography>
+                          ) : (
                             <Typography variant="body2" color="text.secondary">Không thuộc khối</Typography>
-                        )}
+                          );
+                        })()}
                       </Box>
 
                       {/* Group */}
                       <Typography variant="body2" fontWeight={600} sx={{ mt: 1 }}>Nhóm khối</Typography>
                       <Box sx={{ pl: 2 }}>
-                        {bulkGroupId ? (
-                            (() => {
-                              const grp = groupOptions.find((g) => g.id === bulkGroupId);
-                              return <Typography variant="body2">{grp ? `${grp.code} — ${grp.title}` : '—'}</Typography>;
-                            })()
-                        ) : (
+                        {(() => {
+                          const grp = bulkGroupId ? groupOptions.find((g) => g.id === bulkGroupId) : null;
+                          return grp ? (
+                            <Typography variant="body2">{`${grp.code} — ${grp.title}`}</Typography>
+                          ) : (
                             <Typography variant="body2" color="text.secondary">Không thuộc nhóm</Typography>
-                        )}
+                          );
+                        })()}
                       </Box>
 
                       {/* Courses */}
@@ -1208,343 +1219,135 @@ export default function ProgramCourseMapPage(): JSX.Element {
             <Button
                 variant="contained"
                 disabled={bulkFormSubmitting || bulkSelectedCourses.length === 0}
-                onClick={async () => {
-                  try {
-                    setBulkFormSubmitting(true);
-                    const payload = {
-                      program_id: selectedProgramId,
-                      block_id: bulkBlockId ?? null,
-                      group_id: bulkGroupId ?? null,
-                      items: bulkSelectedCourses.map((cid, idx) => ({
-                        course_id: cid,
-                        is_required: bulkRequired,
-                        display_order: bulkStartOrder === '' ? undefined : Number(bulkStartOrder) + idx,
-                      })),
-                    };
-                    const response = await fetch('/api/tms/program-course-map/bulk', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(payload),
-                    });
-                    const result = await response.json();
-                    if (!response.ok || !result.success) {
-                      throw new Error(result.error || 'Không thể gán học phần hàng loạt');
-                    }
-                    setSnackbar({ open: true, message: 'Đã gán học phần hàng loạt', severity: 'success' });
-                    setBulkDialogOpen(false);
-                    setBulkSelectedCourses([]);
-                    fetchMappings();
-                  } catch (err) {
-                    const message = err instanceof Error ? err.message : 'Không thể gán học phần hàng loạt';
-                    setSnackbar({ open: true, message, severity: 'error' });
-                  } finally {
-                    setBulkFormSubmitting(false);
-                  }
-                }}
+                onClick={handleBulkSubmit}
             >
               {bulkFormSubmitting ? 'Đang lưu...' : 'Gán'}
             </Button>
           </DialogActions>
         </Dialog>
 
-        <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="md">
-          <DialogTitle>{dialogMode === 'edit' ? 'Cập nhật bản đồ học phần' : 'Thêm học phần vào chương trình'}</DialogTitle>
+        {/* Constraints editing dialog */}
+        <Dialog open={constraintsDialogOpen} onClose={() => setConstraintsDialogOpen(false)} fullWidth maxWidth="md">
+          <DialogTitle>
+            {(() => {
+              const course = editingConstraintsCourseId 
+                ? availableCourses.find((c) => c.id === editingConstraintsCourseId)
+                : null;
+              return course 
+                ? `Chỉnh sửa điều kiện học phần - ${course.code} - ${course.name}`
+                : 'Chỉnh sửa điều kiện học phần';
+            })()}
+          </DialogTitle>
           <DialogContent dividers>
-            <Stack spacing={2} sx={{ mt: 1 }}>
-              <Autocomplete
-                  options={programs}
-                  value={programs.find((p) => p.id === formState.programId) ?? null}
-                  onChange={(_event, option) => {
-                    const newProgramId = option?.id ?? '';
-                    setFormState((prev) => ({
-                      ...prev,
-                      programId: newProgramId,
-                      blockId: null,
-                      groupId: null,
-                    }));
-                    if (newProgramId) {
-                      fetchProgramBlocks(newProgramId);
-                      loadGroupOptions(newProgramId);
-                    }
-                  }}
-                  getOptionLabel={(option) => option.label}
-                  renderInput={(params) => <TextField {...params} label="Chương trình" required />}
-                  disabled={dialogMode === 'edit'}
-              />
+            {editingConstraintsCourseId && (() => {
+              const courseId = editingConstraintsCourseId;
+              const constraints = courseConstraints[courseId] || { courses: [] };
+              const currentCourses = constraints.courses || [];
+              
+              return (
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Điều kiện học phần cho CTĐT này. Có thể chỉnh sửa từ điều kiện chung của học phần.
+                  </Typography>
+                  
+                  {/* List of current constraints */}
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Điều kiện hiện tại:</Typography>
+                    {currentCourses.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">Chưa có điều kiện</Typography>
+                    ) : (
+                      <Stack spacing={1}>
+                        {currentCourses.map((c: any, idx: number) => (
+                          <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Box>
+                                <Typography variant="body2" fontWeight={600}>
+                                  {c.code} - {c.name}
+                                </Typography>
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                  <FormControl size="small" sx={{ minWidth: 200 }}>
+                                    <InputLabel>Loại điều kiện</InputLabel>
+                                    <Select
+                                      value={c.type || 'PRIOR'}
+                                      label="Loại điều kiện"
+                                      onChange={(e) => handleUpdateConstraintType(courseId, idx, e.target.value)}
+                                    >
+                                      <MenuItem value="PRIOR">Học trước</MenuItem>
+                                      <MenuItem value="PREREQUISITE">Tiên quyết</MenuItem>
+                                      <MenuItem value="COREQUISITE">Học đồng thời</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </Stack>
+                              </Box>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleRemoveConstraint(courseId, idx)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    )}
+                  </Box>
 
-              <Autocomplete
-                  options={courseOptionsForForm}
-                  loading={loadingCourses}
-                  value={selectedCourse}
-                  getOptionLabel={(option) => `${option.code} — ${option.name}`}
-                  onOpen={() => {
-                    if (availableCourses.length === 0) {
-                      fetchCourses();
-                    }
-                  }}
-                  onChange={(_event, option) => {
-                    setFormState((prev) => ({ ...prev, courseId: option?.id ?? '' }));
-                  }}
-                  renderInput={(params) => (
-                      <TextField
-                          {...params}
-                          label="Học phần"
-                          required
-                          InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                                <>
-                                  {loadingCourses ? <CircularProgress color="inherit" size={18} /> : null}
-                                  {params.InputProps.endAdornment}
-                                </>
-                            ),
-                          }}
+                  {/* Add new constraint */}
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>Thêm điều kiện:</Typography>
+                    <Stack spacing={2}>
+                      <FormControl component="fieldset">
+                        <Typography variant="body2" sx={{ mb: 1 }}>Loại điều kiện:</Typography>
+                        <RadioGroup
+                          row
+                          value={newConstraintType}
+                          onChange={(e) => setNewConstraintType(e.target.value)}
+                        >
+                          <FormControlLabel value="PRIOR" control={<Radio />} label="Học trước" />
+                          <FormControlLabel value="PREREQUISITE" control={<Radio />} label="Tiên quyết" />
+                          <FormControlLabel value="COREQUISITE" control={<Radio />} label="Học đồng thời" />
+                        </RadioGroup>
+                      </FormControl>
+                      <Autocomplete
+                        options={availableCourses.filter((c) => 
+                          c.id !== courseId && 
+                          !currentCourses.some((existing: any) => existing.course_id === c.id)
+                        )}
+                        getOptionLabel={(option) => `${option.code} — ${option.name}`}
+                        onChange={(_event, option) => {
+                          if (option) {
+                            handleAddConstraint(courseId, option);
+                          }
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            label="Chọn học phần điều kiện"
+                            placeholder="Tìm kiếm học phần..."
+                          />
+                        )}
                       />
-                  )}
-                  disabled={dialogMode === 'edit'}
-              />
-
-              <FormControl>
-                <InputLabel id="mapping-block-label">Gán vào khối</InputLabel>
-                <Select
-                    labelId="mapping-block-label"
-                    label="Gán vào khối"
-                    value={formState.blockId ?? 'null'}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setFormState((prev) => ({ ...prev, blockId: value === 'null' ? null : value }));
-                    }}
-                    disabled={programBlocks.length === 0}
-                >
-                  <MenuItem value="null">Không thuộc khối</MenuItem>
-                  {programBlocks.map((block) => (
-                      <MenuItem key={block.id} value={block.id}>
-                        {block.code} — {block.title} ({getProgramBlockTypeLabel(block.blockType)})
-                      </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl>
-                <InputLabel id="mapping-group-label">Gán vào nhóm</InputLabel>
-                <Select
-                    labelId="mapping-group-label"
-                    label="Gán vào nhóm"
-                    value={formState.groupId ?? 'null'}
-                    onOpen={() => loadGroupOptions(formState.programId)}
-                    onChange={(event) => {
-                      const value = event.target.value as string;
-                      setFormState((prev) => ({ ...prev, groupId: value === 'null' ? null : value }));
-                    }}
-                    disabled={groupOptions.length === 0}
-                >
-                  <MenuItem value="null">Không thuộc nhóm</MenuItem>
-                  {groupOptions.map((group) => (
-                      <MenuItem key={group.id} value={group.id}>
-                        {group.code} — {group.title}
-                      </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl component="fieldset">
-                <RadioGroup
-                    row
-                    value={formState.isRequired ? 'true' : 'false'}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, isRequired: event.target.value === 'true' }))}
-                >
-                  <FormControlLabel value="true" control={<Radio />} label="Bắt buộc" />
-                  <FormControlLabel value="false" control={<Radio />} label="Tự chọn" />
-                </RadioGroup>
-              </FormControl>
-
-              <TextField
-                  label="Thứ tự hiển thị"
-                  type="number"
-                  value={formState.displayOrder}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setFormState((prev) => ({ ...prev, displayOrder: value === '' ? '' : Number(value) }));
-                  }}
-                  inputProps={{ min: 1 }}
-              />
-
-              {formError && <Alert severity="error">{formError}</Alert>}
-            </Stack>
+                    </Stack>
+                  </Box>
+                </Stack>
+              );
+            })()}
           </DialogContent>
           <DialogActions>
-            <Button onClick={closeDialog} disabled={formSubmitting}>
-              Hủy
-            </Button>
-            <Button onClick={handleSubmitForm} variant="contained" disabled={formSubmitting || !isFormValid}>
-              {formSubmitting ? 'Đang lưu...' : 'Lưu'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <Dialog open={helpDialogOpen} onClose={() => setHelpDialogOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
-            <InfoIcon />
-            Hướng dẫn quản lý Bản đồ học phần
-          </DialogTitle>
-          <DialogContent dividers sx={{ pt: 3 }}>
-            <Stack spacing={3}>
-              <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  1. Chọn chương trình đào tạo
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  Trước tiên, chọn chương trình đào tạo mà bạn muốn quản lý bản đồ học phần từ dropdown "Chọn chương trình đào tạo".
-                </Typography>
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <strong>Lưu ý:</strong> Bạn phải chọn chương trình trước khi thực hiện bất kỳ thao tác nào khác.
-                </Alert>
-              </Box>
-
-              <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  2. Thêm học phần vào chương trình
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  Có 2 cách để thêm học phần vào chương trình:
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Thêm từng học phần" 
-                      secondary="Nhấn nút 'Thêm học phần', chọn học phần, khối, nhóm, và trạng thái bắt buộc/tự chọn"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Gán hàng loạt" 
-                      secondary="Nhấn nút 'Gán hàng loạt', kéo thả các học phần từ danh sách sang phải để chọn nhiều học phần cùng lúc"
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-
-              <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  3. Phân loại học phần
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  Mỗi học phần có thể được phân loại theo:
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <InfoIcon color="info" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Khối học phần" 
-                      secondary="Kiến thức bắt buộc, Kiến thức tự chọn, Thực tập, Đồ án,..."
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <InfoIcon color="info" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Nhóm học phần" 
-                      secondary="Phân nhóm chi tiết hơn trong mỗi khối"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <InfoIcon color="info" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Trạng thái" 
-                      secondary="Bắt buộc hoặc Tự chọn"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <InfoIcon color="info" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Thứ tự hiển thị" 
-                      secondary="Số thứ tự để sắp xếp học phần trong chương trình"
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-
-              <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  4. Gán hàng loạt với Drag & Drop
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  Sử dụng tính năng kéo thả trong dialog "Gán hàng loạt":
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Kéo từ trái sang phải" 
-                      secondary="Kéo học phần từ danh sách bên trái sang danh sách đã chọn bên phải"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Sắp xếp thứ tự" 
-                      secondary="Kéo thả học phần trong danh sách bên phải để thay đổi thứ tự"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Double-click" 
-                      secondary="Double-click vào học phần bên trái để thêm nhanh"
-                    />
-                  </ListItem>
-                </List>
-              </Box>
-
-              <Box>
-                <Typography variant="h6" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
-                  5. Chỉnh sửa và xóa
-                </Typography>
-                <Typography variant="body1" paragraph>
-                  Sử dụng các nút trong cột "Thao tác" để chỉnh sửa hoặc xóa học phần khỏi chương trình.
-                </Typography>
-                <Alert severity="warning" sx={{ mt: 1 }}>
-                  <strong>Cảnh báo:</strong> Việc xóa học phần khỏi chương trình là vĩnh viễn và không thể hoàn tác.
-                </Alert>
-              </Box>
-
-              <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
-                  Mẹo sử dụng:
-                </Typography>
-                <Typography variant="body2" component="div">
-                  • Sử dụng bộ lọc để tìm học phần theo khối hoặc trạng thái<br/>
-                  • Gán hàng loạt giúp tiết kiệm thời gian khi thêm nhiều học phần cùng lúc<br/>
-                  • Số thứ tự hiển thị giúp sắp xếp học phần theo học kỳ hoặc năm học
-                </Typography>
-              </Box>
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={() => setHelpDialogOpen(false)} variant="contained">
-              Đã hiểu
+            <Button onClick={() => setConstraintsDialogOpen(false)}>Đóng</Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setConstraintsDialogOpen(false);
+                setEditingConstraintsCourseId(null);
+              }}
+            >
+              Lưu
             </Button>
           </DialogActions>
         </Dialog>
+
+
 
         <Snackbar
             open={snackbar.open}

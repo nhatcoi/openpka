@@ -2,10 +2,10 @@ import {
   ProgramBlockGroupType,
   ProgramBlockType,
   ProgramPriority,
-  ProgramStatus,
   getProgramBlockGroupBaseType,
   normalizeProgramBlockType,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 export type ProgramOutcomeCategory = 'general' | 'specific';
 
@@ -31,7 +31,7 @@ export interface ProgramApiResponseItem {
   name_en?: string | null;
   description?: string | null;
   version?: string | null;
-  status?: ProgramStatus | string | null;
+  status?: string | null;
   total_credits?: number | null;
   priority?: ProgramPriority | string | null;
   effective_from?: string | null;
@@ -143,7 +143,7 @@ export interface ProgramListItem {
   nameEn?: string;
   description?: string;
   version?: string;
-  status: ProgramStatus;
+  status: string;
   totalCredits: number;
   priority: ProgramPriority;
   effectiveFrom?: string | null;
@@ -252,7 +252,7 @@ export interface ProgramFormState {
   majorId: string;
   version: string;
   totalCredits: number;
-  status: ProgramStatus;
+  status: string;
   effectiveFrom: string;
   effectiveTo: string;
   outcomes: ProgramOutcomeFormItem[];
@@ -317,7 +317,7 @@ export const createDefaultProgramForm = (): ProgramFormState => ({
   majorId: '',
   version: String(new Date().getFullYear()),
   totalCredits: 120,
-  status: ProgramStatus.DRAFT,
+  status: WorkflowStatus.DRAFT,
   effectiveFrom: nowISODate(),
   effectiveTo: '',
   outcomes: [],
@@ -395,7 +395,7 @@ export const mapProgramResponse = (program: ProgramApiResponseItem): ProgramList
   nameEn: program.name_en ?? undefined,
   description: program.description ?? undefined,
   version: program.version ?? undefined,
-  status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+  status: (program.status ?? WorkflowStatus.DRAFT) as string,
   totalCredits: program.total_credits ?? 0,
   priority: (program.priority ?? ProgramPriority.MEDIUM) as ProgramPriority,
   effectiveFrom: program.effective_from ?? null,
@@ -526,7 +526,7 @@ export const mapProgramDetailToForm = (detail: ProgramDetail): ProgramFormState 
   majorId: detail.major?.id ?? '',
   version: detail.version ?? String(new Date().getFullYear()),
   totalCredits: detail.totalCredits ?? 0,
-  status: detail.status ?? ProgramStatus.DRAFT,
+  status: detail.status ?? WorkflowStatus.DRAFT,
   effectiveFrom: dateToInput(detail.effectiveFrom),
   effectiveTo: dateToInput(detail.effectiveTo),
   outcomes: mapPloToOutcomeItems(detail.plo),

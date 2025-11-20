@@ -6,13 +6,7 @@ export enum CurriculumStatus {
   ARCHIVED = 'ARCHIVED',
 }
 
-export const CURRICULUM_STATUSES: CurriculumStatus[] = [
-  CurriculumStatus.DRAFT,
-  CurriculumStatus.REVIEWING,
-  CurriculumStatus.APPROVED,
-  CurriculumStatus.PUBLISHED,
-  CurriculumStatus.ARCHIVED,
-];
+export const DEFAULT_CURRICULUM_PAGE_SIZE = 10;
 
 export function getCurriculumStatusLabel(status: CurriculumStatus | string | null | undefined): string {
   switch ((status || '').toUpperCase()) {
@@ -60,5 +54,3 @@ export function normalizeCurriculumStatus(status?: string | null): CurriculumSta
       return CurriculumStatus.DRAFT;
   }
 }
-
-export const DEFAULT_CURRICULUM_PAGE_SIZE = 10;

@@ -2,17 +2,19 @@ import { withIdParam, withIdAndBody, createErrorResponse } from '@/lib/api/api-h
 import { db } from '@/lib/db';
 import {
   ProgramPriority,
-  ProgramStatus,
   PROGRAM_PERMISSIONS,
   normalizeProgramPriority,
   normalizeProgramBlockTypeForDb,
   normalizeProgramBlockGroupType,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { UpdateProgramInput, ProgramWorkflowAction } from '@/lib/api/schemas/program';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { selectProgramDetail } from '@/lib/api/selects/program';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 const CONTEXT_GET = 'get program';
 const CONTEXT_UPDATE = 'update program';
@@ -37,7 +39,7 @@ export const GET = withIdParam(async (id: string) => {
 
   return {
     ...program,
-    status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (program.status ?? WorkflowStatus.DRAFT) as string,
     stats: {
       student_count: program._count?.StudentAcademicProgress ?? 0,
       block_count: program.ProgramCourseMap?.length ?? 0,
@@ -48,7 +50,7 @@ export const GET = withIdParam(async (id: string) => {
   };
 }, CONTEXT_GET);
 
-export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
+export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
@@ -61,6 +63,10 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   const payload = body as UpdateProgramInput;
 
+  // Get request context and actor info for history tracking
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
+
   const numericUserId = Number(session.user.id);
   const actorId = Number.isNaN(numericUserId) ? BigInt(1) : BigInt(numericUserId);
   const userPermissions: string[] = Array.isArray(session.user.permissions)
@@ -69,18 +75,20 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   const actionPermissionMap: Partial<Record<ProgramWorkflowAction, string>> = {
     submit: PROGRAM_PERMISSIONS.UPDATE,
-    review: PROGRAM_PERMISSIONS.REVIEW,
+    review: PROGRAM_PERMISSIONS.APPROVE,
     approve: PROGRAM_PERMISSIONS.APPROVE,
-    reject: PROGRAM_PERMISSIONS.REJECT,
+    reject: PROGRAM_PERMISSIONS.APPROVE,
     publish: PROGRAM_PERMISSIONS.PUBLISH,
   };
 
   if (payload.workflow_action) {
     const requiredPermission = actionPermissionMap[payload.workflow_action];
-    const hasManagePermission = userPermissions.includes(PROGRAM_PERMISSIONS.MANAGE);
-    if (requiredPermission && !hasManagePermission && !userPermissions.includes(requiredPermission)) {
-      return createErrorResponse('Forbidden', 'Bạn không có quyền thực hiện thao tác này', 403);
+    if (requiredPermission) {
+      requirePermission(session, requiredPermission);
     }
+  } else {
+    // For regular updates, check update permission
+    requirePermission(session, PROGRAM_PERMISSIONS.UPDATE);
   }
 
   const data: Record<string, unknown> = {
@@ -115,13 +123,13 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
   }
 
   // Directly derive program status from workflow action (immediate status update)
-  const resolveStatusFromAction = (action?: string | null): ProgramStatus | undefined => {
+  const resolveStatusFromAction = (action?: string | null): string | undefined => {
     const a = (action || '').toLowerCase();
-    if (a === 'submit' || a === 'review') return ProgramStatus.REVIEWING;
-    if (a === 'approve') return ProgramStatus.APPROVED;
-    if (a === 'reject') return ProgramStatus.REJECTED;
-    if (a === 'publish' || a === 'science_council_publish') return ProgramStatus.PUBLISHED;
-    if (a === 'request_edit') return ProgramStatus.DRAFT;
+    if (a === 'submit' || a === 'review') return WorkflowStatus.REVIEWING;
+    if (a === 'approve') return WorkflowStatus.APPROVED;
+    if (a === 'reject') return WorkflowStatus.REJECTED;
+    if (a === 'publish' || a === 'science_council_publish') return WorkflowStatus.PUBLISHED;
+    if (a === 'request_edit') return WorkflowStatus.DRAFT;
     return undefined;
   };
 
@@ -133,6 +141,19 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   const result = await db.$transaction(async (tx) => {
     const programBigInt = BigInt(programId);
+
+    // IMPORTANT: Set history context FIRST before any other queries
+    // This ensures session variables are available when triggers fire
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        program_id: programId,
+        status: data.status,
+        workflow_action: payload.workflow_action,
+      },
+    });
 
     await tx.program.update({
       where: { id: programBigInt },
@@ -173,12 +194,12 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
       courseCountOverride = courseCounter;
     }
 
-    let statusOverride: ProgramStatus | undefined;
+    let statusOverride: string | undefined;
     let workflowSnapshot = null;
     const workflowAction = payload.workflow_action;
 
     // If status was directly provided, persist an approval history entry
-    const directStatus = (payload as any).status as ProgramStatus | undefined;
+    const directStatus = (payload as any).status as string | undefined;
     if (directStatus) {
       // Ensure workflow instance exists
       let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
@@ -191,20 +212,13 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
         }) as any;
       }
 
-      const mapStatusToAction = (s: ProgramStatus): string => {
-        switch (s) {
-          case ProgramStatus.REVIEWING:
-            return 'REVIEW';
-          case ProgramStatus.APPROVED:
-            return 'APPROVE';
-          case ProgramStatus.REJECTED:
-            return 'REJECT';
-          case ProgramStatus.PUBLISHED:
-            return 'PUBLISH';
-          case ProgramStatus.DRAFT:
-          default:
-            return 'RETURN';
-        }
+      const mapStatusToAction = (s: string): string => {
+        const normalized = (s || '').toUpperCase();
+        if (normalized.includes('REVIEWING')) return 'REVIEW';
+        if (normalized.includes('APPROVED')) return 'APPROVE';
+        if (normalized.includes('REJECTED')) return 'REJECT';
+        if (normalized.includes('PUBLISHED')) return 'PUBLISH';
+        return 'RETURN';
       };
 
       await tx.approvalRecord.create({
@@ -226,7 +240,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
           select: { status: true }
         });
         
-        if (!workflowDerivedStatus && currentProgram?.status !== ProgramStatus.APPROVED) {
+        if (!workflowDerivedStatus && currentProgram?.status !== WorkflowStatus.APPROVED) {
           // Use workflow for other cases
           let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
 
@@ -312,19 +326,19 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
           if (!workflowDerivedStatus) {
             switch (updatedInstance.status) {
               case 'PENDING':
-                statusOverride = ProgramStatus.REVIEWING;
+                statusOverride = WorkflowStatus.REVIEWING;
                 break;
               case 'IN_PROGRESS':
-                statusOverride = ProgramStatus.REVIEWING;
+                statusOverride = WorkflowStatus.REVIEWING;
                 break;
               case 'APPROVED':
-                statusOverride = ProgramStatus.APPROVED;
+                statusOverride = WorkflowStatus.APPROVED;
                 break;
               case 'REJECTED':
-                statusOverride = ProgramStatus.REJECTED;
+                statusOverride = WorkflowStatus.REJECTED;
                 break;
               case 'COMPLETED':
-                statusOverride = ProgramStatus.PUBLISHED;
+                statusOverride = WorkflowStatus.PUBLISHED;
                 break;
               default:
                 break;
@@ -362,7 +376,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
 
   return {
     ...result.program,
-    status: (result.program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (result.program.status ?? WorkflowStatus.DRAFT) as string,
     stats: {
       student_count: result.program._count?.StudentAcademicProgress ?? 0,
       block_count: result.blockCount,
@@ -373,7 +387,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown) => {
   };
 }, CONTEXT_UPDATE);
 
-export const DELETE = withIdParam(async (id: string) => {
+export const DELETE = withIdParam(async (id: string, request?: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
@@ -384,9 +398,47 @@ export const DELETE = withIdParam(async (id: string) => {
     throw new Error('Invalid program id');
   }
 
-  await db.program.delete({
-    where: { id: BigInt(programId) },
+  const programBigInt = BigInt(programId);
+
+  const existingProgram = await db.program.findUnique({
+    where: { id: programBigInt },
+    select: { id: true, status: true },
   });
 
-  return { success: true };
+  if (!existingProgram) {
+    throw new Error('Program not found');
+  }
+
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
+
+  await db.$transaction(async (tx) => {
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        program_id: programId,
+        action: existingProgram.status === WorkflowStatus.PUBLISHED ? 'ARCHIVE' : 'DELETE',
+      },
+    });
+
+    if (existingProgram.status === WorkflowStatus.PUBLISHED) {
+      await tx.program.update({
+        where: { id: programBigInt },
+        data: { status: WorkflowStatus.ARCHIVED },
+      });
+    } else {
+      await tx.program.delete({
+        where: { id: programBigInt },
+      });
+    }
+  });
+
+  return { 
+    success: true,
+    message: existingProgram.status === WorkflowStatus.PUBLISHED 
+      ? 'Program đã được chuyển sang trạng thái Lưu trữ' 
+      : 'Program đã được xóa',
+  };
 }, CONTEXT_DELETE);

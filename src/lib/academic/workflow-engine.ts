@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 
 export interface AcademicWorkflowConfig {
-  entityType: 'COURSE' | 'PROGRAM' | 'MAJOR';
+  entityType: 'COURSE' | 'PROGRAM' | 'MAJOR' | 'COHORT' | 'ORG_UNIT';
   entityId: bigint;
   initiatedBy: bigint;
   metadata?: any;
@@ -162,7 +162,7 @@ export class AcademicWorkflowEngine {
    * Get workflow instances for academic entities
    */
   async getWorkflowInstances(
-    entityType?: 'COURSE' | 'PROGRAM' | 'MAJOR',
+    entityType?: 'COURSE' | 'PROGRAM' | 'MAJOR' | 'COHORT' | 'ORG_UNIT',
     status?: string
   ) {
     const where: any = {};

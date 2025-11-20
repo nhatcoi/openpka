@@ -33,6 +33,7 @@ import {
   getProgramBlockGroupTypeLabel,
   ProgramBlockGroupType,
 } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 import {
   ProgramDetail,
   ProgramApiResponseItem,
@@ -403,7 +404,7 @@ export default function ProgramDetailPage(): JSX.Element {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/tms/programs/${programId}`);
+      const response = await fetch(API_ROUTES.TMS.PROGRAMS_BY_ID(programId));
       const result = (await response.json()) as ProgramDetailApiWrapper;
 
       if (!response.ok || !result.success || !result.data) {

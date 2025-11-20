@@ -54,6 +54,7 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { getProgramBlockTypeLabel } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 
 interface ProgramBlock {
   id: string;
@@ -172,7 +173,7 @@ export default function ProgramBlocksPage(): JSX.Element {
       if (searchTerm.trim()) params.set('search', searchTerm.trim());
       params.set('type', fetchType);
 
-      const res = await fetch(`/api/tms/programs/blocks?${params.toString()}`);
+      const res = await fetch(`${API_ROUTES.TMS.PROGRAMS_BLOCKS}?${params.toString()}`);
       const json = await res.json();
       if (!res.ok || !json?.success || !Array.isArray(json.data)) {
         throw new Error(json?.error || `Không thể tải danh sách ${fetchType === 'blocks' ? 'khối học phần' : 'nhóm khối'}`);
@@ -198,8 +199,8 @@ export default function ProgramBlocksPage(): JSX.Element {
       setError(null);
       
       const [blocksRes, groupsRes] = await Promise.all([
-        fetch('/api/tms/programs/blocks?type=blocks&limit=200'),
-        fetch('/api/tms/programs/blocks?type=groups&limit=200')
+        fetch(`${API_ROUTES.TMS.PROGRAMS_BLOCKS}?type=blocks&limit=200`),
+        fetch(`${API_ROUTES.TMS.PROGRAMS_BLOCKS}?type=groups&limit=200`)
       ]);
 
       const [blocksJson, groupsJson] = await Promise.all([
@@ -306,7 +307,7 @@ export default function ProgramBlocksPage(): JSX.Element {
     try {
       setFormSubmitting(true);
       if (formState.id) {
-        const res = await fetch(`/api/tms/programs/blocks/${formState.id}?type=${formState.type}`, {
+        const res = await fetch(API_ROUTES.TMS.PROGRAMS_BLOCKS_BY_ID(formState.id, formState.type), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -316,7 +317,7 @@ export default function ProgramBlocksPage(): JSX.Element {
           throw new Error(data?.error || `Không thể cập nhật ${formState.type === 'block' ? 'khối học phần' : 'nhóm khối'}`);
         }
       } else {
-        const res = await fetch('/api/tms/programs/blocks', {
+        const res = await fetch(API_ROUTES.TMS.PROGRAMS_BLOCKS, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -351,7 +352,7 @@ export default function ProgramBlocksPage(): JSX.Element {
     if (!confirmDeleteId) return;
     try {
       setConfirmDeleting(true);
-      const res = await fetch(`/api/tms/programs/blocks/${confirmDeleteId}?type=${currentType}`, {
+      const res = await fetch(API_ROUTES.TMS.PROGRAMS_BLOCKS_BY_ID(confirmDeleteId, currentType), {
         method: 'DELETE',
       });
       if (!res.ok) {

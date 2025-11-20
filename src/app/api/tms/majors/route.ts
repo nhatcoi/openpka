@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db as prisma } from '@/lib/db';
 import { z } from 'zod';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse, validateSchema } from '@/lib/api/api-handler';
@@ -10,24 +13,14 @@ const createMajorSchema = z.object({
   name_en: z.string().max(255).optional(),
   short_name: z.string().max(100).optional(),
   slug: z.string().max(255).optional(),
-  national_code: z.string().max(32).optional(),
-  is_moet_standard: z.boolean().optional().default(false),
   degree_level: z.string().min(1).max(32),
-  field_cluster: z.string().max(64).optional(),
-  specialization_model: z.string().max(32).optional().default('none'),
   org_unit_id: z.number(),
   duration_years: z.number().min(0.1).max(10).optional().default(4.0),
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional().default(2),
-  start_terms: z.string().max(64).optional().default('Fall'),
-  default_quota: z.number().min(0).optional(),
-  tuition_group: z.string().max(64).optional(),
-  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional().default('DRAFT'),
-  established_at: z.string().optional(),
+  status: z.enum(['DRAFT', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED', 'ARCHIVED']).optional().default('DRAFT'),
   closed_at: z.string().optional(),
-  description: z.string().optional(),
-  notes: z.string().optional(),
 });
 
 const MAJOR_SELECT = {
@@ -37,19 +30,14 @@ const MAJOR_SELECT = {
   name_en: true,
   short_name: true,
   slug: true,
-  is_moet_standard: true,
   degree_level: true,
-  field_cluster: true,
   org_unit_id: true,
   duration_years: true,
   total_credits_min: true,
   total_credits_max: true,
   semesters_per_year: true,
-  start_terms: true,
   status: true,
-  established_at: true,
   closed_at: true,
-  description: true,
   created_by: true,
   updated_by: true,
   created_at: true,
@@ -58,6 +46,11 @@ const MAJOR_SELECT = {
 
 // GET /api/tms/majors
 export const GET = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.id) {
+    requirePermission(session, 'tms.major.view');
+  }
+  
   const { searchParams } = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
@@ -78,8 +71,6 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
       { name_en: { contains: search, mode: 'insensitive' } },
       { short_name: { contains: search, mode: 'insensitive' } },
       { slug: { contains: search, mode: 'insensitive' } },
-      { national_code: { contains: search, mode: 'insensitive' } },
-      { field_cluster: { contains: search, mode: 'insensitive' } },
     ];
   }
 
@@ -111,13 +102,25 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
 
 // POST /api/tms/majors
 export const POST = withBody(async (body: unknown) => {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized');
+  }
+  
+  // Check permission
+  requirePermission(session, 'tms.major.create');
+  
   const validatedData = validateSchema(createMajorSchema, body);
 
   // Check if major code already exists
   const existingMajor = await prisma.major.findFirst({
     where: {
-      org_unit_id: validatedData.org_unit_id,
+      org_unit_id: BigInt(validatedData.org_unit_id),
       code: validatedData.code,
+    },
+    select: {
+      id: true,
+      code: true,
     }
   });
 
@@ -128,10 +131,20 @@ export const POST = withBody(async (body: unknown) => {
   // Create major
   const major = await prisma.major.create({
     data: {
-      ...validatedData,
+      code: validatedData.code,
+      name_vi: validatedData.name_vi,
+      name_en: validatedData.name_en,
+      short_name: validatedData.short_name,
+      slug: validatedData.slug,
+      degree_level: validatedData.degree_level,
+      org_unit_id: BigInt(validatedData.org_unit_id),
+      duration_years: validatedData.duration_years,
+      total_credits_min: validatedData.total_credits_min,
+      total_credits_max: validatedData.total_credits_max,
+      semesters_per_year: validatedData.semesters_per_year,
       status: validatedData.status || 'DRAFT',
-      established_at: validatedData.established_at ? new Date(validatedData.established_at) : null,
       closed_at: validatedData.closed_at ? new Date(validatedData.closed_at) : null,
+      created_by: BigInt(session.user.id),
     },
     select: MAJOR_SELECT,
   });

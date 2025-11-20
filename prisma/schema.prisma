@@ -5,7 +5,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["academic", "auth", "finance", "hr", "notification", "org", "public", "report", "schedule", "student"]
+  schemas  = ["academic", "auth", "finance", "hr", "notification", "org", "public", "report", "schedule", "student", "workflow"]
 }
 
 model Employee {
@@ -282,6 +282,9 @@ model User {
   notifications_notifications_recipient_idTousers Notifications[]           @relation("notifications_recipient_idTousers")
   notifications_notifications_sender_idTousers    Notifications[]           @relation("notifications_sender_idTousers")
   org_unit_attachments                            OrgUnitAttachments[]
+  tuition_rates_created                           TuitionCreditRate[]       @relation("TuitionRateCreatedBy")
+  tuition_rates_updated                           TuitionCreditRate[]       @relation("TuitionRateUpdatedBy")
+  tuition_rate_logs                               TuitionRateLog[]
 
   @@index([full_name], map: "idx_user_full_name")
   @@index([phone], map: "idx_user_phone")
@@ -290,53 +293,25 @@ model User {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model OrgStructureRequest {
-  id                 BigInt    @id @default(autoincrement())
-  requester_id       BigInt?
-  request_type       String
-  target_org_unit_id BigInt?
-  payload            Json
-  status             String    @default("SUBMITTED")
-  workflow_step      Int       @default(1)
-  created_at         DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at         DateTime? @default(now()) @db.Timestamptz(6)
-  owner_org_id       BigInt?
-  attachments        Json?     @default("[]")
-  org_units          OrgUnit?  @relation(fields: [owner_org_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([attachments], map: "idx_org_structure_request_attachments", type: Gin)
-  @@index([owner_org_id], map: "idx_org_structure_request_owner")
-  @@index([requester_id], map: "idx_org_structure_request_requester")
-  @@map("org_structure_request")
-  @@schema("org")
-}
-
-/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model OrgUnitBackup {
-  id         Int?
-  parent_id  Int?
-  type       String?   @db.VarChar(1)
-  code       String?   @db.VarChar(50)
-  name       String?   @db.VarChar(255)
-  created_at DateTime? @db.Timestamp(6)
-  updated_at DateTime? @db.Timestamp(6)
-
-  @@map("org_unit_backups")
-  @@ignore
-  @@schema("org")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model OrgUnitHistory {
-  id          BigInt    @id @default(autoincrement())
-  org_unit_id BigInt
-  old_name    String?
-  new_name    String?
-  change_type String
-  details     Json?
-  changed_at  DateTime? @default(now()) @db.Timestamptz(6)
+  id             BigInt   @id @default(autoincrement())
+  entity_type    String   @default("ORG_UNIT") @db.VarChar(50)
+  entity_id      BigInt
+  action         String   @db.VarChar(20)
+  change_summary String?
+  change_details Json?    @db.JsonB
+  actor_id       BigInt?
+  actor_name     String?  @db.VarChar(255)
+  ip_address     String?  @db.Inet
+  user_agent     String?
+  metadata       Json?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
 
+  @@index([action], map: "idx_org_unit_history_action")
+  @@index([actor_id], map: "idx_org_unit_history_actor")
+  @@index([created_at], map: "idx_org_unit_history_created_at")
+  @@index([entity_type, entity_id], map: "idx_org_unit_history_entity")
+  @@index([entity_type, action], map: "idx_org_unit_history_type_action")
   @@map("org_unit_history")
   @@schema("org")
 }
@@ -389,16 +364,12 @@ model OrgUnit {
   status                     String?               @default("active") @db.VarChar(20)
   effective_from             DateTime?             @default(dbgenerated("CURRENT_DATE")) @db.Date
   effective_to               DateTime?             @db.Date
-  campus_id                  BigInt?
   planned_establishment_date DateTime?             @db.Date
   Course                     Course[]
-  major_owner_history        MajorOwnerHistory[]
   Major                      Major[]
   Program                    Program[]             @relation("OrgUnitPrograms")
   OrgAssignment              OrgAssignment[]
-  org_structure_request      OrgStructureRequest[]
   org_unit_attachments       OrgUnitAttachments[]
-  campus                     Campus?               @relation(fields: [campus_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   ClassSection               ClassSection[]
   Section                    Section[]
 
@@ -406,45 +377,11 @@ model OrgUnit {
   @@index([parent_id], map: "idx_org_unit_parent_id")
   @@index([status], map: "idx_org_unit_status")
   @@index([type], map: "idx_org_unit_type")
-  @@index([campus_id], map: "idx_org_units_campus_id")
   @@index([planned_establishment_date], map: "idx_org_units_planned_date")
   @@map("org_units")
   @@schema("org")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model Campus {
-  id             BigInt    @id(map: "campus_pkey") @default(autoincrement())
-  code           String    @unique(map: "campus_code_key") @db.VarChar(32)
-  name_vi        String    @db.VarChar(255)
-  name_en        String?   @db.VarChar(255)
-  short_name     String?   @db.VarChar(100)
-  slug           String?   @db.VarChar(255)
-  address        String?
-  district       String?   @db.VarChar(128)
-  province       String?   @db.VarChar(128)
-  country        String?   @default("Việt Nam") @db.VarChar(128)
-  postal_code    String?   @db.VarChar(20)
-  latitude       Decimal?  @db.Decimal(10, 6)
-  longitude      Decimal?  @db.Decimal(10, 6)
-  campus_type    String?   @default("main") @db.VarChar(32)
-  established_at DateTime? @db.Date
-  closed_at      DateTime? @db.Date
-  is_active      Boolean?  @default(true)
-  note           String?
-  created_by     BigInt?
-  updated_by     BigInt?
-  created_at     DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
-  org_units      OrgUnit[]
-
-  @@index([is_active], map: "idx_campus_is_active")
-  @@index([name_vi], map: "idx_campus_name")
-  @@index([province], map: "idx_campus_province")
-  @@map("campuses")
-  @@schema("academic")
-}
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -484,7 +421,6 @@ model Course {
   status                    String                     @default("DRAFT") @db.VarChar(32)
   theory_credit             Decimal?                   @db.Decimal(4, 1)
   practical_credit          Decimal?                   @db.Decimal(4, 1)
-  audits                    CourseAudit[]
   contents                  CourseContent[]
   prerequisites             CoursePrerequisites[]      @relation("CoursePrerequisites")
   prerequisite_for          CoursePrerequisites[]      @relation("CoursePrerequisitesFor")
@@ -517,27 +453,24 @@ model Major {
   name_en              String?               @db.VarChar(255)
   short_name           String?               @db.VarChar(100)
   slug                 String?               @db.VarChar(255)
-  is_moet_standard     Boolean?              @default(false)
   degree_level         String                @db.VarChar(32)
-  field_cluster        String?               @db.VarChar(64)
   org_unit_id          BigInt
   duration_years       Decimal?              @default(4.0) @db.Decimal(3, 1)
   total_credits_min    Int?                  @db.SmallInt
   total_credits_max    Int?                  @db.SmallInt
   semesters_per_year   Int?                  @default(2) @db.SmallInt
-  start_terms          String?               @default("Fall") @db.VarChar(64)
   default_quota        Int?
   status               String                @default("active") @db.VarChar(32)
-  established_at       DateTime?             @db.Date
   closed_at            DateTime?             @db.Date
-  description          String?
-  notes                String?
+  metadata             Json?                // JSONB field for additional information (field_cluster, established_at, description, notes, etc.)
   is_active            Boolean?              @default(true)
   created_by           BigInt?
   updated_by           BigInt?
   created_at           DateTime?             @default(now()) @db.Timestamptz(6)
   updated_at           DateTime?             @default(now()) @db.Timestamptz(6)
-  OrgUnit              OrgUnit               @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "fk_major_owner")
+  OrgUnit              OrgUnit               @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Program              Program[]             @relation("MajorPrograms")
+  TuitionCreditRate    TuitionCreditRate[]
 
   @@unique([org_unit_id, code], map: "uq_major_code_per_owner")
   @@index([degree_level], map: "idx_major_degree_level")
@@ -590,6 +523,7 @@ model ProgramCourseMap {
   group_id          BigInt?
   is_required       Boolean?           @default(true)
   display_order     Int?               @default(1) @db.SmallInt
+  constraints       Json?              // Điều kiện học phần riêng cho CTĐT này (JSONB): học phần tiên quyết, học trước, code, tên
   ProgramBlock      ProgramBlock?      @relation(fields: [block_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   Course            Course             @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   ProgramBlockGroup ProgramBlockGroup? @relation(fields: [group_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -624,6 +558,7 @@ model Program {
   description             String?
   curriculum_versions     CurriculumVersion[]
   ProgramCourseMap        ProgramCourseMap[]
+  TuitionCreditRate       TuitionCreditRate[]
   Major                   Major?                    @relation("MajorPrograms", fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_major_id_fkey")
   OrgUnit                 OrgUnit?                  @relation("OrgUnitPrograms", fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "program_org_unit_id_fkey")
   StudentAcademicProgress StudentAcademicProgress[]
@@ -775,6 +710,69 @@ model TuitionRule {
   updated_at     DateTime? @default(now()) @db.Timestamp(6)
 
   @@map("tuition_rules")
+  @@schema("finance")
+}
+
+model TuitionCreditRate {
+  id             BigInt            @id @default(autoincrement())
+  major_id       BigInt
+  program_id     BigInt?
+  academic_year  String            @db.VarChar(9)
+  per_credit_fee Decimal           @db.Decimal(12, 0)
+  currency       String?           @default("VND") @db.VarChar(3)
+  effective_from DateTime?         @db.Date
+  effective_to   DateTime?         @db.Date
+  status         String            @default("active") @db.VarChar(16)
+  note           String?
+  created_by     BigInt?
+  updated_by     BigInt?
+  created_at     DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?         @default(now()) @updatedAt @db.Timestamptz(6)
+  Major          Major             @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  Program        Program?          @relation(fields: [program_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  created_by_user User?            @relation("TuitionRateCreatedBy", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  updated_by_user User?            @relation("TuitionRateUpdatedBy", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  TuitionRateLog TuitionRateLog[]
+
+  @@index([major_id], map: "idx_fin_tuition_rates_major")
+  @@index([program_id], map: "idx_fin_tuition_rates_program")
+  @@index([academic_year], map: "idx_fin_tuition_rates_year")
+  @@index([status], map: "idx_fin_tuition_rates_status")
+  @@map("tuition_credit_rates")
+  @@schema("finance")
+}
+
+model TuitionRateLog {
+  id              BigInt             @id @default(autoincrement())
+  tuition_rate_id BigInt
+  action          String             @db.VarChar(20)
+  old_value       Json?
+  new_value       Json?
+  changed_by      BigInt?
+  note            String?
+  changed_at      DateTime?          @default(now()) @db.Timestamptz(6)
+  TuitionCreditRate TuitionCreditRate @relation(fields: [tuition_rate_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  User            User?              @relation(fields: [changed_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([tuition_rate_id], map: "idx_fin_tuition_rate_logs_rate")
+  @@index([changed_by], map: "idx_fin_tuition_rate_logs_actor")
+  @@map("tuition_rate_logs")
+  @@schema("finance")
+}
+
+model ProgramMinTuition {
+  tuition_rate_id  BigInt   @id
+  program_id       BigInt?
+  major_id         BigInt
+  academic_year    String   @db.VarChar(9)
+  major_name       String?  @db.VarChar(255)
+  program_name     String?  @db.VarChar(255)
+  total_credits_min Int?
+  per_credit_fee   Decimal  @db.Decimal(12, 0)
+  min_tuition      Decimal  @db.Decimal(14, 0)
+  currency         String?  @db.VarChar(3)
+
+  @@map("program_min_tuition")
   @@schema("finance")
 }
 
@@ -1053,7 +1051,6 @@ model CoursePrerequisites {
   course_id              BigInt?
   prerequisite_course_id BigInt?
   prerequisite_type      String    @db.VarChar(32)
-  min_grade              Decimal?  @default(5.0) @db.Decimal(3, 2)
   description            String?
   created_at             DateTime? @default(now()) @db.Timestamptz(6)
   course                 Course?   @relation("CoursePrerequisites", fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -1071,21 +1068,12 @@ model CoursePrerequisites {
 model CourseSyllabus {
   id                BigInt         @id @default(autoincrement())
   course_version_id BigInt?
-  week_number       Int
-  topic             String         @db.VarChar(255)
-  teaching_methods  String?
-  materials         String?
-  assignments       String?
-  duration_hours    Decimal?       @default(3.0) @db.Decimal(4, 1)
-  is_exam_week      Boolean?       @default(false)
+  syllabus_data     Json?          @db.JsonB
   created_by        BigInt?
   created_at        DateTime?      @default(now()) @db.Timestamptz(6)
   course_versions   CourseVersion? @relation(fields: [course_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  @@unique([course_version_id, week_number], map: "uq_course_version_week")
   @@index([course_version_id], map: "idx_course_syllabus_course_version_id")
-  @@index([is_exam_week], map: "idx_course_syllabus_exam_week")
-  @@index([week_number], map: "idx_course_syllabus_week_number")
   @@map("course_syllabus")
   @@schema("academic")
 }
@@ -1175,22 +1163,6 @@ model StudentAcademicProgress {
   @@schema("student")
 }
 
-
-model CourseAudit {
-  id         BigInt    @id @default(autoincrement())
-  course_id  BigInt
-  created_by BigInt?
-  updated_by BigInt?
-  created_at DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at DateTime? @default(now()) @db.Timestamptz(6)
-  courses    Course    @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_course_audits_course_id")
-
-  @@index([course_id], map: "idx_course_audits_course_id")
-  @@index([created_by], map: "idx_course_audits_created_by")
-  @@map("course_audits")
-  @@schema("academic")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model CourseContent {
   id                  BigInt    @id @default(autoincrement())
@@ -1222,7 +1194,7 @@ model WorkflowDefinition {
   steps                   WorkflowStep[]
 
   @@map("workflow_definitions")
-  @@schema("academic")
+  @@schema("workflow")
 }
 
 model WorkflowStep {
@@ -1239,7 +1211,7 @@ model WorkflowStep {
   workflow           WorkflowDefinition? @relation(fields: [workflow_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("workflow_steps")
-  @@schema("academic")
+  @@schema("workflow")
 }
 
 model WorkflowInstance {
@@ -1262,7 +1234,7 @@ model WorkflowInstance {
   @@index([initiated_by], map: "idx_academic_workflow_instances_initiated_by")
   @@index([status], map: "idx_academic_workflow_instances_status")
   @@map("workflow_instances")
-  @@schema("academic")
+  @@schema("workflow")
 }
 
 model ApprovalRecord {
@@ -1283,21 +1255,7 @@ model ApprovalRecord {
   @@index([approver_id], map: "idx_academic_approval_records_approver")
   @@index([workflow_instance_id], map: "idx_academic_approval_records_workflow")
   @@map("approval_records")
-  @@schema("academic")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model MajorOwnerHistory {
-  id          BigInt    @id @default(autoincrement())
-  major_id    BigInt
-  org_unit_id BigInt
-  start_date  DateTime  @db.Date
-  end_date    DateTime? @db.Date
-  majors      Major     @relation(fields: [major_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  org_units   OrgUnit   @relation(fields: [org_unit_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@index([major_id], map: "idx_moh_major")
-  @@schema("academic")
+  @@schema("workflow")
 }
 
 /// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
@@ -1309,7 +1267,6 @@ model MajorsBackupJson {
   short_name           String?   @db.VarChar(100)
   slug                 String?   @db.VarChar(255)
   national_code        String?   @db.VarChar(32)
-  is_moet_standard     Boolean?
   degree_level         String?   @db.VarChar(32)
   field_cluster        String?   @db.VarChar(64)
   specialization_model String?   @db.VarChar(32)
@@ -1494,15 +1451,12 @@ model AcademicHistory {
   entity_type    String   @db.VarChar(50)
   entity_id      BigInt
   action         String   @db.VarChar(20)
-  field_name     String?  @db.VarChar(100)
-  old_value      String?
-  new_value      String?
   change_summary String?
+  change_details Json?    @db.JsonB
   actor_id       BigInt?
   actor_name     String?  @db.VarChar(255)
   ip_address     String?  @db.Inet
   user_agent     String?
-  request_id     String?  @db.VarChar(100)
   metadata       Json?
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 

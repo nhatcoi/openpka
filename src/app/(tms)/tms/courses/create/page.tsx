@@ -69,6 +69,7 @@ import {
   getStatusColor,
   getStatusLabel,
 } from '@/constants/courses';
+import { API_ROUTES } from '@/constants/routes';
 
 interface FormData {
   basicInfo: {
@@ -253,7 +254,7 @@ export default function CreateCoursePage() {
         workflow_notes: 'Draft course saved'
       };
 
-      const response = await fetch('/api/tms/courses', {
+      const response = await fetch(API_ROUTES.TMS.COURSES, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -321,7 +322,7 @@ export default function CreateCoursePage() {
         workflow_notes: 'Course submitted for approval'
       };
 
-      const response = await fetch('/api/tms/courses', {
+      const response = await fetch(API_ROUTES.TMS.COURSES, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -349,7 +350,7 @@ export default function CreateCoursePage() {
   const fetchOrgUnits = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/tms/faculties');
+      const response = await fetch(API_ROUTES.TMS.FACULTIES);
       const result = await response.json();
       
       if (result.success && result.data?.items) {
@@ -369,7 +370,7 @@ export default function CreateCoursePage() {
       if (searchTerm) params.append('search', searchTerm);
       params.append('limit', '50');
       
-      const response = await fetch(`/api/tms/courses/list?${params}`);
+      const response = await fetch(`${API_ROUTES.TMS.COURSES_LIST}?${params}`);
       const result = await response.json();
       
       if (result.success && result.data?.items) {
