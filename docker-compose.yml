@@ -1,0 +1,50 @@
+services:
+  app:
+    build: .
+    container_name: openpka_app
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:nhatdev@103.252.136.113:5434/training_system
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: your-secret-key-here
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+# services:
+#   # db:
+#   #   image: postgres:15-alpine
+#   #   container_name: openpka_db
+#   #   environment:
+#   #     POSTGRES_USER: openpka
+#   #     POSTGRES_PASSWORD: openpka
+#   #     POSTGRES_DB: openpka
+#   #   volumes:
+#   #     - pg_data:/var/lib/postgresql/data
+#   #   ports:
+#   #     - "5432:5432"
+#   #   healthcheck:
+#   #     test: ["CMD-SHELL", "pg_isready -U openpka"]
+#   #     interval: 5s
+#   #     timeout: 3s
+#   #     retries: 10
+
+#   app:
+#     build: .
+#     container_name: openpka_app
+#     depends_on:
+#       db:
+#         condition: service_healthy
+#     environment:
+#       NODE_ENV: production
+#       DATABASE_URL: postgresql://postgres:nhatdev@103.252.136.113:5434/training_system
+#       NEXTAUTH_URL: http://localhost:3000
+#       NEXTAUTH_SECRET: your-secret-key-here
+#     ports:
+#       - "3000:3000"
+#     restart: unless-stopped
+
+# volumes:
+#   pg_data:
+
+

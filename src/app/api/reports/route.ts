@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling, withBody } from '@/lib/api-handler';
+import { withErrorHandling, withBody } from '@/lib/api/api-handler';
 
 // report tổng quản cho org, hr
 export const GET = withErrorHandling(

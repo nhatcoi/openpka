@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withIdParam, withIdAndBody, serializeBigInt } from '@/lib/api-handler';
+import { withIdParam, withIdAndBody, serializeBigInt } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
 // GET /api/org/unit-roles/[id] - Get org unit role by ID

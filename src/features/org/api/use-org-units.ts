@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetcher, queryKeys } from '@/lib/fetcher';
+import { fetcher, queryKeys } from '@/lib/api/fetcher';
 
 export interface Employee {
   id: string;

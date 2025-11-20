@@ -19,10 +19,10 @@ import {
   Refresh as RefreshIcon,
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
-import { OrgTreeNode } from '@/components/OrgTreeNode';
+import { OrgTreeNode } from '@/components/tree/OrgTreeNode';
 import { buildTree } from '@/utils/tree-utils';
 import { API_ROUTES } from '@/constants/routes';
-import { buildUrl } from '@/lib/api-handler';
+import { buildUrl } from '@/lib/api/api-handler';
 
 interface OrgUnit {
   id: string;
@@ -36,7 +36,6 @@ interface OrgUnit {
   status: string | null;
   effective_from: string | null;
   effective_to: string | null;
-  campus_id?: string | null;
 }
 
 export default function OrgTreePage() {

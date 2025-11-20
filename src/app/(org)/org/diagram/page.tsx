@@ -22,7 +22,7 @@ import {
   People as PeopleIcon,
 } from '@mui/icons-material';
 import { API_ROUTES } from '@/constants/routes';
-import { buildUrl } from '@/lib/api-handler';
+import { buildUrl } from '@/lib/api/api-handler';
 import { buildTree } from '@/utils/tree-utils';
 import { useRouter } from 'next/navigation';
 
@@ -38,7 +38,6 @@ interface OrgUnit {
   status: string | null;
   effective_from: string | null;
   effective_to: string | null;
-  campus_id?: string | null;
 }
 
 interface OrgTreeNode {

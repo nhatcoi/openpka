@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { db } from '@/lib/db';
 
 // POST /api/hr/leave-requests/[id]/approve - Duyệt đơn xin nghỉ
@@ -11,9 +12,12 @@ export async function POST(
     try {
         const resolvedParams = await params;
         const session = await getServerSession(authOptions);
-        if (!session?.User?.id) {
+        if (!session?.user?.id) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
+        
+        // Check permission
+        requirePermission(session, 'hr.leave_request.approve');
 
         const leaveRequestId = BigInt(resolvedParams.id);
         const body = await request.json();

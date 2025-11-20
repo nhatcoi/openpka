@@ -97,7 +97,7 @@ export function UserPermissionInfo() {
             <PersonIcon color="action" />
             <Box>
               <Typography variant="subtitle1" fontWeight="bold">
-                {session.user.full_name || session.user.name}
+                {session.user.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 @{session.user.username}

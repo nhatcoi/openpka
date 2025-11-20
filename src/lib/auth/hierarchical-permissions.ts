@@ -124,6 +124,9 @@ export async function getUserAccessibleUnits(userId: string): Promise<UserOrgUni
     // Lấy tất cả đơn vị con
     const childUnits = await getChildUnits(userUnit.id);
 
+    console.log('userUnit', userUnit.id);
+    console.log('childUnits', childUnits);
+
     return [userUnit, ...childUnits];
   } catch (error) {
     console.error('Error getting user accessible units:', error);

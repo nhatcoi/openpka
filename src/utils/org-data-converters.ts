@@ -79,20 +79,20 @@ export const getStatusColorFromApi = (statusCode: string | null, statuses: OrgUn
  * Get type name from API data
  */
 export const getTypeNameFromApi = (typeCode: string | null, types: OrgUnitType[]): string => {
-  if (!typeCode) return 'Không xác định';
+  if (!typeCode) return typeCode || '';
   
   const type = types.find(t => t.code === typeCode);
-  return type?.name || 'Không xác định';
+  return type?.name || typeCode;
 };
 
 /**
  * Get status name from API data
  */
 export const getStatusNameFromApi = (statusCode: string | null, statuses: OrgUnitStatus[]): string => {
-  if (!statusCode) return 'Không xác định';
+  if (!statusCode) return statusCode || '';
   
   const status = statuses.find(s => s.code === statusCode);
-  return status?.name || 'Không xác định';
+  return status?.name || statusCode;
 };
 
 /**

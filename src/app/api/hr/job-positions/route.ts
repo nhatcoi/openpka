@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { Prisma } from '@prisma/client';
 
 export const GET = withErrorHandling(

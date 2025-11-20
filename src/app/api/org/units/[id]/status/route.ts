@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withIdAndBody, serializeBigInt } from '@/lib/api-handler';
+import { withIdAndBody, serializeBigInt } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
 // PUT /api/org/units/[id]/status - Update org unit status only

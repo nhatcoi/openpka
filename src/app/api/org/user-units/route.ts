@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { getUserAccessibleUnits } from '@/lib/auth/hierarchical-permissions';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';

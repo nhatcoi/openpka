@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { orgConfigCache } from '@/lib/org-config-cache';
 
 // GET /api/org/types/cached - Get cached organization unit types

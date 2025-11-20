@@ -16,7 +16,6 @@ import {
   Paper,
   Avatar,
   Chip,
-  Grid,
   Button,
   Dialog,
   DialogTitle,
@@ -45,8 +44,7 @@ import {
   Delete as DeleteIcon,
   AssignmentInd as AssignmentIndIcon,
 } from '@mui/icons-material';
-import { type OrgUnit, type Employee } from '@/features/org/api/use-org-units';
-import { getStatusColor } from '@/utils/org-unit-utils';
+import { type OrgUnit } from '@/features/org/api/use-org-units';
 import { useEmployeeSearch } from '@/hooks/use-employee-search';
 
 interface PersonnelTabProps {
@@ -269,6 +267,15 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
     }
   };
 
+  const isManagement = (position: string): boolean => {
+    const posLower = position?.toLowerCase() || '';
+    return posLower.includes('trưởng') || 
+           posLower.includes('giám đốc') ||
+           posLower.includes('phó') ||
+           posLower.includes('head') ||
+           posLower.includes('manager');
+  };
+
   // Get employees from assignments data
   const assignedEmployees: AssignedEmployee[] = assignments.map(assignment => ({
     id: assignment.Employee.id,
@@ -287,27 +294,16 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
 
   // Find unit head/manager from assignments
   const unitHead: AssignedEmployee | undefined = assignedEmployees.find(emp => 
-    emp.position?.toLowerCase().includes('trưởng') || 
-    emp.position?.toLowerCase().includes('giám đốc') ||
-    emp.position?.toLowerCase().includes('head') ||
-    emp.position?.toLowerCase().includes('manager')
+    isManagement(emp.position)
   );
 
   // Group employees by position type from assignments
   const management: AssignedEmployee[] = assignedEmployees.filter(emp => 
-    emp.position?.toLowerCase().includes('trưởng') || 
-    emp.position?.toLowerCase().includes('giám đốc') ||
-    emp.position?.toLowerCase().includes('phó') ||
-    emp.position?.toLowerCase().includes('head') ||
-    emp.position?.toLowerCase().includes('manager')
+    isManagement(emp.position)
   );
 
   const staff: AssignedEmployee[] = assignedEmployees.filter(emp => 
-    !emp.position?.toLowerCase().includes('trưởng') && 
-    !emp.position?.toLowerCase().includes('giám đốc') &&
-    !emp.position?.toLowerCase().includes('phó') &&
-    !emp.position?.toLowerCase().includes('head') &&
-    !emp.position?.toLowerCase().includes('manager')
+    !isManagement(emp.position)
   );
 
   // Calculate statistics from assignments
@@ -491,100 +487,7 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
               <Box display="flex" justifyContent="center" py={3}>
                 <CircularProgress />
               </Box>
-            ) : assignments.length > 0 ? (
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Nhân viên</TableCell>
-                      <TableCell>Vị trí công việc</TableCell>
-                      <TableCell>Ngày bắt đầu</TableCell>
-                      <TableCell>Ngày kết thúc</TableCell>
-                      <TableCell>Loại phân công</TableCell>
-                      <TableCell>Phân bổ</TableCell>
-                      <TableCell align="center">Thao tác</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {assignments.map((assignment) => (
-                      <TableRow key={assignment.id} hover>
-                        <TableCell>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar sx={{ backgroundColor: '#1976d2' }}>
-                              <PersonIcon />
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {assignment.Employee.User.full_name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {assignment.Employee.employee_no}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {assignment.JobPosition?.title || 'Chưa phân công'}
-                          </Typography>
-                          {assignment.JobPosition?.code && (
-                            <Typography variant="caption" color="text.secondary">
-                              {assignment.JobPosition.code}
-                            </Typography>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {new Date(assignment.start_date).toLocaleDateString('vi-VN')}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {assignment.end_date 
-                              ? new Date(assignment.end_date).toLocaleDateString('vi-VN')
-                              : 'Không xác định'
-                            }
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={getAssignmentTypeLabel(assignment.assignment_type)}
-                            color={getAssignmentTypeColor(assignment.assignment_type) as any}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {assignment.is_primary ? 'Chính' : 'Phụ'} ({Number(assignment.allocation)}%)
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Stack direction="row" spacing={1} justifyContent="center">
-                            <Tooltip title="Chỉnh sửa">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleEditAssignment(assignment)}
-                              >
-                                <EditIcon />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Xóa">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={() => handleDeleteAssignment(assignment.id)}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            </Tooltip>
-                          </Stack>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
+            ) : assignments.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <AssignmentIndIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" color="text.secondary">
@@ -594,188 +497,223 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
                   Hãy thêm phân công nhân sự cho đơn vị này
                 </Typography>
               </Box>
+            ) : (
+              <Stack spacing={3}>
+                {/* Management Staff */}
+                {management.length > 0 && (
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                      Ban quản lý ({management.length})
+                    </Typography>
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Nhân viên</TableCell>
+                            <TableCell>Vị trí công việc</TableCell>
+                            <TableCell>Ngày bắt đầu</TableCell>
+                            <TableCell>Ngày kết thúc</TableCell>
+                            <TableCell>Loại phân công</TableCell>
+                            <TableCell>Phân bổ</TableCell>
+                            <TableCell align="center">Thao tác</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {assignments
+                            .filter((assignment) => {
+                              const position = assignment.JobPosition?.title || 'Chưa phân công';
+                              return isManagement(position);
+                            })
+                            .map((assignment) => (
+                              <TableRow key={assignment.id} hover>
+                                <TableCell>
+                                  <Stack direction="row" alignItems="center" spacing={2}>
+                                    <Avatar sx={{ backgroundColor: '#1976d2' }}>
+                                      <PersonIcon />
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                                        {assignment.Employee.User.full_name}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {assignment.Employee.employee_no}
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.JobPosition?.title || 'Chưa phân công'}
+                                  </Typography>
+                                  {assignment.JobPosition?.code && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      {assignment.JobPosition.code}
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {new Date(assignment.start_date).toLocaleDateString('vi-VN')}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.end_date 
+                                      ? new Date(assignment.end_date).toLocaleDateString('vi-VN')
+                                      : 'Không xác định'
+                                    }
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={getAssignmentTypeLabel(assignment.assignment_type)}
+                                    color={getAssignmentTypeColor(assignment.assignment_type) as any}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.is_primary ? 'Chính' : 'Phụ'} ({Number(assignment.allocation)}%)
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Stack direction="row" spacing={1} justifyContent="center">
+                                    <Tooltip title="Chỉnh sửa">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleEditAssignment(assignment)}
+                                      >
+                                        <EditIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Xóa">
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteAssignment(assignment.id)}
+                                      >
+                                        <DeleteIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+
+                {/* Regular Staff */}
+                {staff.length > 0 && (
+                  <Box>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
+                      Nhân viên ({staff.length})
+                    </Typography>
+                    <TableContainer component={Paper}>
+                      <Table>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Nhân viên</TableCell>
+                            <TableCell>Vị trí công việc</TableCell>
+                            <TableCell>Ngày bắt đầu</TableCell>
+                            <TableCell>Ngày kết thúc</TableCell>
+                            <TableCell>Loại phân công</TableCell>
+                            <TableCell>Phân bổ</TableCell>
+                            <TableCell align="center">Thao tác</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {assignments
+                            .filter((assignment) => {
+                              const position = assignment.JobPosition?.title || 'Chưa phân công';
+                              return !isManagement(position);
+                            })
+                            .map((assignment) => (
+                              <TableRow key={assignment.id} hover>
+                                <TableCell>
+                                  <Stack direction="row" alignItems="center" spacing={2}>
+                                    <Avatar sx={{ backgroundColor: '#ed6c02' }}>
+                                      <PersonIcon />
+                                    </Avatar>
+                                    <Box>
+                                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                                        {assignment.Employee.User.full_name}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        {assignment.Employee.employee_no}
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.JobPosition?.title || 'Chưa phân công'}
+                                  </Typography>
+                                  {assignment.JobPosition?.code && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      {assignment.JobPosition.code}
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {new Date(assignment.start_date).toLocaleDateString('vi-VN')}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.end_date 
+                                      ? new Date(assignment.end_date).toLocaleDateString('vi-VN')
+                                      : 'Không xác định'
+                                    }
+                                  </Typography>
+                                </TableCell>
+                                <TableCell>
+                                  <Chip
+                                    label={getAssignmentTypeLabel(assignment.assignment_type)}
+                                    color={getAssignmentTypeColor(assignment.assignment_type) as any}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2">
+                                    {assignment.is_primary ? 'Chính' : 'Phụ'} ({Number(assignment.allocation)}%)
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Stack direction="row" spacing={1} justifyContent="center">
+                                    <Tooltip title="Chỉnh sửa">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleEditAssignment(assignment)}
+                                      >
+                                        <EditIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Xóa">
+                                      <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDeleteAssignment(assignment.id)}
+                                      >
+                                        <DeleteIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </Stack>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+              </Stack>
             )}
           </CardContent>
         </Card>
-
-        {/* Management Staff */}
-        {management.length > 0 && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-                Ban quản lý ({management.length})
-              </Typography>
-              
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Nhân viên</TableCell>
-                      <TableCell>Chức vụ</TableCell>
-                      <TableCell>Liên hệ</TableCell>
-                      <TableCell>Trạng thái</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {management.map((employee: AssignedEmployee) => (
-                      <TableRow key={employee.id} hover>
-                        <TableCell>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar sx={{ backgroundColor: '#1976d2' }}>
-                              <PersonIcon />
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {employee.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {employee.employee_no}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {employee.position || 'Chưa xác định'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            {employee.email && (
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <EmailIcon fontSize="small" color="primary" />
-                                <Typography variant="caption">
-                                  {employee.email}
-                                </Typography>
-                              </Stack>
-                            )}
-                            {employee.phone && (
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <PhoneIcon fontSize="small" color="primary" />
-                                <Typography variant="caption">
-                                  {employee.phone}
-                                </Typography>
-                              </Stack>
-                            )}
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={employee.status || 'unknown'}
-                            size="small"
-                            sx={{
-                              backgroundColor: getStatusColor(employee.status || 'unknown'),
-                              color: 'white',
-                              fontSize: '0.75rem',
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Regular Staff */}
-        {staff.length > 0 && (
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-                Nhân viên ({staff.length})
-              </Typography>
-              
-              <TableContainer component={Paper}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Nhân viên</TableCell>
-                      <TableCell>Chức vụ</TableCell>
-                      <TableCell>Liên hệ</TableCell>
-                      <TableCell>Trạng thái</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {staff.map((employee: AssignedEmployee) => (
-                      <TableRow key={employee.id} hover>
-                        <TableCell>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar sx={{ backgroundColor: '#ed6c02' }}>
-                              <PersonIcon />
-                            </Avatar>
-                            <Box>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
-                                {employee.name}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {employee.employee_no}
-                              </Typography>
-                            </Box>
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {employee.position || 'Chưa xác định'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Stack spacing={0.5}>
-                            {employee.email && (
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <EmailIcon fontSize="small" color="primary" />
-                                <Typography variant="caption">
-                                  {employee.email}
-                                </Typography>
-                              </Stack>
-                            )}
-                            {employee.phone && (
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <PhoneIcon fontSize="small" color="primary" />
-                                <Typography variant="caption">
-                                  {employee.phone}
-                                </Typography>
-                              </Stack>
-                            )}
-                          </Stack>
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={employee.status || 'unknown'}
-                            size="small"
-                            sx={{
-                              backgroundColor: getStatusColor(employee.status || 'unknown'),
-                              color: 'white',
-                              fontSize: '0.75rem',
-                            }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No Employees Message */}
-        {assignedEmployees.length === 0 && (
-          <Card>
-            <CardContent>
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <PersonIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                  Chưa có nhân viên được phân công
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Đơn vị này chưa có nhân viên được phân công. Hãy thêm phân công nhân sự.
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-        )}
       </Stack>
 
       {/* Create/Edit Assignment Dialog */}

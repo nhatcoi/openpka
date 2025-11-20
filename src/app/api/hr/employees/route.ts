@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
+import { requirePermission } from '@/lib/auth/api-permissions';
 import { getToken } from 'next-auth/jwt';
 
 export async function GET() {
@@ -12,14 +13,17 @@ export async function GET() {
     const currentUserId = session?.user?.id ? BigInt(session.user.id) : null;
     const userPermissions = session?.user?.permissions || [];
 
+    // Check permission
+    requirePermission(session, 'hr.employee.view');
+    
     // Check if user has admin permissions (can see all employees)
     // Rector should see all employees, Dean/Manager should see employees in their org
-    const isRector = userPermissions.includes('employee.delete'); // Only rector has delete permission
-    const isDeanOrManager = userPermissions.includes('employee.update') && !userPermissions.includes('employee.delete');
-    const isAdmin = isRector || (userPermissions.includes('hr.employees.view') &&
-      (userPermissions.includes('hr.employees.create') ||
-        userPermissions.includes('hr.employees.update') ||
-        userPermissions.includes('hr.employees.delete')));
+    const isRector = userPermissions.includes('hr.employee.delete'); // Only rector has delete permission
+    const isDeanOrManager = userPermissions.includes('hr.employee.update') && !userPermissions.includes('hr.employee.delete');
+    const isAdmin = isRector || (userPermissions.includes('hr.employee.view') &&
+      (userPermissions.includes('hr.employee.create') ||
+        userPermissions.includes('hr.employee.update') ||
+        userPermissions.includes('hr.employee.delete')));
 
     let whereClause = {};
 
@@ -141,6 +145,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Check permission
+    requirePermission(session, 'hr.employee.create');
+    
     const body = await request.json();
     const {
       user_id,
@@ -150,9 +162,7 @@ export async function POST(request: NextRequest) {
       hired_at,
     } = body;
 
-    // Get current user from session
-    const session = await getServerSession(authOptions);
-    const currentUserId = session?.user?.id ? BigInt(session.user.id) : undefined;
+    const currentUserId = BigInt(session.user.id);
 
     const employee = await db.employee.create({
       data: {

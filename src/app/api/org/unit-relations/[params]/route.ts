@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling, withBody } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
+import { syncParentIdFromRelations } from '@/lib/org/unit-relation-sync';
 
 // GET /api/org/unit-relations/[params] - Get org unit relation by composite key
 export const GET = withErrorHandling(
@@ -45,8 +46,8 @@ export const GET = withErrorHandling(
 );
 
 // PUT /api/org/unit-relations/[params] - Update org unit relation
-export const PUT = withErrorHandling(
-  async (request: NextRequest, context?: any): Promise<any> => {
+export const PUT = withBody(
+  async (body: unknown, request: NextRequest, context?: any): Promise<any> => {
     if (!context?.params) throw new Error('Missing params');
     
     const resolvedParams = await context.params;
@@ -57,8 +58,8 @@ export const PUT = withErrorHandling(
       throw new Error('Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from');
     }
 
-    const body = await request.json();
-    const { effective_to, description } = body;
+    const data = body as Record<string, unknown>;
+    const { effective_to, description } = data;
     
     // Parse date - handle both ISO string and date-only formats
     let parsedDate: Date;
@@ -71,24 +72,36 @@ export const PUT = withErrorHandling(
       parsedDate = new Date(dateStr + 'T00:00:00.000Z');
     }
 
-    const updatedRelation = await db.orgUnitRelation.updateMany({
-      where: {
-        parent_id: BigInt(parent_id),
-        child_id: BigInt(child_id),
-        relation_type: relation_type as any,
-        effective_from: parsedDate,
-      },
-      data: {
-        effective_to: effective_to ? new Date(effective_to) : null,
-        note: description || null,
+    const childIdBigInt = BigInt(child_id);
+    const now = new Date();
+
+    const result = await db.$transaction(async (tx) => {
+      const updatedRelation = await tx.orgUnitRelation.updateMany({
+        where: {
+          parent_id: BigInt(parent_id),
+          child_id: childIdBigInt,
+          relation_type: relation_type as any,
+          effective_from: parsedDate,
+        },
+        data: {
+          effective_to: effective_to ? new Date(effective_to as string) : null,
+          note: description ? (description as string) : null,
+        }
+      });
+      
+      if (updatedRelation.count === 0) {
+        throw new Error('Relation not found');
       }
+
+      // Đồng bộ OrgUnit.parent_id nếu relation_type = 'direct'
+      if (relation_type === 'direct') {
+        await syncParentIdFromRelations(childIdBigInt, tx);
+      }
+      
+      return updatedRelation;
     });
     
-    if (updatedRelation.count === 0) {
-      throw new Error('Relation not found');
-    }
-    
-    return { message: 'Relation updated successfully', count: updatedRelation.count };
+    return { message: 'Relation updated successfully', count: result.count };
   },
   'update org unit relation by params'
 );
@@ -106,8 +119,6 @@ export const DELETE = withErrorHandling(
       throw new Error('Invalid parameters. Expected: parent_id/child_id/relation_type/effective_from');
     }
 
-    console.log('DELETE params:', { parent_id, child_id, relation_type, effective_from });
-
     // Parse date - handle both ISO string and date-only formats
     let parsedDate: Date;
     const dateStr = decodeURIComponent(effective_from);
@@ -119,18 +130,31 @@ export const DELETE = withErrorHandling(
       parsedDate = new Date(dateStr + 'T00:00:00.000Z');
     }
 
-    const deletedRelation = await db.orgUnitRelation.deleteMany({
-      where: {
-        parent_id: BigInt(parent_id),
-        child_id: BigInt(child_id),
-        relation_type: relation_type as any,
-        effective_from: parsedDate,
+    const childIdBigInt = BigInt(child_id);
+
+    const result = await db.$transaction(async (tx) => {
+      const deletedRelation = await tx.orgUnitRelation.deleteMany({
+        where: {
+          parent_id: BigInt(parent_id),
+          child_id: childIdBigInt,
+          relation_type: relation_type as any,
+          effective_from: parsedDate,
+        }
+      });
+      
+      if (deletedRelation.count === 0) {
+        throw new Error('No relation found to delete');
       }
+
+      // Đồng bộ OrgUnit.parent_id nếu relation_type = 'direct'
+      if (relation_type === 'direct') {
+        await syncParentIdFromRelations(childIdBigInt, tx);
+      }
+      
+      return deletedRelation;
     });
     
-    return deletedRelation.count === 0 
-      ? { message: 'No relation found to delete', count: 0 }
-      : { message: 'Relation deleted successfully', count: deletedRelation.count };
+    return { message: 'Relation deleted successfully', count: result.count };
   },
   'delete org unit relation by params'
 );

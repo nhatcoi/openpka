@@ -1,0 +1,11 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "env": {
+    "NEXTAUTH_URL": "@nextauth_url",
+    "DATABASE_URL": "@database_url", 
+    "NEXTAUTH_SECRET": "@nextauth_secret"
+  }
+}

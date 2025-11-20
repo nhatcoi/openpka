@@ -1,0 +1,171 @@
+@startuml Notification System Flow
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam activity {
+    BackgroundColor #E3F2FD
+    BorderColor #1976D2
+    FontSize 10
+}
+skinparam note {
+    BackgroundColor #FFF3E0
+    BorderColor #FF9800
+    FontSize 9
+}
+
+title Notification System Flow\nTraining Management System
+
+start
+
+:User initiates workflow\n(Course, Leave Request, etc.);
+note right
+  Example: Giảng viên tạo khóa học mới
+  hoặc nhân viên gửi đơn xin nghỉ
+end note
+
+:System creates Workflow Instance;
+note right
+  - workflow_definitions
+  - workflow_instances
+  - workflow_steps
+end note
+
+:Get first approvers for current step;
+note right
+  Dựa trên:
+  - approver_role
+  - approver_org_level
+  - user permissions
+end note
+
+repeat
+  :Create notification from template;
+  note right
+    Function: create_notification_from_template()
+    - notification_templates
+    - Variable replacement
+    - notifications table
+  end note
+  
+  :Add to notification queue;
+  note right
+    - notification_queue
+    - Priority scheduling
+    - Retry mechanism
+  end note
+  
+  :Send via multiple channels;
+  note right
+    - notification_deliveries
+    - email, sms, push, in_app
+    - User preferences
+  end note
+  
+  :Wait for approver response;
+  
+  if (Approver responds?) then (yes)
+    if (Action type?) then (approve)
+      :Record approval;
+      note right
+        - approval_records
+        - Comments & attachments
+      end note
+      
+      if (More steps?) then (yes)
+        :Move to next step;
+        note right
+          Update workflow_instances:
+          - current_step++
+          - status = 'active'
+        end note
+      else (no)
+        :Complete workflow;
+        note right
+          - status = 'completed'
+          - completed_at = NOW()
+        end note
+        
+        :Notify original requester;
+        note right
+          Template: approval_result_approved
+        end note
+        
+        stop
+      endif
+      
+    elseif (Action type?) then (reject)
+      :Record rejection;
+      note right
+        - approval_records
+        - Comments required
+      end note
+      
+      :Complete workflow as rejected;
+      note right
+        - status = 'rejected'
+        - completed_at = NOW()
+      end note
+      
+      :Notify original requester;
+      note right
+        Template: approval_result_rejected
+      end note
+      
+      stop
+      
+    else (request_changes)
+      :Record change request;
+      note right
+        - approval_records
+        - Detailed comments
+      end note
+      
+      :Move back to previous step;
+      note right
+        - current_step--
+        - status = 'active'
+      end note
+      
+      :Notify original requester;
+      note right
+        Template: approval_result_rejected
+        với lý do cần sửa đổi
+      end note
+      
+    endif
+    
+  else (no response)
+    if (Timeout reached?) then (yes)
+      if (Escalation enabled?) then (yes)
+        :Escalate to next level;
+        note right
+          - is_escalated = true
+          - Notify supervisor
+          - Template: workflow_escalated
+        end note
+        
+      else (no)
+        :Send reminder notification;
+        note right
+          Template: approval_reminder
+          - overdue_days calculation
+        end note
+        
+      endif
+      
+    else (not timeout)
+      :Continue waiting;
+    endif
+  endif
+
+repeat while (Workflow still active?) is (yes)
+-> no;
+
+:Handle timeout without escalation;
+note right
+  Auto-approval hoặc auto-reject
+  dựa trên auto_approval_threshold
+end note
+
+stop
+
+@enduml

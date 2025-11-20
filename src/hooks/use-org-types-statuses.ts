@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_ROUTES } from '@/constants/routes';
-import { buildUrl } from '@/lib/api-handler';
+import { buildUrl } from '@/lib/api/api-handler';
 
 interface OrgUnitType {
   id: string;

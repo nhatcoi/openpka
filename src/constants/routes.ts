@@ -1,4 +1,3 @@
-// HR Routes constants
 export const HR_ROUTES = {
     DASHBOARD: '/hr/dashboard',
     EMPLOYEES: '/hr/employees',
@@ -33,8 +32,25 @@ export const HR_ROUTES = {
     REPORTS: '/hr/reports',
 };
 
-// API Routes constants
+export const ORG_ROUTES = {
+    DASHBOARD: '/org/dashboard',
+    TREE: '/org/tree',
+    DIAGRAM: '/org/diagram',
+    REPORTS: '/org/reports',
+    CONFIG: '/org/config',
+    HISTORY: '/org/unit/create/audit',
+    UNIT: '/org/unit',
+    UNIT_DETAIL: (id: string) => `/org/unit/${id}`,
+    UNIT_CREATE: {
+        REVIEW: '/org/unit/review',
+        AUDIT: '/org/unit/create/audit',
+    },
+};
+
 export const API_ROUTES = {
+    ACADEMIC: {
+        HISTORY: '/api/academic/history',
+    },
     HR: {
         EMPLOYEES: '/api/hr/employees',
         EMPLOYEES_BY_ID: (id: string) => `/api/hr/employees/${id}`,
@@ -68,7 +84,6 @@ export const API_ROUTES = {
         USER_ROLES: '/api/hr/user-roles',
         USER_ROLES_BY_ID: (id: string) => `/api/hr/user-roles/${id}`,
         ME: '/api/hr/me',
-
         POSITIONS: '/api/hr/positions',
     },
     ORG: {
@@ -78,8 +93,6 @@ export const API_ROUTES = {
         UNITS_AUDIT: '/api/org/units/audit',
         UNITS_HISTORY: (id: string) => `/api/org/units/${id}/history`,
         UNITS_STATUS: (id: string) => `/api/org/units/${id}/status`,
-        STRUCTURE_REQUESTS: '/api/org/structure-requests',
-        STRUCTURE_REQUESTS_BY_ID: (id: string) => `/api/org/structure-requests/${id}`,
         INITIAL_UNITS: '/api/org/initial-units',
         HISTORY: '/api/org/history',
         HISTORY_BY_ID: (id: string) => `/api/org/history/${id}`,
@@ -94,28 +107,55 @@ export const API_ROUTES = {
             HEADCOUNT: '/api/org/kpi/headcount',
         },
     },
-};
+    TMS: {
+        FACULTIES: '/api/tms/faculties',
 
-// Org Routes constants
-export const ORG_ROUTES = {
-    DASHBOARD: '/org/dashboard',
-    TREE: '/org/tree',
-    DIAGRAM: '/org/diagram',
-    REPORTS: '/org/reports',
-    CONFIG: '/org/config',
-    HISTORY: '/org/unit/create/audit',
+        // programs
+        PROGRAMS: '/api/tms/programs',
+        PROGRAMS_BY_ID: (id: string) => `/api/tms/programs/${id}`,
+        PROGRAMS_BLOCKS: '/api/tms/programs/blocks',
+        PROGRAMS_BLOCKS_BY_ID: (id: string, type?: string) => type ? `/api/tms/programs/blocks/${id}?type=${type}` : `/api/tms/programs/blocks/${id}`,
+        PROGRAM_COURSE_MAP: '/api/tms/program-course-map',
+        PROGRAM_COURSE_MAP_BY_ID: (id: string) => `/api/tms/program-course-map/${id}`,
+        PROGRAM_GROUPS: '/api/tms/program-groups',
+        PROGRAM_GROUPS_BY_ID: (id: string) => `/api/tms/program-groups/${id}`,
 
-    
-    // Unit management
-    UNIT: '/org/unit',
-    UNIT_DETAIL: (id: string) => `/org/unit/${id}`,
-    
-    // Unit creation workflow
-    UNIT_CREATE: {
-        DRAFT: '/org/unit/create/draft',
-        REVIEW: '/org/unit/create/review',
-        APPROVE: '/org/unit/create/approve',
-        ACTIVATE: '/org/unit/create/activate',
-        AUDIT: '/org/unit/create/audit',
+        PROGRAMS_LIST: '/api/tms/programs/list',
+        PROGRAMS_APPLY_FRAMEWORK: '/api/tms/programs/apply-default-framework',
+        PROGRAMS_COPY_STRUCTURE: '/api/tms/programs/copy-structure',
+        PROGRAMS_STATS: '/api/tms/programs/stats',
+        PROGRAM_BLOCK_TEMPLATES: '/api/tms/program-blocks', // block templates
+        PROGRAM_COURSE_MAP_BULK: '/api/tms/program-course-map/bulk',
+
+        // courses
+        COURSES: '/api/tms/courses',
+        COURSES_BY_ID: (id: string) => `/api/tms/courses/${id}`,
+        COURSES_SYLLABUS: (id: string) => `/api/tms/courses/${id}/syllabus`,
+        COURSES_VERSIONS: (id: string) => `/api/tms/courses/${id}/versions`,
+        COURSES_PREREQUISITES: (id: string, prereqId: string) => `/api/tms/courses/${id}/prerequisites/${prereqId}`,
+        COURSES_STATS: '/api/tms/courses/stats',
+        COURSES_LIST: '/api/tms/courses/list',
+
+        // majors
+        MAJORS: '/api/tms/majors',
+        MAJORS_BY_ID: (id: string) => `/api/tms/majors/${id}`,
+        MAJORS_ORG_UNITS: '/api/tms/majors/org-units',
+        MAJORS_STATS: '/api/tms/majors/stats',
+
+        // cohorts
+        COHORTS: '/api/cohorts',
+        COHORTS_BY_ID: (id: string) => `/api/cohorts/${id}`,
+        COHORTS_STATISTICS: '/api/cohorts/statistics',
+        COHORTS_STATS: '/api/tms/cohorts/stats',
+
+        // curriculums - chưa dùng
+        CURRICULUM: '/api/tms/curriculum',
+        CURRICULUM_BY_ID: (id: string) => `/api/tms/curriculum/${id}`,
+
+        // add
+        REPORTS_OVERVIEW: '/api/tms/reports/overview',
+        DASHBOARD_STATS: '/api/tms/dashboard/stats',
+        REVIEW: '/api/tms/review',
     },
+    UPLOAD: '/api/upload',
 };

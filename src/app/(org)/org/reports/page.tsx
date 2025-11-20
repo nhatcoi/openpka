@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { API_ROUTES } from '@/constants/routes';
-import { buildUrl } from '@/lib/api-handler';
+import { buildUrl } from '@/lib/api/api-handler';
 import {
   Box,
   Typography,
@@ -249,13 +249,6 @@ export default function ReportsPage() {
       color: '#2e4c92',
     },
     {
-      id: 'by_campus',
-      title: 'Theo campus',
-      description: 'Phân bố đơn vị và nhân sự theo campus',
-      icon: <BusinessIcon />,
-      color: '#1976d2',
-    },
-    {
       id: 'by_type',
       title: 'Theo loại đơn vị',
       description: 'Thống kê theo loại đơn vị tổ chức',
@@ -372,24 +365,6 @@ export default function ReportsPage() {
     </Box>
   );
 
-  const renderByCampusReport = () => (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>
-          Phân bố theo Campus
-        </Typography>
-        {loading ? (
-          <Box display="flex" justifyContent="center" p={3}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Alert severity="info">
-            Báo cáo phân bố theo campus đang được phát triển. Vui lòng sử dụng báo cáo "Theo loại đơn vị" để xem thống kê chi tiết.
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
-  );
 
   const renderByTypeReport = () => (
     <Card>
@@ -569,8 +544,6 @@ export default function ReportsPage() {
     switch (selectedReport) {
       case 'overview':
         return renderOverviewReport();
-      case 'by_campus':
-        return renderByCampusReport();
       case 'by_type':
         return renderByTypeReport();
       case 'missing_head':

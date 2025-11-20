@@ -21,12 +21,15 @@ export function buildTree<T extends TreeNode>(nodes: T[]): T[] {
     nodeMap.set(node.id, { ...node, children: [] });
   });
 
-  // Second pass: build tree structure
+  // Lấy tất cả các id từ nodes
+  const existingIds = new Set(nodes.map(node => node.id));
+
+  // tạo tree structure
   nodes.forEach(node => {
     const nodeWithChildren = nodeMap.get(node.id)!;
     
-    if (node.parent_id === null) {
-      // Root level node
+    if (node.parent_id === null || !existingIds.has(node.parent_id)) {
+      // id cao nhất
       roots.push(nodeWithChildren);
     } else {
       // Child node

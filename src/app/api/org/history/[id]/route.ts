@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withIdParam } from '@/lib/api-handler';
+import { withIdParam } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
 // GET /api/org/history/[id]

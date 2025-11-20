@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
-import { withIdParam, withIdAndBody, validateSchema } from '@/lib/api-handler';
-import { Schemas } from '@/lib/api-schemas';
+import { withIdParam, withIdAndBody, validateSchema } from '@/lib/api/api-handler';
+import { Schemas } from '@/lib/api/api-schemas';
 
 export const GET = withIdParam(
   async (id: string) => {

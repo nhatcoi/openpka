@@ -1,0 +1,42 @@
+@startuml
+!theme plain
+title Quy trình phê duyệt & công bố CTĐT
+
+partition "Khoa" {
+  start
+  :Tạo CTĐT (Draft);
+  :Gán khối và học phần; 
+  if (Gửi duyệt PĐT?) then (Có)
+    :Gửi yêu cầu duyệt PĐT; as TO_PDT
+  else (Chưa)
+    :Tiếp tục chỉnh sửa Draft;
+  endif
+}
+
+partition "PĐT" {
+  :Nhận yêu cầu duyệt CTĐT; as TO_PDT
+  if (Kết quả PĐT?) then (Phê duyệt)
+    :Phê duyệt CTĐT (dùng được ngay nội bộ); as PDT_OK
+  else (Yêu cầu chỉnh sửa / Từ chối)
+    :Gửi phản hồi về Khoa; as FEEDBACK
+  endif
+}
+
+partition "Khoa" {
+  :Nhận phản hồi từ PĐT; as FEEDBACK
+  :Chỉnh sửa CTĐT (Draft) và có thể gửi lại;
+}
+
+partition "HĐĐT / BGH" {
+  :Nhận CTĐT đã được PĐT phê duyệt; as PDT_OK
+  if (Duyệt công bố?) then (Có)
+    :Phê duyệt công bố;
+    :Công bố toàn hệ thống;
+    stop
+  else (Không)
+    :Từ chối công bố (có thể yêu cầu chỉnh sửa);
+  endif
+}
+
+@enduml
+

@@ -50,7 +50,7 @@ class OrgConfigCache {
 
   private async fetchTypes(): Promise<void> {
     try {
-      const types = await db.OrgUnitType.findMany({
+      const types = await db.orgUnitType.findMany({
         where: { is_active: true },
         orderBy: [
           { sort_order: 'asc' },
@@ -72,7 +72,7 @@ class OrgConfigCache {
 
   private async fetchStatuses(): Promise<void> {
     try {
-      const statuses = await db.OrgUnitStatus.findMany({
+      const statuses = await db.orgUnitStatus.findMany({
         where: { is_active: true },
         orderBy: [
           { workflow_step: 'asc' },

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 // import { hasPermission, hasAnyPermission } from '@/lib/permission-utils';
 
 export const GET = withErrorHandling(

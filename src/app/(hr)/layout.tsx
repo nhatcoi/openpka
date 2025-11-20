@@ -26,7 +26,7 @@ import {
     Edit,
 } from '@mui/icons-material';
 import { NewSidebar } from '@/components/nav/new-sidebar';
-import { ThemeToggle } from '@/components/theme-toggle';
+import { ThemeToggle } from '@/components/misc/theme-toggle';
 
 import { HR_ROUTES } from '@/constants/routes';
 
@@ -54,7 +54,7 @@ export default function HrLayout({
 
     const handleEditProfile = () => {
         handleUserMenuClose();
-        router.push(HR_ROUTES.PROFILE);
+        router.push('/me');
     };
 
     const handleLogout = () => {

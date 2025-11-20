@@ -86,6 +86,12 @@ export default function HRDashboardPage() {
     const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
     const [assignments, setAssignments] = useState<Assignment[]>([]);
     const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats[]>([]);
+    const [orgStats, setOrgStats] = useState<{
+        totalUnits: number;
+        activeUnits: number;
+        inactiveUnits: number;
+        totalEmployees: number;
+    } | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -104,24 +110,17 @@ export default function HRDashboardPage() {
         try {
             setLoading(true);
 
-            // Fetch org units and assignments in parallel
-            const [orgUnitsResponse, assignmentsResponse] = await Promise.all([
-                fetch(API_ROUTES.ORG.UNITS),
-                fetch(API_ROUTES.HR.ASSIGNMENTS)
-            ]);
-
-            const [orgUnitsResult, assignmentsResult] = await Promise.all([
-                orgUnitsResponse.json(),
-                assignmentsResponse.json()
-            ]);
-
-            if (orgUnitsResult.success && assignmentsResult.success) {
-                setOrgUnits(orgUnitsResult.data);
-                setAssignments(assignmentsResult.data);
-
-                // Build hierarchical stats
-                const stats = buildOrgUnitStats(orgUnitsResult.data, assignmentsResult.data);
-                setOrgUnitStats(stats);
+            // Use consolidated org stats API
+            const response = await fetch(API_ROUTES.ORG.STATS);
+            const result = await response.json();
+            if (result?.success && result?.data) {
+                const d = result.data;
+                setOrgStats({
+                    totalUnits: Number(d.totalUnits) || 0,
+                    activeUnits: Number(d.activeUnits) || 0,
+                    inactiveUnits: Number(d.inactiveUnits) || 0,
+                    totalEmployees: Number(d.totalEmployees) || 0,
+                });
             } else {
                 setError('Không thể tải dữ liệu thống kê');
             }
@@ -175,12 +174,16 @@ export default function HRDashboardPage() {
     };
 
     const getTotalStats = () => {
-        const totalEmployees = orgUnitStats.reduce((sum, stat) => sum + stat.totalEmployees, 0);
-        const activeEmployees = orgUnitStats.reduce((sum, stat) => sum + stat.activeEmployees, 0);
-        const totalUnits = orgUnits.length;
-        const activeUnits = orgUnits.filter(unit => unit.status === 'active').length;
-
-        return { totalEmployees, activeEmployees, totalUnits, activeUnits };
+        if (orgStats) {
+            return {
+                totalEmployees: orgStats.totalEmployees,
+                activeEmployees: orgStats.totalEmployees, // active assignments counted
+                totalUnits: orgStats.totalUnits,
+                activeUnits: orgStats.activeUnits,
+            };
+        }
+        // Fallback to zeros
+        return { totalEmployees: 0, activeEmployees: 0, totalUnits: 0, activeUnits: 0 };
     };
 
 

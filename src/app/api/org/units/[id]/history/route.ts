@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 

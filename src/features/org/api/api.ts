@@ -14,7 +14,6 @@ export interface OrgUnit {
   status: string | null;
   effective_from: string | null;
   effective_to: string | null;
-  campus_id?: string | null;
   parent?: OrgUnit | null;
 }
 
@@ -47,6 +46,7 @@ export interface PaginationParams {
   search?: string;
   type?: string;
   status?: string;
+  parent_id?: string;
   include_employees?: boolean;
   include_children?: boolean;
   include_parent?: boolean;
@@ -130,7 +130,9 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+      const error = new Error(data.error || data.details || `HTTP ${response.status}: ${response.statusText}`);
+      (error as any).response = { data };
+      throw error;
     }
 
     return data;
@@ -189,10 +191,21 @@ export const orgUnitsApi = {
     });
   },
 
-  // Delete org unit (soft delete - set status to 'deleted')
   async delete(id: string): Promise<ApiResponse<OrgUnit>> {
     return apiFetch<ApiResponse<OrgUnit>>(`/api/org/units/${id}`, {
       method: 'DELETE',
+    });
+  },
+
+  async archive(id: string): Promise<ApiResponse<OrgUnit>> {
+    return apiFetch<ApiResponse<OrgUnit>>(`/api/org/units/${id}/archive`, {
+      method: 'PATCH',
+    });
+  },
+
+  async deactivate(id: string): Promise<ApiResponse<OrgUnit>> {
+    return apiFetch<ApiResponse<OrgUnit>>(`/api/org/units/${id}/deactivate`, {
+      method: 'PATCH',
     });
   },
 

@@ -1,10 +1,13 @@
-// Simple permission utilities
+// Simple permission utilities - chỉ giữ lại các hàm cơ bản
 import { useSession } from 'next-auth/react';
+import { Session } from 'next-auth';
 
 /**
  * Check if user has a specific permission
  */
 export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
+  if (!requiredPermission) return true;
+  if (!userPermissions || userPermissions.length === 0) return false;
   return userPermissions.includes(requiredPermission);
 }
 
@@ -12,6 +15,8 @@ export function hasPermission(userPermissions: string[], requiredPermission: str
  * Check if user has any of the specified permissions
  */
 export function hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
+  if (!requiredPermissions || requiredPermissions.length === 0) return true;
+  if (!userPermissions || userPermissions.length === 0) return false;
   return requiredPermissions.some(permission => userPermissions.includes(permission));
 }
 
@@ -19,25 +24,13 @@ export function hasAnyPermission(userPermissions: string[], requiredPermissions:
  * Check if user has all of the specified permissions
  */
 export function hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
+  if (!requiredPermissions || requiredPermissions.length === 0) return true;
+  if (!userPermissions || userPermissions.length === 0) return false;
   return requiredPermissions.every(permission => userPermissions.includes(permission));
 }
 
 /**
- * Check if user has a specific role
- */
-export function hasRole(userRoles: string[], requiredRole: string): boolean {
-  return userRoles.includes(requiredRole);
-}
-
-/**
- * Check if user has any of the specified roles
- */
-export function hasAnyRole(userRoles: string[], requiredRoles: string[]): boolean {
-  return requiredRoles.some(role => userRoles.includes(role));
-}
-
-/**
- * Hook to check permissions from session
+ * Hook to check permissions from session - đơn giản hóa
  */
 export function usePermissions() {
   const { data: session } = useSession();
@@ -46,17 +39,25 @@ export function usePermissions() {
   return {
     permissions,
     hasPermission: (permission: string) => hasPermission(permissions, permission),
-    hasAnyPermission: (permissions: string[]) => hasAnyPermission(permissions, permissions),
-    hasAllPermissions: (permissions: string[]) => hasAllPermissions(permissions, permissions),
-    // Role checking (if roles are available in session)
-    hasRole: (role: string) => hasRole(session?.user?.roles || [], role),
-    hasAnyRole: (roles: string[]) => hasAnyRole(session?.user?.roles || [], roles),
-    // Common permission checks
-    canReadOrgUnits: () => hasPermission(permissions, 'org_unit.read'),
-    canCreateOrgUnits: () => hasPermission(permissions, 'org_unit.create'),
-    canUpdateOrgUnits: () => hasPermission(permissions, 'org_unit.update'),
-    canDeleteOrgUnits: () => hasPermission(permissions, 'org_unit.delete'),
-    canAdminOrgUnits: () => hasPermission(permissions, 'org_unit.admin'),
-    isAdmin: () => hasPermission(permissions, 'admin'),
+    hasAnyPermission: (permissionsList: string[]) => hasAnyPermission(permissions, permissionsList),
+    hasAllPermissions: (permissionsList: string[]) => hasAllPermissions(permissions, permissionsList),
   };
+}
+
+/**
+ * Check permission for API routes - helper function
+ */
+export function checkPermission(session: Session | null, requiredPermission: string): boolean {
+  if (!requiredPermission) return true;
+  if (!session?.user?.permissions) return false;
+  return hasPermission(session.user.permissions, requiredPermission);
+}
+
+/**
+ * Require permission for API routes - throws error if not authorized
+ */
+export function requirePermission(session: Session | null, requiredPermission: string): void {
+  if (!checkPermission(session, requiredPermission)) {
+    throw new Error(`Forbidden: Required permission '${requiredPermission}' not found`);
+  }
 }

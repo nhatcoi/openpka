@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { withErrorHandling } from '@/lib/api-handler';
+import { withErrorHandling } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 
 // GET /api/org/unit-relations/by-key - Get org unit relation by composite key

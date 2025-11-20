@@ -1,8 +1,13 @@
 @import "tailwindcss";
 
 @theme {
+  /* Primary color - Main brand color */
+  --color-primary: #2e4c92;
+  --color-primary-hover: #1e3561;
+  --color-primary-light: #4a6fb8;
+  --color-primary-dark: #1e3561;
+  
   /* Basic colors */
-  --color-primary: #1890ff;
   --color-success: #52c41a;
   --color-warning: #faad14;
   --color-error: #ff4d4f;
@@ -36,3 +41,8 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Ensure MUI ListItemText primary text renders in black */
+/* .MuiListItemText-primary {
+  color: #000000 !important;
+} */

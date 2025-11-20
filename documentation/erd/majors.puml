@@ -1,0 +1,73 @@
+@startuml
+' ERD: Quản lý Ngành học (Majors)
+' Nguồn: prisma/schema.prisma
+' Mục tiêu: Thể hiện các thực thể chính và quan hệ khóa chính/ngoại
+
+skinparam linetype ortho
+hide circle
+hide methods
+hide stereotypes
+skinparam classAttributeIconSize 0
+
+legend left
+== Chú thích (Majors)
+- Thực thể chính: Major
+- Quan hệ:
+  - Major 1..N MajorOutcome/MajorQuotaYear/MajorTuition
+  - Major N..1 OrgUnit (đơn vị chủ quản)
+  - Major 1..N Program (CTĐT thuộc ngành)
+  - Major (cha-con) tự tham chiếu
+endlegend
+
+entity "org.org_units" as org_units {
+  + id : bigint <<PK>>
+  --
+  code : varchar(50)
+  name : varchar(255)
+}
+
+entity "academic.majors" as major {
+  + id : bigint <<PK>>
+  --
+  code : varchar(32)
+  name_vi : varchar(255)
+  degree_level : varchar(32)
+  org_unit_id : bigint <<FK org_units.id>>
+  parent_major_id : bigint (nullable) <<FK major.id>>
+}
+
+entity "academic.major_outcome" as major_outcome {
+  + id : bigint <<PK>>
+  --
+  major_id : bigint <<FK major.id>>
+  code : varchar(32)
+}
+
+entity "academic.major_quota_year" as major_quota_year {
+  + id : bigint <<PK>>
+  --
+  major_id : bigint <<FK major.id>>
+  year : smallint
+}
+
+entity "academic.major_tuition" as major_tuition {
+  + id : bigint <<PK>>
+  --
+  major_id : bigint <<FK major.id>>
+  year : smallint
+}
+
+entity "academic.programs" as program {
+  + id : bigint <<PK>>
+  --
+  major_id : bigint (nullable) <<FK major.id>>
+}
+
+org_units ||--o{ major : quản_lý
+major ||--o{ major_outcome : có
+major ||--o{ major_quota_year : chỉ_tiêu
+major ||--o{ major_tuition : học_phí
+major ||--o{ program : có_ctdt
+major ||--o{ major : chuyên_ngành_con
+
+@enduml

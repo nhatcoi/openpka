@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
-import { withErrorHandling, withBody, validateSchema } from '@/lib/api-handler';
-import { Schemas } from '@/lib/api-schemas';
+import { withErrorHandling, withBody, validateSchema } from '@/lib/api/api-handler';
+import { Schemas } from '@/lib/api/api-schemas';
 import { Prisma } from '@prisma/client';
 
 export const GET = withErrorHandling(
