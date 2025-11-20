@@ -1,0 +1,35 @@
+@startuml Finance_Screen_Flow
+title Finance - Học phí tối thiểu
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Inter
+skinparam Shadowing false
+skinparam ArrowThickness 1
+skinparam activity {
+  Padding 8
+  FontSize 12
+  BackgroundColor #F6F9FF
+  BorderColor #123D7A
+}
+skinparam wrapWidth 230
+skinparam maxMessageSize 180
+
+start
+:/finance → FinanceLayout;
+:Tải CTĐT PUBLISHED;
+split
+  :Chọn CTĐT + năm học;
+split again
+  :Nhập đơn giá tín chỉ;
+end split
+:POST /api/finance/tuition-rates;
+if (409?) then (Có)
+  :Confirm cập nhật (force=true);
+endif
+split
+  :Refresh bảng đơn giá + học phí tối thiểu;
+split again
+  :Xem lịch sử học phí 5 năm;
+end split
+stop
+@enduml
+

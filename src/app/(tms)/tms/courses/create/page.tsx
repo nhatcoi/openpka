@@ -20,6 +20,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  FormHelperText,
   FormControlLabel,
   Switch,
   Chip,
@@ -143,9 +144,6 @@ const assessmentMethods = [
   { value: 'attendance', label: 'Chuyên cần' }
 ];
 
-// OrgUnits will be fetched from API
-
-// Helper function to create default syllabus weeks
 const createDefaultSyllabus = () => {
   return Array.from({ length: 10 }, (_, index) => ({
     week: index + 1,
@@ -201,8 +199,40 @@ export default function CreateCoursePage() {
 
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogType, setDialogType] = useState('');
+  const [basicInfoErrors, setBasicInfoErrors] = useState<Record<string, string>>({});
+
+  const validateBasicInfo = () => {
+    const errors: Record<string, string> = {};
+    const { code, nameVi, credits, orgUnitId, type } = formData.basicInfo;
+
+    if (!code.trim()) {
+      errors.code = 'Vui lòng nhập mã môn học';
+    }
+    if (!nameVi.trim()) {
+      errors.nameVi = 'Vui lòng nhập tên môn học';
+    }
+    if (!orgUnitId) {
+      errors.orgUnitId = 'Vui lòng chọn đơn vị tổ chức';
+    }
+    if (!type) {
+      errors.type = 'Vui lòng chọn loại môn học';
+    }
+    if (!credits || credits <= 0) {
+      errors.credits = 'Số tín chỉ phải lớn hơn 0';
+    }
+    const creditsDistributionError = getCreditsValidationError();
+    if (creditsDistributionError) {
+      errors.creditDistribution = creditsDistributionError;
+    }
+
+    setBasicInfoErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleNext = () => {
+    if (activeStep === 0 && !validateBasicInfo()) {
+      return;
+    }
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
@@ -214,9 +244,7 @@ export default function CreateCoursePage() {
     try {
       setLoading(true);
       
-      // Prepare data for API - convert formData to API format
       const courseData = {
-        // Basic Info
         code: formData.basicInfo.code,
         name_vi: formData.basicInfo.nameVi,
         name_en: formData.basicInfo.nameEn,
@@ -227,29 +255,18 @@ export default function CreateCoursePage() {
         type: formData.basicInfo.type,
         description: formData.basicInfo.description,
         
-        // Prerequisites - send full course object as-is
         prerequisites: formData.prerequisites || [],
-        
-        // Learning Objectives - extract objective and type
         learning_objectives: formData.learningObjectives?.map(obj => ({
           objective: obj.objective,
           type: obj.type
         })) || [],
-        
-        // Assessment Methods - extract method, weight, description
         assessment_methods: formData.assessment?.methods?.map(method => ({
           method: method.method,
           weight: method.weight,
           description: method.description
         })) || [],
-        
-        // Passing Grade
         passing_grade: formData.assessment?.passingGrade || 5.0,
-        
-        // Syllabus - keep as is
         syllabus: formData.syllabus || [],
-        
-        // Workflow
         workflow_priority: formData.workflow.priority.toLowerCase(),
         workflow_notes: 'Draft course saved'
       };
@@ -268,7 +285,6 @@ export default function CreateCoursePage() {
         throw new Error(result.error || 'Failed to save course');
       }
 
-      console.log('Course saved successfully:', result);
       router.push('/tms/courses');
     } catch (error: any) {
       console.error('Error saving course:', error);
@@ -282,9 +298,7 @@ export default function CreateCoursePage() {
     try {
       setLoading(true);
       
-      // Prepare data for API - convert formData to API format
       const courseData = {
-        // Basic Info
         code: formData.basicInfo.code,
         name_vi: formData.basicInfo.nameVi,
         name_en: formData.basicInfo.nameEn,
@@ -295,29 +309,18 @@ export default function CreateCoursePage() {
         type: formData.basicInfo.type,
         description: formData.basicInfo.description,
         
-        // Prerequisites - send full course object as-is
         prerequisites: formData.prerequisites || [],
-        
-        // Learning Objectives - extract objective and type
         learning_objectives: formData.learningObjectives?.map(obj => ({
           objective: obj.objective,
           type: obj.type
         })) || [],
-        
-        // Assessment Methods - extract method, weight, description
         assessment_methods: formData.assessment?.methods?.map(method => ({
           method: method.method,
           weight: method.weight,
           description: method.description
         })) || [],
-        
-        // Passing Grade
         passing_grade: formData.assessment?.passingGrade || 5.0,
-        
-        // Syllabus - keep as is
         syllabus: formData.syllabus || [],
-        
-        // Workflow
         workflow_priority: formData.workflow.priority.toLowerCase(),
         workflow_notes: 'Course submitted for approval'
       };
@@ -336,7 +339,6 @@ export default function CreateCoursePage() {
         throw new Error(result.error || 'Failed to submit course');
       }
 
-      console.log('Course submitted successfully:', result);
       router.push('/tms/courses');
     } catch (error: any) {
       console.error('Error submitting course:', error);
@@ -346,7 +348,6 @@ export default function CreateCoursePage() {
     }
   };
 
-  // Fetch orgUnits from API
   const fetchOrgUnits = async () => {
     try {
       setLoading(true);
@@ -363,7 +364,6 @@ export default function CreateCoursePage() {
     }
   };
 
-  // Fetch course options for prerequisites
   const fetchCourseOptions = async (searchTerm = '') => {
     try {
       const params = new URLSearchParams();
@@ -381,13 +381,11 @@ export default function CreateCoursePage() {
     }
   };
 
-  // Fetch orgUnits and initial course options on component mount
   React.useEffect(() => {
     fetchOrgUnits();
     fetchCourseOptions();
   }, []);
 
-  // File upload handlers
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>, weekIndex: number) => {
     const files = event.target.files;
     if (files && files.length > 0) {
@@ -431,9 +429,21 @@ export default function CreateCoursePage() {
       ...prev,
       [section]: { ...prev[section], ...data }
     }));
+
+    if (section === 'basicInfo') {
+      setBasicInfoErrors((prev) => {
+        const next = { ...prev };
+        Object.keys(data).forEach((key) => {
+          delete next[key];
+          if (key === 'theory_credit' || key === 'practical_credit') {
+            delete next.creditDistribution;
+          }
+        });
+        return next;
+      });
+    }
   };
 
-  // Validation helper for credits
   const validateCredits = (theory: number | undefined, practical: number | undefined, total: number) => {
     const theoryNum = theory || 0;
     const practicalNum = practical || 0;
@@ -558,8 +568,10 @@ export default function CreateCoursePage() {
                 value={formData.basicInfo.code}
                 onChange={(e) => updateFormData('basicInfo', { code: e.target.value })}
                 placeholder="VD: CS101"
+                error={!!basicInfoErrors.code}
+                helperText={basicInfoErrors.code}
               />
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!basicInfoErrors.orgUnitId}>
                 <InputLabel>Đơn vị tổ chức *</InputLabel>
                 <Select
                   value={formData.basicInfo.orgUnitId}
@@ -578,13 +590,13 @@ export default function CreateCoursePage() {
                     <MenuItem key={unit.id} value={unit.id}>
                       <Box>
                         <Typography variant="body1">{unit.name}</Typography>
-                        {/* <Typography variant="caption" color="text.secondary">
-                          {unit.code}
-                        </Typography> */}
                       </Box>
                     </MenuItem>
                   ))}
                 </Select>
+                {basicInfoErrors.orgUnitId && (
+                  <FormHelperText>{basicInfoErrors.orgUnitId}</FormHelperText>
+                )}
               </FormControl>
               <TextField
                 fullWidth
@@ -592,6 +604,8 @@ export default function CreateCoursePage() {
                 value={formData.basicInfo.nameVi}
                 onChange={(e) => updateFormData('basicInfo', { nameVi: e.target.value })}
                 sx={{ gridColumn: '1 / -1' }}
+                error={!!basicInfoErrors.nameVi}
+                helperText={basicInfoErrors.nameVi}
               />
               <TextField
                 fullWidth
@@ -607,6 +621,8 @@ export default function CreateCoursePage() {
                 value={formData.basicInfo.credits}
                 onChange={(e) => updateFormData('basicInfo', { credits: parseFloat(e.target.value) || 0 })}
                 inputProps={{ min: 0, max: 10, step: 0.5 }}
+                error={!!basicInfoErrors.credits}
+                helperText={basicInfoErrors.credits}
               />
               <TextField
                 fullWidth
@@ -615,8 +631,8 @@ export default function CreateCoursePage() {
                 value={formData.basicInfo.theory_credit || ''}
                 onChange={(e) => updateFormData('basicInfo', { theory_credit: parseFloat(e.target.value) || undefined })}
                 inputProps={{ min: 0, max: formData.basicInfo.credits, step: 0.5 }}
-                helperText={`Tối đa ${formData.basicInfo.credits} tín chỉ`}
-                error={!!getCreditsValidationError()}
+                helperText={basicInfoErrors.creditDistribution || `Tối đa ${formData.basicInfo.credits} tín chỉ`}
+                error={!!basicInfoErrors.creditDistribution}
               />
               <TextField
                 fullWidth
@@ -625,15 +641,10 @@ export default function CreateCoursePage() {
                 value={formData.basicInfo.practical_credit || ''}
                 onChange={(e) => updateFormData('basicInfo', { practical_credit: parseFloat(e.target.value) || undefined })}
                 inputProps={{ min: 0, max: formData.basicInfo.credits, step: 0.5 }}
-                helperText={`Tối đa ${formData.basicInfo.credits} tín chỉ`}
-                error={!!getCreditsValidationError()}
+                helperText={basicInfoErrors.creditDistribution || `Tối đa ${formData.basicInfo.credits} tín chỉ`}
+                error={!!basicInfoErrors.creditDistribution}
               />
-              {getCreditsValidationError() && (
-                <Alert severity="error" sx={{ gridColumn: '1 / -1' }}>
-                  {getCreditsValidationError()}
-                </Alert>
-              )}
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!basicInfoErrors.type}>
                 <InputLabel>Loại môn học *</InputLabel>
                 <Select
                   value={formData.basicInfo.type}
@@ -654,6 +665,9 @@ export default function CreateCoursePage() {
                     </MenuItem>
                   ))}
                 </Select>
+                {basicInfoErrors.type && (
+                  <FormHelperText>{basicInfoErrors.type}</FormHelperText>
+                )}
               </FormControl>
               <TextField
                 fullWidth

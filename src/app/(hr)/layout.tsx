@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import {
     Box,
@@ -24,6 +25,7 @@ import {
     AccountCircle,
     Logout,
     Edit,
+    Home,
 } from '@mui/icons-material';
 import { NewSidebar } from '@/components/nav/new-sidebar';
 import { ThemeToggle } from '@/components/misc/theme-toggle';
@@ -81,6 +83,16 @@ export default function HrLayout({
                         sx={{ mr: 2 }}
                     >
                         <MenuIcon />
+                    </IconButton>
+
+                    <IconButton
+                        color="inherit"
+                        aria-label="Quay về trang chính"
+                        sx={{ mr: 2 }}
+                        component={Link}
+                        href="/"
+                    >
+                        <Home />
                     </IconButton>
 
                     <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>

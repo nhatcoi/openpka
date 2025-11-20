@@ -18,11 +18,6 @@ import {
 } from '@mui/material';
 import {
     Dashboard as DashboardIcon,
-    MonetizationOn as MonetizationOnIcon,
-    ReceiptLong as ReceiptLongIcon,
-    Assessment as AssessmentIcon,
-    AccountBalanceWallet as AccountBalanceWalletIcon,
-    TrendingUp as TrendingUpIcon,
     ExpandLess,
     ExpandMore,
 } from '@mui/icons-material';
@@ -39,54 +34,10 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
     {
         key: 'dashboard',
-        label: 'Dashboard',
+        label: 'Thiết lập đơn giá tín chỉ CTĐT',
         icon: <DashboardIcon />,
         href: '/finance',
         // permission: 'finance.viewTuition',
-    },
-    {
-        key: 'tuition-management',
-        label: 'Quản lý học phí',
-        icon: <MonetizationOnIcon />,
-        // permission: 'finance.manageTuition',
-        children: [
-            {
-                key: 'tuition-rates',
-                label: 'Mức học phí',
-                icon: <AccountBalanceWalletIcon />,
-                href: '/finance/tuition-rates',
-                // permission: 'finance.manageTuition',
-            },
-            {
-                key: 'payment-schedule',
-                label: 'Lịch thu học phí',
-                icon: <ReceiptLongIcon />,
-                href: '/finance/payment-schedule',
-                // permission: 'finance.manageTuition',
-            },
-        ],
-    },
-    {
-        key: 'reports',
-        label: 'Báo cáo tài chính',
-        icon: <AssessmentIcon />,
-        // permission: 'finance.viewReports',
-        children: [
-            {
-                key: 'financial-reports',
-                label: 'Báo cáo tổng hợp',
-                icon: <AssessmentIcon />,
-                href: '/finance/reports',
-                // permission: 'finance.viewReports',
-            },
-            {
-                key: 'statistics',
-                label: 'Thống kê',
-                icon: <TrendingUpIcon />,
-                href: '/finance/statistics',
-                // permission: 'finance.viewReports',
-            },
-        ],
     },
 ];
 
@@ -100,10 +51,7 @@ export function FinanceSidebar() {
         console.log('👤 User:', session.user.username, session.user.email);
     }
 
-    const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-        'tuition-management': true,
-        'reports': false,
-    });
+    const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
     const hasPermission = (requiredPermission: string) => {
         if (!requiredPermission) return true;
