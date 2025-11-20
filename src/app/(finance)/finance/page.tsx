@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -35,12 +36,13 @@ import {
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material'
 
-type MajorOption = {
+type ProgramOption = {
   id: string
-  name: string
   code: string | null
-  totalCreditsMin: number | null
-  programs: { id: string | null; name: string | null; totalCredits: number | null }[]
+  name_vi: string | null
+  name_en: string | null
+  total_credits: number | null
+  status: string
 }
 
 type TuitionRate = {
@@ -99,38 +101,44 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 export default function FinancePage() {
   const yearOptions = useMemo(() => buildYearOptions(6), [])
   const [academicYear, setAcademicYear] = useState(yearOptions[0])
-  const [majors, setMajors] = useState<MajorOption[]>([])
-  const [selectedMajor, setSelectedMajor] = useState('')
+  const [programs, setPrograms] = useState<ProgramOption[]>([])
   const [selectedProgram, setSelectedProgram] = useState('')
   const [perCreditFee, setPerCreditFee] = useState('')
   const [note, setNote] = useState('')
   const [tuitionRates, setTuitionRates] = useState<TuitionRate[]>([])
   const [minTuitionList, setMinTuitionList] = useState<MinTuitionRow[]>([])
   const [historyLines, setHistoryLines] = useState<MinTuitionRow[]>([])
-  const [loadingMajors, setLoadingMajors] = useState(false)
+  const [loadingPrograms, setLoadingPrograms] = useState(false)
   const [loadingRates, setLoadingRates] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastState | null>(null)
 
-  const programOptions = useMemo(() => {
-    return majors.find((major) => major.id === selectedMajor)?.programs ?? []
-  }, [majors, selectedMajor])
+  const selectedProgramOption = useMemo(() => 
+    programs.find((program) => program.id === selectedProgram) || null, 
+    [programs, selectedProgram]
+  )
 
-  const selectedMajorInfo = useMemo(() => majors.find((major) => major.id === selectedMajor), [majors, selectedMajor])
+  const selectedProgramInfo = useMemo(() => programs.find((program) => program.id === selectedProgram), [programs, selectedProgram])
 
-  const fetchMajors = async () => {
-    setLoadingMajors(true)
+  const fetchPrograms = async () => {
+    setLoadingPrograms(true)
     try {
-      const data = await fetchJSON<{ data: MajorOption[] }>('/api/finance/majors')
-      setMajors(data.data)
-      if (!selectedMajor && data.data.length > 0) {
-        setSelectedMajor(data.data[0].id)
+      const response = await fetch('/api/tms/programs/list?status=PUBLISHED&limit=200')
+      if (!response.ok) {
+        throw new Error('Failed to fetch programs')
+      }
+      const result = await response.json()
+      if (result.success && result.data?.items) {
+        setPrograms(result.data.items)
+        if (!selectedProgram && result.data.items.length > 0) {
+          setSelectedProgram(result.data.items[0].id)
+        }
       }
     } catch (error) {
       console.error(error)
-      setToast({ open: true, message: 'Không thể tải danh sách ngành', severity: 'error' })
+      setToast({ open: true, message: 'Không thể tải danh sách CTĐT', severity: 'error' })
     } finally {
-      setLoadingMajors(false)
+      setLoadingPrograms(false)
     }
   }
 
@@ -138,7 +146,7 @@ export default function FinancePage() {
     setLoadingRates(true)
     try {
       const query = new URLSearchParams({ year: academicYear })
-      if (selectedMajor) query.set('majorId', selectedMajor)
+      if (selectedProgram) query.set('programId', selectedProgram)
       const data = await fetchJSON<{ data: TuitionRate[] }>(`/api/finance/tuition-rates?${query.toString()}`)
       setTuitionRates(data.data)
     } catch (error) {
@@ -160,12 +168,12 @@ export default function FinancePage() {
   }
 
   const fetchHistory = async () => {
-    if (!selectedMajor) {
+    if (!selectedProgram) {
       setHistoryLines([])
       return
     }
     try {
-      const data = await fetchJSON<{ data: MinTuitionRow[] }>(`/api/finance/min-tuition?majorId=${selectedMajor}&range=5`)
+      const data = await fetchJSON<{ data: MinTuitionRow[] }>(`/api/finance/min-tuition?programId=${selectedProgram}&range=5`)
       setHistoryLines(data.data)
     } catch (error) {
       console.error(error)
@@ -173,17 +181,17 @@ export default function FinancePage() {
   }
 
   useEffect(() => {
-    fetchMajors()
+    fetchPrograms()
   }, [])
 
   useEffect(() => {
     fetchTuitionRates()
     fetchMinTuition()
-  }, [academicYear, selectedMajor])
+  }, [academicYear, selectedProgram])
 
   useEffect(() => {
     fetchHistory()
-  }, [selectedMajor])
+  }, [selectedProgram])
 
   const stats = useMemo(() => {
     if (!minTuitionList.length) {
@@ -203,8 +211,7 @@ export default function FinancePage() {
 
   const submitTuitionRate = async (forceUpdate = false) => {
     const payload = {
-      majorId: selectedMajor,
-      programId: selectedProgram || undefined,
+      programId: selectedProgram,
       academicYear,
       perCreditFee: Number(perCreditFee),
       note: note || undefined,
@@ -238,8 +245,8 @@ export default function FinancePage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
-    if (!selectedMajor || !perCreditFee) {
-      setToast({ open: true, message: 'Vui lòng chọn ngành và nhập đơn giá', severity: 'error' })
+    if (!selectedProgram || !perCreditFee) {
+      setToast({ open: true, message: 'Vui lòng chọn CTĐT và nhập đơn giá', severity: 'error' })
       return
     }
 
@@ -344,37 +351,46 @@ export default function FinancePage() {
             </Typography>
 
             <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <FormControl fullWidth required disabled={loadingMajors}>
-                <InputLabel>Ngành/CTĐT</InputLabel>
-                <Select
-                  label="Ngành/CTĐT"
-                  value={selectedMajor}
-                  onChange={(event) => {
-                    setSelectedMajor(event.target.value)
-                    setSelectedProgram('')
-                  }}
-                >
-                  {majors.map((major) => (
-                    <MenuItem value={major.id} key={major.id}>
-                      {major.name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth disabled={!programOptions.length}>
-                <InputLabel>Chương trình (tùy chọn)</InputLabel>
-                <Select label="Chương trình (tùy chọn)" value={selectedProgram} onChange={handleProgramChange}>
-                  <MenuItem value="">
-                    <em>Tất cả CTĐT thuộc ngành</em>
-                  </MenuItem>
-                  {programOptions.map((program) => (
-                    <MenuItem key={program.id ?? ''} value={program.id ?? ''}>
-                      {program.name || 'CTĐT không tên'}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                options={programs}
+                value={selectedProgramOption}
+                onChange={(_, newValue) => {
+                  setSelectedProgram(newValue?.id || '')
+                }}
+                loading={loadingPrograms}
+                getOptionLabel={(option) => 
+                  option.code 
+                    ? `${option.code} - ${option.name_vi || option.name_en || 'CTĐT không tên'}` 
+                    : option.name_vi || option.name_en || 'CTĐT không tên'
+                }
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                filterOptions={(options, { inputValue }) => {
+                  const searchValue = inputValue.toLowerCase()
+                  return options.filter(
+                    (option) =>
+                      option.code?.toLowerCase().includes(searchValue) ||
+                      option.name_vi?.toLowerCase().includes(searchValue) ||
+                      option.name_en?.toLowerCase().includes(searchValue)
+                  )
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Chương trình đào tạo"
+                    placeholder="Tìm kiếm theo mã hoặc tên CTĐT"
+                    required
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loadingPrograms ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
 
               <FormControl fullWidth required>
                 <InputLabel>Năm học</InputLabel>
@@ -414,15 +430,15 @@ export default function FinancePage() {
                 >
                   Xoá dữ liệu
                 </Button>
-                <Button type="submit" variant="contained" startIcon={<TrendingUpIcon />} disabled={saving || !selectedMajor}>
+                <Button type="submit" variant="contained" startIcon={<TrendingUpIcon />} disabled={saving || !selectedProgram}>
                   {saving ? 'Đang lưu...' : 'Cập nhật đơn giá'}
                 </Button>
               </Stack>
             </Box>
 
-            {selectedMajorInfo && (
+            {selectedProgramInfo && (
               <Alert severity="info" sx={{ mt: 3 }}>
-                Tín chỉ tối thiểu của ngành: <strong>{selectedMajorInfo.totalCreditsMin ?? '—'}</strong>
+                Tổng số tín chỉ của CTĐT: <strong>{selectedProgramInfo.total_credits ?? '—'}</strong>
               </Alert>
             )}
           </Paper>
@@ -437,7 +453,7 @@ export default function FinancePage() {
               <HistoryIcon color="primary" />
             </Stack>
             {historyLines.length === 0 ? (
-              <Typography color="text.secondary">Chưa có dữ liệu lịch sử cho ngành này.</Typography>
+              <Typography color="text.secondary">Chưa có dữ liệu lịch sử cho CTĐT này.</Typography>
             ) : (
               <Stack spacing={2} maxHeight={360} sx={{ overflow: 'auto', pr: 1 }}>
                 {historyLines.map((item) => (
