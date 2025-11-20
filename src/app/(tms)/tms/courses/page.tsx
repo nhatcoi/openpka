@@ -1,637 +1,500 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
-  Container,
-  Typography,
-  Paper,
-  Card,
-  CardContent,
-  CardHeader,
-  CardActions,
   Button,
   Chip,
+  CircularProgress,
+  Container,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  Snackbar,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
-  InputAdornment,
-  IconButton,
-  Avatar,
-  Badge,
-  Alert,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  Stack,
-  Pagination,
-  CircularProgress,
-  Snackbar,
+  Tooltip,
+  Typography,
   Breadcrumbs,
-  Link
+  Link,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  FilterList as FilterIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Edit as EditIcon,
-  Visibility as VisibilityIcon,
-  Send as SendIcon,
-  Reply as ReplyIcon,
-  Publish as PublishIcon,
-  Assignment as AssignmentIcon,
-  Assessment as AssessmentIcon,
-  School as SchoolIcon,
-  Schedule as ScheduleIcon,
   Add as AddIcon,
-  Delete as DeleteIcon
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import {
-  CourseWorkflowStage,
-  getCourseWorkflowStageLabel,
-} from '@/constants/workflow-statuses';
 import {
   COURSE_WORKFLOW_STATUS_OPTIONS,
   getCourseTypeLabel,
   getStatusColor,
   getStatusLabel,
   getRawCourseStatuses,
-  normalizeCourseWorkflowStatus,
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  CourseApiResponseItem,
+  CourseListApiResponse,
+  CourseListItem,
+  mapOrgUnitOptions,
+  mapCourseResponse,
+} from './course-utils';
 
-interface Course {
-  id: number;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  credits: number;
-  theory_credit?: number;
-  practical_credit?: number;
-  type: string;
-  status: string;
-  workflow_stage: string;
-  workflow_priority?: string;
-  created_at: string;
-  updated_at: string;
-  submitted_at?: string;
-  approved_at?: string;
-  OrgUnit?: {
-    name: string;
-  };
+interface PaginationState {
+  page: number;
+  totalPages: number;
+  totalItems: number;
 }
 
-// Helper function to format decimal values
-const formatCredit = (value: any): string => {
-  if (value === null || value === undefined) return '0';
-  
-  // Handle Decimal objects from Prisma
-  if (typeof value === 'object' && value.toNumber) {
-    return value.toNumber().toString();
-  }
-  
-  // Handle string numbers
-  if (typeof value === 'string') {
-    const num = parseFloat(value);
-    return isNaN(num) ? '0' : num.toString();
-  }
-  
-  // Handle regular numbers
-  if (typeof value === 'number') {
-    return value.toString();
-  }
-  
-  return '0';
-};
+const DEFAULT_COURSE_PAGE_SIZE = 10;
 
-export default function CoursesPage() {
+export default function CoursesPage(): JSX.Element {
   const router = useRouter();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [faculties, setFaculties] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<CourseListItem[]>([]);
+  const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
   const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
-  const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showSnackbar, setShowSnackbar] = useState(false);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
-  // Fetch faculties from API
-  const fetchFaculties = async () => {
+  const fetchOrgUnits = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/faculties');
-      const result = await response.json();
+      const response = await fetch('/api/tms/faculties?limit=200');
+      const result = (await response.json()) as {
+        data?: { items?: OrgUnitApiItem[] };
+      };
 
-      if (response.ok) {
-        setFaculties(result.data.items || []);
+      if (response.ok && result?.data?.items) {
+        setOrgUnits(mapOrgUnitOptions(result.data.items));
       }
     } catch (err) {
-      console.error('Failed to fetch faculties:', err);
+      console.error('Failed to fetch faculties', err);
     }
-  };
+  }, []);
 
-  // Fetch courses from API
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '50',
+        page: pagination.page.toString(),
+        limit: String(DEFAULT_COURSE_PAGE_SIZE),
       });
-
-      if (selectedFaculty !== 'all') {
-        params.append('orgUnitId', selectedFaculty);
-      }
-
-      if (debouncedSearchTerm) {
-        params.append('search', debouncedSearchTerm);
-      }
 
       if (selectedStatus !== 'all') {
         const rawStatuses = getRawCourseStatuses(selectedStatus);
         if (rawStatuses.length === 1) {
-          params.append('status', rawStatuses[0]);
+          params.set('status', rawStatuses[0]);
         }
       }
 
-      const response = await fetch(`/api/tms/courses?${params}`);
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to fetch courses');
+      if (selectedOrgUnit !== 'all') {
+        params.set('orgUnitId', selectedOrgUnit);
       }
 
-      // Use the new API structure with data.items
-      if (result.success && result.data) {
-        setCourses(result.data.items || []);
-        setTotalPages(result.data.pagination?.totalPages || 1);
-      } else {
-        throw new Error('Invalid response format');
+      if (searchTerm) {
+        params.set('search', searchTerm);
       }
+
+      const response = await fetch(`/api/tms/courses?${params.toString()}`);
+      const result = (await response.json()) as CourseListApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Không thể tải danh sách học phần');
+      }
+
+      const items: CourseApiResponseItem[] = result.data?.items ?? [];
+      const mapped = items.map(mapCourseResponse);
+
+      setCourses(mapped);
+      setPagination((prev) => ({
+        ...prev,
+        totalPages: result.data?.pagination?.totalPages ?? 1,
+        totalItems: result.data?.pagination?.total ?? mapped.length,
+      }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
+      setError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.page, searchTerm, selectedOrgUnit, selectedStatus]);
 
   useEffect(() => {
-    fetchFaculties();
-  }, []);
-
-  // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+    fetchOrgUnits();
+  }, [fetchOrgUnits]);
 
   useEffect(() => {
     fetchCourses();
-  }, [page, selectedStatus, selectedFaculty, debouncedSearchTerm]);
+  }, [fetchCourses]);
 
-  const filteredCourses = useMemo(() => {
-    if (selectedStatus === 'all') return courses;
-    return courses.filter((course) => normalizeCourseWorkflowStatus(course.status) === selectedStatus);
-  }, [courses, selectedStatus]);
-
-  const handleViewDetails = (course: Course) => {
-    router.push(`/tms/courses/${course.id}`);
+  const handleSearch = () => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setSearchTerm(searchValue.trim());
   };
 
-  const handleEditCourse = (course: Course) => {
-    router.push(`/tms/courses/${course.id}/edit`);
+  const handleResetFilters = () => {
+    setSelectedStatus('all');
+    setSelectedOrgUnit('all');
+    setSearchValue('');
+    setSearchTerm('');
+    setPagination({ page: 1, totalItems: 0, totalPages: 1 });
   };
 
-  const handleDeleteCourse = async (courseId: number) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa học phần này?')) {
-      return;
-    }
+  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
+    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleOrgUnitChange = (event: SelectChangeEvent<string>) => {
+    setSelectedOrgUnit(event.target.value);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleDelete = async (courseId: string) => {
+    const confirmed = window.confirm('Bạn có chắc chắn muốn xóa học phần này?');
+    if (!confirmed) return;
 
     try {
       const response = await fetch(`/api/tms/courses/${courseId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
       });
-
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to delete course');
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Không thể xóa học phần');
       }
 
-      // Check if deletion was successful
-      if (result.success) {
-        setSuccessMessage('Xóa học phần thành công!');
-        setShowSnackbar(true);
-        // Refresh courses list
-        fetchCourses();
-      } else {
-        throw new Error(result.error || 'Failed to delete course');
-      }
+      setSnackbar({ open: true, message: 'Đã xóa học phần thành công', severity: 'success' });
+      fetchCourses();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const message = err instanceof Error ? err.message : 'Không thể xóa học phần';
+      setSnackbar({ open: true, message, severity: 'error' });
     }
   };
 
-  const handleWorkflowAction = (action: string, subjectId: number) => {
-    console.log(`Performing ${action} on subject ${subjectId}`);
-  };
-
-  const getActionButtons = (subject: any) => {
-    const buttons = [];
-    
-    buttons.push(
-      <Button
-        key="view"
-        size="small"
-        startIcon={<VisibilityIcon />}
-        onClick={() => handleViewDetails(subject)}
-      >
-        Xem
-      </Button>
-    );
-
-    if (subject.status === WorkflowStatus.REVIEWING) {
-      buttons.push(
-        <Button
-          key="review"
-          size="small"
-          variant="contained"
-          startIcon={<CheckCircleIcon />}
-          onClick={() => handleWorkflowAction('review', subject.id)}
-        >
-          Xem xét
-        </Button>
-      );
-    }
-
-    if (subject.status === WorkflowStatus.REVIEWING) {
-      if (subject.workflowStage === CourseWorkflowStage.ACADEMIC_OFFICE) {
-        buttons.push(
-          <Button
-            key="approve"
-            size="small"
-            variant="contained"
-            color="success"
-            startIcon={<CheckCircleIcon />}
-            onClick={() => handleWorkflowAction('approve', subject.id)}
-          >
-            Phê duyệt
-          </Button>
-        );
-        buttons.push(
-          <Button
-            key="reject"
-            size="small"
-            color="error"
-            startIcon={<CancelIcon />}
-            onClick={() => handleWorkflowAction('reject', subject.id)}
-          >
-            Từ chối
-          </Button>
-        );
-      }
-    }
-
-    if (subject.status === WorkflowStatus.APPROVED) {
-      buttons.push(
-        <Button
-          key="publish"
-          size="small"
-          variant="contained"
-          color="info"
-          startIcon={<PublishIcon />}
-          onClick={() => handleWorkflowAction('publish', subject.id)}
-        >
-          Xuất bản
-        </Button>
-      );
-    }
-
-    return buttons;
-  };
+  const isEmpty = useMemo(() => !loading && courses.length === 0, [loading, courses.length]);
 
   return (
-    <Container maxWidth={false} sx={{ py: 4, px: 1 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/tms"
-          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Container maxWidth={false} sx={{ px: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Typography color="text.primary">Học phần</Typography>
+        </Breadcrumbs>
+
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+            color: 'white',
+            borderRadius: 2,
+            mb: 4,
+          }}
         >
-          TMS
-        </Link>
-        <Typography color="text.primary">Học phần</Typography>
-      </Breadcrumbs>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+            <Box>
+              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Quản lý học phần
+              </Typography>
+              <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+                Theo dõi, tạo mới và cập nhật thông tin học phần trong hệ thống
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="outlined"
+                startIcon={<RefreshIcon />}
+                onClick={fetchCourses}
+                disabled={loading}
+                color="inherit"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
+              >
+                Làm mới
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: 'white',
+                  color: '#1976d2',
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+                }}
+                onClick={() => router.push('/tms/courses/create')}
+              >
+                Tạo học phần mới
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
 
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          <AssignmentIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
-          Quản lý học phần
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Quản lý và theo dõi các học phần trong hệ thống
-        </Typography>
-      </Box>
-
-      {/* Action Buttons */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">
-            Học phần ({filteredCourses.length})
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => router.push('/tms/courses/create')}
-          >
-            Tạo học phần mới
-          </Button>
-        </Stack>
-      </Paper>
-
-      {/* Search and Filter */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            placeholder="Tìm kiếm học phần..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ minWidth: 300 }}
-          />
-          
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Trạng thái</InputLabel>
-            <Select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as WorkflowStatus | 'all')}
-              label="Trạng thái"
-            >
-              <MenuItem value="all">Tất cả</MenuItem>
-              {COURSE_WORKFLOW_STATUS_OPTIONS.map((status) => (
-                <MenuItem key={status.value} value={status.value}>
-                  {status.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl sx={{ minWidth: 200 }}>
-            <InputLabel>Khoa</InputLabel>
-            <Select
-              value={selectedFaculty}
-              onChange={(e) => setSelectedFaculty(e.target.value)}
-              label="Khoa"
-              MenuProps={{
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                  },
-                },
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <TextField
+              placeholder="Tìm kiếm theo tên hoặc mã học phần"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSearch();
+                }
               }}
-            >
-              <MenuItem value="all">Tất cả khoa</MenuItem>
-              {faculties.map((faculty) => (
-                <MenuItem key={faculty.id} value={faculty.id}>
-                  {faculty.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flexGrow: 1, minWidth: 220 }}
+            />
 
+            <FormControl sx={{ minWidth: 160 }}>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select value={selectedStatus} label="Trạng thái" onChange={handleStatusChange}>
+                <MenuItem value="all">Tất cả</MenuItem>
+                {COURSE_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-          <Button
-            variant="outlined"
-            startIcon={<FilterIcon />}
-            onClick={() => {
-              setSelectedStatus('all');
-              setSelectedFaculty('all');
-              setSearchTerm('');
-              setDebouncedSearchTerm('');
-            }}
-          >
-            Xóa bộ lọc
-          </Button>
-        </Box>
-      </Paper>
+            <FormControl sx={{ minWidth: 220 }}>
+              <InputLabel>Khoa</InputLabel>
+              <Select value={selectedOrgUnit} label="Khoa" onChange={handleOrgUnitChange}>
+                <MenuItem value="all">Tất cả khoa</MenuItem>
+                {orgUnits.map((unit) => (
+                  <MenuItem key={unit.id} value={unit.id}>
+                    {unit.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-      {/* Subjects Table */}
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6" gutterBottom>
-          Danh sách học phần
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-        
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Mã môn</TableCell>
-                <TableCell>Tên học phần</TableCell>
-                <TableCell>Khoa</TableCell>
-                <TableCell>Tín chỉ</TableCell>
-                <TableCell>Danh mục</TableCell>
-                <TableCell align="center">Trạng thái</TableCell>
-                <TableCell>Ngày gửi</TableCell>
-                <TableCell align="center">Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                    <CircularProgress size={24} />
-                    <Typography>Đang tải...</Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ) : error ? (
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={handleSearch} disabled={loading}>
+                Tìm kiếm
+              </Button>
+              <Button variant="text" onClick={handleResetFilters} disabled={loading}>
+                Xóa bộ lọc
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 0, overflow: 'hidden' }}>
+          <TableContainer sx={{ width: '100%' }}>
+            <Table sx={{ width: '100%' }}>
+              <TableHead>
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Alert severity="error">{error}</Alert>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Mã</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Tên học phần</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Khoa</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Tín chỉ
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Danh mục</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Trạng thái
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Thao tác
                   </TableCell>
                 </TableRow>
-              ) : filteredCourses.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">Không có học phần nào</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredCourses.map((course) => {
-                  const courseTypeLabel = getCourseTypeLabel(course.type);
-                  return (
-                  <TableRow 
-                    key={course.id} 
-                    hover
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => router.push(`/tms/courses/${course.id}`)}
-                >
-                  <TableCell>
-                    <Typography 
-                      variant="subtitle2" 
-                      fontWeight="bold"
-                      sx={{ 
-                        cursor: 'pointer', 
-                        color: 'primary.main',
-                        '&:hover': { textDecoration: 'underline' }
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/tms/courses/${course.id}`);
-                      }}
-                    >
-                      {course.code}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography 
-                      variant="body2"
-                      sx={{ 
-                        cursor: 'pointer',
-                        '&:hover': { textDecoration: 'underline' }
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/tms/courses/${course.id}`);
-                      }}
-                    >
-                      {course.name_vi}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {courseTypeLabel}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{course.OrgUnit?.name || 'N/A'}</TableCell>
-                  <TableCell>
-                    <Stack spacing={0.5}>
-                      <Typography variant="body2" fontWeight="medium" color="primary">
-                        Tổng: {course.credits} tín chỉ
+              </TableHead>
+              <TableBody>
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={28} />
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {error && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Alert severity="error" action={
+                        <Button color="inherit" size="small" onClick={fetchCourses}>
+                          Thử lại
+                        </Button>
+                      }>
+                        {error}
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {isEmpty && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Alert severity="info">Không tìm thấy học phần phù hợp.</Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!loading && !error && courses.map((course) => (
+                  <TableRow key={course.id} hover>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{course.code}</TableCell>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight="medium">
+                        {course.nameVi}
                       </Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Chip 
-                          label={`LT: ${formatCredit(course.theory_credit)}`} 
-                          size="small" 
-                          variant="outlined" 
-                          color="info"
-                          sx={{ fontSize: '0.7rem' }}
-                        />
-                        <Chip 
-                          label={`TH: ${formatCredit(course.practical_credit)}`} 
-                          size="small" 
-                          variant="outlined" 
-                          color="secondary"
-                          sx={{ fontSize: '0.7rem' }}
-                        />
+                      {course.nameEn && (
+                        <Typography variant="body2" color="text.secondary">
+                          {course.nameEn}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {course.orgUnit ? (
+                        <>
+                          <Typography variant="body2" fontWeight="medium">
+                            {course.orgUnit.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {course.orgUnit.code}
+                          </Typography>
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Chưa cập nhật
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack spacing={0.5} alignItems="center">
+                        <Typography variant="body2" fontWeight="medium" color="primary">
+                          Tổng: {course.credits} tín chỉ
+                        </Typography>
+                        <Stack direction="row" spacing={1}>
+                          <Chip
+                            label={`LT: ${course.theoryCredit}`}
+                            size="small"
+                            variant="outlined"
+                            color="info"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                          <Chip
+                            label={`TH: ${course.practicalCredit}`}
+                            size="small"
+                            variant="outlined"
+                            color="secondary"
+                            sx={{ fontSize: '0.7rem' }}
+                          />
+                        </Stack>
                       </Stack>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    <Chip label="Kiến thức chuyên ngành" size="small" variant="outlined" />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={getStatusLabel(course.status)}
-                      color={getStatusColor(course.status) as any}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {course.created_at ? new Date(course.created_at).toLocaleDateString() : '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      <IconButton
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={getCourseTypeLabel(course.type)}
                         size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/tms/courses/${course.id}`);
-                        }}
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                      <IconButton
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={getStatusLabel(course.status)}
+                        color={getStatusColor(course.status)}
                         size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/tms/courses/${course.id}`);
-                        }}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteCourse(course.id);
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Stack>
-                  </TableCell>
-                </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3, mb: 2 }}>
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} justifyContent="center">
+                        <Tooltip title="Xem chi tiết">
+                          <IconButton size="small" color="primary" onClick={() => router.push(`/tms/courses/${course.id}`)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Chỉnh sửa">
+                          <IconButton size="small" color="secondary" onClick={() => router.push(`/tms/courses/${course.id}/edit`)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Xóa">
+                          <IconButton size="small" color="error" onClick={() => handleDelete(course.id)}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              Hiển thị {courses.length} / {pagination.totalItems} học phần
+            </Typography>
             <Pagination
-              count={totalPages}
-              page={page}
-              onChange={(event, value) => setPage(value)}
               color="primary"
-              size="large"
-              showFirstButton
-              showLastButton
+              page={pagination.page}
+              count={Math.max(pagination.totalPages, 1)}
+              onChange={handlePageChange}
             />
           </Box>
-        )}
-      </Paper>
+        </Paper>
 
-
-      {/* Success Snackbar */}
-      <Snackbar
-        open={showSnackbar}
-        autoHideDuration={3000}
-        onClose={() => setShowSnackbar(false)}
-        message={successMessage}
-      />
-    </Container>
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          <Alert
+            onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            severity={snackbar.severity}
+            sx={{ width: '100%' }}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </Box>
   );
 }

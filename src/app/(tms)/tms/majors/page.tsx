@@ -1,48 +1,47 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Stack,
-  Button,
-  Pagination,
   Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Container,
   Dialog,
-  DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  IconButton,
+  InputAdornment,
+  InputLabel,
+  MenuItem,
+  Pagination,
+  Paper,
+  Select,
+  SelectChangeEvent,
+  Snackbar,
+  Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  IconButton,
-  Tooltip,
-  CircularProgress,
   TextField,
-  InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Snackbar,
-  Skeleton,
+  Tooltip,
+  Typography,
   Breadcrumbs,
   Link,
 } from '@mui/material';
 import {
   Add as AddIcon,
-  RateReview as RateReviewIcon,
-  Edit as EditIcon,
   Delete as DeleteIcon,
-  Visibility as VisibilityIcon,
-  Search as SearchIcon,
+  Edit as EditIcon,
   Refresh as RefreshIcon,
+  Search as SearchIcon,
+  Visibility as VisibilityIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import {
@@ -51,46 +50,42 @@ import {
   getMajorDegreeLevelLabel,
 } from '@/constants/majors';
 import { WORKFLOW_STATUS_OPTIONS, WorkflowStatus } from '@/constants/workflow-statuses';
+import {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  MajorApiResponseItem,
+  MajorListApiResponse,
+  MajorListItem,
+  mapOrgUnitOptions,
+  mapMajorResponse,
+} from './major-utils';
 
-interface Major {
-  id: number;
-  code: string;
-  name_vi: string;
-  name_en?: string | null;
-  short_name?: string | null;
-  slug?: string | null;
-  degree_level: string;
-  org_unit_id: number;
-  duration_years?: number | null;
-  total_credits_min?: number | null;
-  total_credits_max?: number | null;
-  semesters_per_year?: number | null;
-  status: string;
-  closed_at?: string | null;
-  metadata?: Record<string, any> | null;
-  created_by?: number | null;
-  updated_by?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  is_active?: boolean | null;
+interface PaginationState {
+  page: number;
+  totalPages: number;
+  totalItems: number;
 }
 
-export default function MajorsPage() {
+const DEFAULT_MAJOR_PAGE_SIZE = 10;
+
+export default function MajorsPage(): JSX.Element {
   const router = useRouter();
-  const [majors, setMajors] = useState<Major[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalItems, setTotalItems] = useState(0);
-  const [searchValue, setSearchValue] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [majors, setMajors] = useState<MajorListItem[]>([]);
+  const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    page: 1,
+    totalPages: 1,
+    totalItems: 0,
+  });
   const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
   const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
-  const [orgUnits, setOrgUnits] = useState<Array<{id: number; name: string; code: string}>>([]);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; major: Major | null }>({
+  const [searchValue, setSearchValue] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; major: MajorListItem | null }>({
     open: false,
-    major: null
+    major: null,
   });
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
@@ -98,426 +93,389 @@ export default function MajorsPage() {
     severity: 'success',
   });
 
-
-  // Fetch majors data
-  const fetchMajors = useCallback(async () => {
-    try {
-      setLoading(true);
-
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10',
-      });
-
-      if (searchTerm) {
-        params.append('search', searchTerm);
-      }
-      if (selectedStatus !== 'all') {
-        params.append('status', selectedStatus);
-      }
-      if (selectedOrgUnit !== 'all') {
-        params.append('org_unit_id', selectedOrgUnit);
-      }
-
-      const response = await fetch(`/api/tms/majors?${params}`);
-      const data = await response.json();
-
-      if (data.success) {
-        setMajors(data.data?.items || []);
-        setTotalPages(data.data?.pagination?.pages || 1);
-        setTotalItems(data.data?.pagination?.total || 0);
-      } else {
-        setError(data.error || 'Failed to fetch majors');
-      }
-    } catch (err: any) {
-      setError('Failed to fetch majors');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, searchTerm, selectedStatus, selectedOrgUnit]);
-
-  // Fetch org units for filter
   const fetchOrgUnits = useCallback(async () => {
     try {
       const response = await fetch('/api/tms/majors/org-units');
-      const data = await response.json();
-      if (data.success) {
-        setOrgUnits(data.data || []);
+      const result = (await response.json()) as {
+        success?: boolean;
+        data?: OrgUnitApiItem[];
+      };
+
+      if (response.ok && result?.data) {
+        setOrgUnits(mapOrgUnitOptions(result.data));
       }
     } catch (err) {
-      console.error('Failed to fetch org units:', err);
+      console.error('Failed to fetch org units', err);
     }
   }, []);
 
-  useEffect(() => {
-    fetchMajors();
-  }, [fetchMajors]);
+  const fetchMajors = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: String(DEFAULT_MAJOR_PAGE_SIZE),
+      });
+
+      if (selectedStatus !== 'all') {
+        params.set('status', selectedStatus);
+      }
+
+      if (selectedOrgUnit !== 'all') {
+        params.set('org_unit_id', selectedOrgUnit);
+      }
+
+      if (searchTerm) {
+        params.set('search', searchTerm);
+      }
+
+      const response = await fetch(`/api/tms/majors?${params.toString()}`);
+      const result = (await response.json()) as MajorListApiResponse;
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Không thể tải danh sách ngành học');
+      }
+
+      const items: MajorApiResponseItem[] = result.data?.items ?? [];
+      const mapped = items.map(mapMajorResponse);
+
+      setMajors(mapped);
+      setPagination((prev) => ({
+        ...prev,
+        totalPages: result.data?.pagination?.pages ?? 1,
+        totalItems: result.data?.pagination?.total ?? mapped.length,
+      }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Đã xảy ra lỗi khi tải dữ liệu';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, searchTerm, selectedOrgUnit, selectedStatus]);
 
   useEffect(() => {
     fetchOrgUnits();
   }, [fetchOrgUnits]);
 
+  useEffect(() => {
+    fetchMajors();
+  }, [fetchMajors]);
+
+  const handleSearch = () => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+    setSearchTerm(searchValue.trim());
+  };
+
+  const handleResetFilters = () => {
+    setSelectedStatus('all');
+    setSelectedOrgUnit('all');
+    setSearchValue('');
+    setSearchTerm('');
+    setPagination({ page: 1, totalItems: 0, totalPages: 1 });
+  };
+
+  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+    setPagination((prev) => ({ ...prev, page: newPage }));
+  };
+
+  const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
+    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleOrgUnitChange = (event: SelectChangeEvent<string>) => {
+    setSelectedOrgUnit(event.target.value);
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleDelete = async (majorId: string) => {
+    try {
+      const response = await fetch(`/api/tms/majors/${majorId}`, {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Không thể xóa ngành học');
+      }
+
+      setSnackbar({ open: true, message: 'Đã xóa ngành học thành công', severity: 'success' });
+      setDeleteDialog({ open: false, major: null });
+      fetchMajors();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể xóa ngành học';
+      setSnackbar({ open: true, message, severity: 'error' });
+    }
+  };
+
   const orgUnitMap = useMemo(() => {
-    const map = new Map<number, { id: number; name: string; code: string }>();
+    const map = new Map<string, OrgUnitOption>();
     for (const unit of orgUnits) {
       map.set(unit.id, unit);
     }
     return map;
   }, [orgUnits]);
 
-  // Handle search
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchValue(event.target.value);
-  };
-
-  const handleSearchSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    setSearchTerm(searchValue);
-    setPage(1);
-  };
-
-  const handleSearchClear = () => {
-    setSearchValue('');
-    setSearchTerm('');
-    setPage(1);
-  };
-
-  // Handle filter changes
-  const handleStatusChange = (event: any) => {
-    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
-    setPage(1);
-  };
-
-  const handleOrgUnitChange = (event: any) => {
-    setSelectedOrgUnit(event.target.value);
-    setPage(1);
-  };
-
-  // Handle page change
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
-  };
-
-  // Handle refresh
-  const handleRefresh = () => {
-    fetchMajors();
-  };
-
-  // Handle delete
-  const handleDelete = async (major: Major) => {
-    try {
-      const response = await fetch(`/api/tms/majors/${major.id}`, {
-        method: 'DELETE',
-      });
-      const data = await response.json();
-
-      if (data.success) {
-        setSnackbar({
-          open: true,
-          message: 'Xóa ngành học thành công!',
-          severity: 'success'
-        });
-        fetchMajors();
-        setDeleteDialog({ open: false, major: null });
-      } else {
-        setSnackbar({
-          open: true,
-          message: data.error || 'Không thể xóa ngành học',
-          severity: 'error'
-        });
-      }
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: 'Lỗi mạng khi xóa ngành học',
-        severity: 'error'
-      });
-    }
-  };
-
-
-  if (loading) {
-    return (
-      <Box sx={{ width: '100%', py: 2, px: 2 }}>
-        <Stack spacing={2}>
-          <Skeleton variant="rectangular" height={120} />
-          <Skeleton variant="rectangular" height={80} />
-          <Skeleton variant="rectangular" height={400} />
-        </Stack>
-      </Box>
-    );
-  }
+  const isEmpty = useMemo(() => !loading && majors.length === 0, [loading, majors.length]);
 
   return (
-    <Box sx={{ width: '100%', py: 2, px: 2 }}>
-      <Breadcrumbs sx={{ mb: 2 }}>
-        <Link
-          color="inherit"
-          href="/tms"
-          sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-        >
-          TMS
-        </Link>
-        <Typography color="text.primary">Ngành đào tạo</Typography>
-      </Breadcrumbs>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+      <Container maxWidth={false} sx={{ px: 2 }}>
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Link
+            color="inherit"
+            href="/tms"
+            sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            TMS
+          </Link>
+          <Typography color="text.primary">Ngành đào tạo</Typography>
+        </Breadcrumbs>
 
-      <Stack spacing={2}>
-        {/* Header */}
-        <Paper 
-          sx={{ 
-            p: 2, 
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
-            position: 'relative',
-            overflow: 'hidden'
+            borderRadius: 2,
+            mb: 4,
           }}
         >
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
             <Box>
-              <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-                Quản lý Ngành học
+              <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Quản lý ngành đào tạo
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                Quản lý thông tin các ngành học trong hệ thống
+              <Typography variant="subtitle1" sx={{ opacity: 0.9 }}>
+                Theo dõi, tạo mới và cập nhật thông tin ngành học trong hệ thống
               </Typography>
             </Box>
-          </Stack>
-        </Paper>
-
-        {/* Action Buttons */}
-        <Paper sx={{ p: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Button
-              variant="outlined"
-              startIcon={<RateReviewIcon />}
-              onClick={() => router.push('/tms/review')}
-              color="primary"
-              size="small"
-            >
-              Trung tâm phê duyệt
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => router.push('/tms/majors/create')}
-              size="small"
-            >
-              Thêm ngành
-            </Button>
-          </Stack>
-        </Paper>
-
-        {/* Error Alert */}
-        {error && (
-          <Alert severity="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Search and Filters */}
-        <Paper sx={{ p: 2 }}>
-          <Stack spacing={2}>
-            {/* Search Bar */}
-            <Box component="form" onSubmit={handleSearchSubmit}>
-              <TextField
-                fullWidth
-                placeholder="Tìm kiếm theo mã, tên ngành..."
-                value={searchValue}
-                onChange={handleSearchChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: searchValue && (
-                    <InputAdornment position="end">
-                      <IconButton onClick={handleSearchClear} size="small">
-                        ×
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Box>
-
-            {/* Filters */}
-            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-              <FormControl sx={{ minWidth: 200 }}>
-                <InputLabel>Trạng thái</InputLabel>
-                <Select
-                  value={selectedStatus}
-                  label="Trạng thái"
-                  onChange={handleStatusChange}
-                >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                {WORKFLOW_STATUS_OPTIONS.map((status) => (
-                  <MenuItem key={status.value} value={status.value}>
-                    {status.label}
-                  </MenuItem>
-                ))}
-                </Select>
-              </FormControl>
-
-              <FormControl sx={{ minWidth: 200 }}>
-                <InputLabel>Đơn vị</InputLabel>
-                <Select
-                  value={selectedOrgUnit}
-                  label="Đơn vị"
-                  onChange={handleOrgUnitChange}
-                >
-                  <MenuItem value="all">Tất cả</MenuItem>
-                  {orgUnits.map((unit) => (
-                    <MenuItem key={unit.id} value={unit.id.toString()}>
-                      {unit.name} ({unit.code})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
-              <Box sx={{ flex: 1 }} />
+            <Stack direction="row" spacing={2}>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
-                onClick={handleRefresh}
+                onClick={fetchMajors}
                 disabled={loading}
+                color="inherit"
+                sx={{ color: '#fff', borderColor: 'rgba(255,255,255,0.7)' }}
               >
                 Làm mới
+              </Button>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                sx={{
+                  backgroundColor: 'white',
+                  color: '#667eea',
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+                }}
+                onClick={() => router.push('/tms/majors/create')}
+              >
+                Tạo ngành mới
               </Button>
             </Stack>
           </Stack>
         </Paper>
 
-        {/* Majors Table */}
-        <Paper sx={{ p: 0, overflow: 'hidden', width: '100%' }}>
-          <TableContainer sx={{ width: '100%', maxHeight: 'calc(100vh - 300px)' }}>
-            <Table sx={{ width: '100%' }} stickyHeader>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <TextField
+              placeholder="Tìm kiếm theo tên hoặc mã ngành"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  handleSearch();
+                }
+              }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flexGrow: 1, minWidth: 220 }}
+            />
+
+            <FormControl sx={{ minWidth: 160 }}>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select value={selectedStatus} label="Trạng thái" onChange={handleStatusChange}>
+                <MenuItem value="all">Tất cả</MenuItem>
+                {WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl sx={{ minWidth: 220 }}>
+              <InputLabel>Đơn vị quản lý</InputLabel>
+              <Select value={selectedOrgUnit} label="Đơn vị quản lý" onChange={handleOrgUnitChange}>
+                <MenuItem value="all">Tất cả đơn vị</MenuItem>
+                {orgUnits.map((unit) => (
+                  <MenuItem key={unit.id} value={unit.id}>
+                    {unit.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" onClick={handleSearch} disabled={loading}>
+                Tìm kiếm
+              </Button>
+              <Button variant="text" onClick={handleResetFilters} disabled={loading}>
+                Xóa bộ lọc
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        <Paper sx={{ p: 0, overflow: 'hidden' }}>
+          <TableContainer sx={{ width: '100%' }}>
+            <Table sx={{ width: '100%' }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }}>Mã</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Tên ngành</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '20%' }}>Đơn vị</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '12%' }}>Bằng cấp</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }} align="center">Thời gian</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '13%' }} align="center">Trạng thái</TableCell>
-                  <TableCell sx={{ fontWeight: 'bold', width: '10%' }} align="center">Thao tác</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Mã</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Tên ngành</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Đơn vị</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Bằng cấp</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Thời gian
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Trạng thái
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }} align="center">
+                    Thao tác
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {loading ? (
+                {loading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <CircularProgress />
+                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={28} />
                     </TableCell>
                   </TableRow>
-                ) : majors.length === 0 ? (
+                )}
+
+                {error && !loading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Không tìm thấy ngành học nào
+                    <TableCell colSpan={7}>
+                      <Alert severity="error" action={
+                        <Button color="inherit" size="small" onClick={fetchMajors}>
+                          Thử lại
+                        </Button>
+                      }>
+                        {error}
+                      </Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {isEmpty && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Alert severity="info">Không tìm thấy ngành học phù hợp.</Alert>
+                    </TableCell>
+                  </TableRow>
+                )}
+
+                {!loading && !error && majors.map((major) => (
+                  <TableRow key={major.id} hover>
+                    <TableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>{major.code}</TableCell>
+                    <TableCell>
+                      <Typography variant="subtitle2" fontWeight="medium">
+                        {major.nameVi}
+                      </Typography>
+                      {major.nameEn && (
+                        <Typography variant="body2" color="text.secondary">
+                          {major.nameEn}
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {orgUnitMap.get(major.orgUnitId) ? (
+                        <>
+                          <Typography variant="body2" fontWeight="medium">
+                            {orgUnitMap.get(major.orgUnitId)!.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {orgUnitMap.get(major.orgUnitId)!.code}
+                          </Typography>
+                        </>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          Chưa cập nhật
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {getMajorDegreeLevelLabel(major.degreeLevel)}
                       </Typography>
                     </TableCell>
+                    <TableCell align="center">
+                      <Typography variant="body2">
+                        {major.durationYears ? `${major.durationYears} năm` : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Chip
+                        label={getMajorStatusLabel(major.status)}
+                        color={getMajorStatusColor(major.status)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Stack direction="row" spacing={1} justifyContent="center">
+                        <Tooltip title="Xem chi tiết">
+                          <IconButton size="small" color="primary" onClick={() => router.push(`/tms/majors/${major.id}`)}>
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Chỉnh sửa">
+                          <IconButton size="small" color="secondary" onClick={() => router.push(`/tms/majors/${major.id}/edit`)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Xóa">
+                          <IconButton size="small" color="error" onClick={() => setDeleteDialog({ open: true, major })}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
                   </TableRow>
-                ) : (
-                  majors.map((major) => (
-                    <TableRow key={major.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {major.code}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {major.name_vi}
-                          </Typography>
-                          {major.name_en && (
-                            <Typography variant="caption" color="text.secondary">
-                              {major.name_en}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {orgUnitMap.get(major.org_unit_id)?.name || `Đơn vị #${major.org_unit_id}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {orgUnitMap.get(major.org_unit_id)?.code || ''}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          {getMajorDegreeLevelLabel(major.degree_level)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {major.duration_years ? `${major.duration_years} năm` : 'N/A'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip
-                          label={getMajorStatusLabel(major.status)}
-                          color={getMajorStatusColor(major.status)}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Stack direction="row" spacing={1} justifyContent="center">
-                          <Tooltip title="Xem chi tiết">
-                            <IconButton
-                              size="small"
-                              onClick={() => router.push(`/tms/majors/${major.id}`)}
-                            >
-                              <VisibilityIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Chỉnh sửa">
-                            <IconButton
-                              size="small"
-                              onClick={() => router.push(`/tms/majors/${major.id}/edit`)}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Xóa">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setDeleteDialog({ open: true, major })}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
 
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 3, py: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              Hiển thị {majors.length} / {totalItems} ngành học
+              Hiển thị {majors.length} / {pagination.totalItems} ngành học
             </Typography>
             <Pagination
               color="primary"
-              page={page}
-              count={Math.max(totalPages, 1)}
+              page={pagination.page}
+              count={Math.max(pagination.totalPages, 1)}
               onChange={handlePageChange}
             />
           </Box>
         </Paper>
 
-        {/* Delete Dialog */}
         <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, major: null })}>
           <DialogTitle>Xác nhận xóa</DialogTitle>
           <DialogContent>
             <Typography>
-              Bạn có chắc chắn muốn xóa ngành học "{deleteDialog.major?.name_vi}"?
+              Bạn có chắc chắn muốn xóa ngành học "{deleteDialog.major?.nameVi}"?
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -526,29 +484,27 @@ export default function MajorsPage() {
             </Button>
             <Button
               color="error"
-              onClick={() => deleteDialog.major && handleDelete(deleteDialog.major)}
+              onClick={() => deleteDialog.major && handleDelete(deleteDialog.major.id)}
             >
               Xóa
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Snackbar for notifications */}
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         >
-          <Alert 
-            onClose={() => setSnackbar({ ...snackbar, open: false })} 
-            severity={snackbar.severity} 
+          <Alert
+            onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+            severity={snackbar.severity}
             sx={{ width: '100%' }}
           >
             {snackbar.message}
           </Alert>
         </Snackbar>
-      </Stack>
+      </Container>
     </Box>
   );
 }
