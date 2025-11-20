@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -65,6 +66,7 @@ interface UserRole {
 
 export default function UserRolesPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
     const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -157,7 +159,14 @@ export default function UserRolesPage() {
     };
 
     const handleDelete = async (userRole: UserRole) => {
-        if (!confirm(`Bạn có chắc chắn muốn xóa phân quyền "${userRole.users_user_role_user_idTousers?.full_name || 'N/A'}" - "${userRole.Role?.name || 'N/A'}"?`)) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa phân quyền người dùng',
+            message: `Bạn có chắc chắn muốn xóa phân quyền "${userRole.users_user_role_user_idTousers?.full_name || 'N/A'}" - "${userRole.Role?.name || 'N/A'}"?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

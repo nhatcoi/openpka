@@ -10,12 +10,24 @@ export const GET = withErrorHandling(
     const employee_id = searchParams.get('employee_id');
     const org_unit_id = searchParams.get('org_unit_id');
     const assignment_type = searchParams.get('assignment_type');
+    const includeInactive = searchParams.get('include_inactive') === 'true';
+    const referenceDateParam = searchParams.get('reference_date');
+    let referenceDate = referenceDateParam ? new Date(referenceDateParam) : new Date();
+    if (Number.isNaN(referenceDate.getTime())) {
+      referenceDate = new Date();
+    }
 
     // Build where clause
     const where: Prisma.OrgAssignmentWhereInput = {};
     if (employee_id && employee_id !== 'undefined') where.employee_id = BigInt(employee_id);
     if (org_unit_id && org_unit_id !== 'undefined') where.org_unit_id = BigInt(org_unit_id);
     if (assignment_type && assignment_type !== 'undefined') where.assignment_type = assignment_type;
+    if (!includeInactive) {
+      where.OR = [
+        { end_date: null },
+        { end_date: { gte: referenceDate } },
+      ];
+    }
 
     const assignments = await db.orgAssignment.findMany({
       where,

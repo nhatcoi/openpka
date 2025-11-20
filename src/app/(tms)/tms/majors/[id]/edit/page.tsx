@@ -100,7 +100,10 @@ export default function EditMajorPage(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [majorData, setMajorData] = useState<MajorData | null>(null);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const [redirecting, setRedirecting] = useState(false);
   const [customFieldDialogOpen, setCustomFieldDialogOpen] = useState(false);
   const [customFieldKey, setCustomFieldKey] = useState('');
@@ -279,7 +282,10 @@ export default function EditMajorPage(): JSX.Element {
       const result = await response.json();
 
       if (result.success) {
-        setSuccessMessage('Cập nhật ngành đào tạo thành công!');
+        setSnackbar({
+          open: true,
+          message: 'Cập nhật ngành đào tạo thành công!',
+        });
         setTimeout(() => {
           setRedirecting(true);
           router.push(`/tms/majors/${majorId}`);
@@ -733,18 +739,18 @@ export default function EditMajorPage(): JSX.Element {
 
         {/* Success Snackbar */}
         <Snackbar
-            open={!!successMessage}
+            open={snackbar.open}
             autoHideDuration={6000}
-            onClose={() => setSuccessMessage(null)}
-            anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         >
           <Alert
-              onClose={() => setSuccessMessage(null)}
+              onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
               severity="success"
               sx={{ width: '100%' }}
           >
             <Stack direction="row" spacing={1} alignItems="center">
-              <Typography>{successMessage}</Typography>
+              <Typography>{snackbar.message}</Typography>
               {redirecting && (
                   <>
                     <CircularProgress size={16} />

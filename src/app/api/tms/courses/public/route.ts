@@ -95,7 +95,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         
         // Flatten workflow data
         status: (course.workflows?.[0]?.status || WorkflowStatus.DRAFT) as string,
-        workflow_stage: (course.workflows?.[0]?.workflow_stage || CourseWorkflowStage.FACULTY) as CourseWorkflowStage,
+        workflow_stage: (course.workflows?.[0]?.workflow_stage || CourseWorkflowStage.DRAFT) as CourseWorkflowStage,
         workflow_priority: normalizeCoursePriority(course.workflows?.[0]?.priority).toLowerCase(),
         
         // Flatten content data

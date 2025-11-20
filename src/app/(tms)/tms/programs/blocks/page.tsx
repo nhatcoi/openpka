@@ -717,6 +717,7 @@ export default function ProgramBlocksPage(): JSX.Element {
         <Snackbar
           open={snackbar.open}
           autoHideDuration={6000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           message={snackbar.message}
         />

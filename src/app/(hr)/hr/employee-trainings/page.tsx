@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Box,
@@ -98,6 +99,7 @@ const TRAINING_STATUS_COLORS = {
 
 function EmployeeTrainingsPageContent() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -249,7 +251,14 @@ function EmployeeTrainingsPageContent() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa đào tạo này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa đào tạo',
+            message: 'Bạn có chắc chắn muốn xóa đào tạo này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

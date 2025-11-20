@@ -92,7 +92,10 @@ export default function EditCohortPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const [majors, setMajors] = useState<Major[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
@@ -257,7 +260,10 @@ export default function EditCohortPage() {
         throw new Error(errorData.message || 'Không thể cập nhật khóa học');
       }
 
-      setSuccessMessage('Cập nhật khóa học thành công!');
+      setSnackbar({
+        open: true,
+        message: 'Cập nhật khóa học thành công!',
+      });
       
       setTimeout(() => {
         router.push(`/tms/cohorts/${cohortId}`);
@@ -598,10 +604,11 @@ export default function EditCohortPage() {
 
       {/* Success Snackbar */}
       <Snackbar
-        open={!!successMessage}
+        open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSuccessMessage(null)}
-        message={successMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        message={snackbar.message}
       />
     </Container>
   );

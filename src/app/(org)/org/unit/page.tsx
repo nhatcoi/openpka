@@ -31,6 +31,7 @@ import {
   TablePagination,
   Tooltip,
   Autocomplete,
+  Snackbar,
 } from '@mui/material';
 import { 
   orgApi,
@@ -57,6 +58,7 @@ import {
   Business as BusinessIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { usePermissions } from '@/lib/auth/permission-utils';
 
@@ -88,6 +90,7 @@ export default function OrgUnitManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
+  const [isSearching, setIsSearching] = useState(false);
   const [paginationState, setPaginationState] = useState({
     page: 1,
     size: 10,
@@ -98,6 +101,10 @@ export default function OrgUnitManagementPage() {
     status: 'all',
     parent_id: '',
   });
+  
+  // Debounced search state
+  const [searchInput, setSearchInput] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const [parentOptions, setParentOptions] = useState<OrgUnit[]>([]);
   const [parentLoading, setParentLoading] = useState(false);
@@ -131,6 +138,27 @@ export default function OrgUnitManagementPage() {
       setParentLoading(false);
     }
   }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    if (searchInput !== debouncedSearch) {
+      setIsSearching(true);
+    }
+    
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput);
+      setIsSearching(false);
+    }, 500); // 500ms debounce delay
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchInput]);
+
+  // Update pagination state when debounced search changes
+  useEffect(() => {
+    setPaginationState(prev => ({ ...prev, search: debouncedSearch, page: 1 }));
+  }, [debouncedSearch]);
 
   const fetchData = async () => {
     try {
@@ -185,7 +213,13 @@ export default function OrgUnitManagementPage() {
   };
 
   const handleSearchChange = (value: string) => {
-    setPaginationState(prev => ({ ...prev, search: value, page: 1 }));
+    setSearchInput(value);
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setIsSearching(false);
+    // The debounced search will be updated by the useEffect
   };
 
   const handleSortChange = (field: string) => {
@@ -205,7 +239,10 @@ export default function OrgUnitManagementPage() {
     setPaginationState(prev => ({ ...prev, [key]: value, page: 1 }));
   };
   
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   
   const [openCreateDialog, setOpenCreateDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
@@ -216,16 +253,6 @@ export default function OrgUnitManagementPage() {
   
   const [formData, setFormData] = useState<CreateUnitData>(getInitialFormData());
 
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-
   const handleCreateUnit = async () => {
     try {
       const result = await orgApi.units.create(formData);
@@ -234,7 +261,7 @@ export default function OrgUnitManagementPage() {
         setOpenCreateDialog(false);
         setFormData(getInitialFormData());
         fetchData();
-        setSuccessMessage('Tạo đơn vị thành công!');
+        setSnackbar({ open: true, message: 'Tạo đơn vị thành công!' });
         setError(null);
       } else {
         setError(result.error || 'Failed to create unit');
@@ -254,7 +281,7 @@ export default function OrgUnitManagementPage() {
         setOpenEditDialog(false);
         setSelectedUnit(null);
         fetchData();
-        setSuccessMessage('Cập nhật đơn vị thành công!');
+        setSnackbar({ open: true, message: 'Cập nhật đơn vị thành công!' });
         setError(null);
       } else {
         setError(result.error || 'Failed to update unit');
@@ -274,7 +301,7 @@ export default function OrgUnitManagementPage() {
         setOpenDeleteDialog(false);
         setSelectedUnit(null);
         fetchData();
-        setSuccessMessage('Xóa đơn vị thành công!');
+        setSnackbar({ open: true, message: 'Xóa đơn vị thành công!' });
         setError(null);
       } else {
         const errorMessage = (result as any).details || result.error || 'Failed to delete unit';
@@ -296,7 +323,7 @@ export default function OrgUnitManagementPage() {
         setOpenArchiveDialog(false);
         setSelectedUnit(null);
         fetchData();
-        setSuccessMessage('Lưu trữ đơn vị thành công!');
+        setSnackbar({ open: true, message: 'Lưu trữ đơn vị thành công!' });
         setError(null);
       } else {
         const errorMessage = (result as any).details || result.error || 'Failed to archive unit';
@@ -318,7 +345,7 @@ export default function OrgUnitManagementPage() {
         setOpenDeactivateDialog(false);
         setSelectedUnit(null);
         fetchData();
-        setSuccessMessage('Dừng hoạt động đơn vị thành công!');
+        setSnackbar({ open: true, message: 'Dừng hoạt động đơn vị thành công!' });
         setError(null);
       } else {
         const errorMessage = (result as any).details || result.error || 'Failed to deactivate unit';
@@ -396,17 +423,6 @@ export default function OrgUnitManagementPage() {
         </Alert>
       )}
 
-      {successMessage && (
-        <Alert 
-          severity="success" 
-          sx={{ mb: 3 }}
-          onClose={() => setSuccessMessage(null)}
-        >
-          <AlertTitle>Thành công</AlertTitle>
-          {successMessage}
-        </Alert>
-      )}
-
       <Card elevation={2} sx={{ mb: 3 }}>
         <CardContent>
           <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
@@ -417,13 +433,30 @@ export default function OrgUnitManagementPage() {
             )}
             <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
               <TextField
-                placeholder="Tìm kiếm đơn vị..."
-                value={paginationState.search}
+                placeholder="Tìm kiếm đơn vị (tên, mã, mô tả)..."
+                value={searchInput}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 size="small"
-                sx={{ minWidth: 250 }}
+                sx={{ minWidth: 300 }}
                 InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+                  startAdornment: (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                      {isSearching ? (
+                        <CircularProgress size={16} sx={{ color: 'text.secondary' }} />
+                      ) : (
+                        <SearchIcon sx={{ color: 'text.secondary' }} />
+                      )}
+                    </Box>
+                  ),
+                  endAdornment: searchInput ? (
+                    <IconButton
+                      size="small"
+                      onClick={handleClearSearch}
+                      sx={{ mr: -1 }}
+                    >
+                      <ClearIcon fontSize="small" />
+                    </IconButton>
+                  ) : null,
                 }}
               />
               
@@ -577,7 +610,6 @@ export default function OrgUnitManagementPage() {
                   </TableCell>
                   <TableCell><strong>Loại</strong></TableCell>
                   <TableCell><strong>Trạng thái</strong></TableCell>
-                  <TableCell><strong>Đơn vị cha</strong></TableCell>
                   <TableCell><strong>Nhân viên</strong></TableCell>
                   <TableCell 
                     sx={{ cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
@@ -607,13 +639,13 @@ export default function OrgUnitManagementPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <CircularProgress />
                     </TableCell>
                   </TableRow>
                 ) : orgUnits.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                       <Typography variant="body1" color="text.secondary">
                         {paginationState.search ? 'Không tìm thấy đơn vị nào' : 'Chưa có đơn vị nào'}
                       </Typography>
@@ -665,17 +697,6 @@ export default function OrgUnitManagementPage() {
                         <Typography variant="body2">
                           {getStatusNameFromApi(unit.status, apiStatuses) || unit.status || '—'}
                         </Typography>
-                      </TableCell>
-                      <TableCell>
-                        {unit.parent ? (
-                          <Typography variant="body2">
-                            {String(unit.parent.name)}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            Không có
-                          </Typography>
-                        )}
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
@@ -1081,6 +1102,21 @@ export default function OrgUnitManagementPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert
+          severity="success"
+          sx={{ width: '100%' }}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

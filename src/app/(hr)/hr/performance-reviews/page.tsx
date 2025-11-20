@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Box,
@@ -80,6 +81,7 @@ interface PerformanceReview {
 
 function PerformanceReviewsPageContent() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [performanceReviews, setPerformanceReviews] = useState<PerformanceReview[]>([]);
@@ -214,26 +216,33 @@ function PerformanceReviewsPageContent() {
     };
 
     const handleDelete = async (reviewId: string, employeeName: string) => {
-        if (confirm(`Bạn có chắc chắn muốn xóa đánh giá của ${employeeName}?`)) {
-            try {
-                setActionLoading(`delete-${reviewId}`);
-                const response = await fetch(API_ROUTES.HR.PERFORMANCE_REVIEWS_BY_ID(reviewId), {
-                    method: 'DELETE',
-                });
+        const confirmed = await confirmDialog({
+            title: 'Xóa đánh giá',
+            message: `Bạn có chắc chắn muốn xóa đánh giá của ${employeeName}?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) return;
 
-                const result = await response.json();
+        try {
+            setActionLoading(`delete-${reviewId}`);
+            const response = await fetch(API_ROUTES.HR.PERFORMANCE_REVIEWS_BY_ID(reviewId), {
+                method: 'DELETE',
+            });
 
-                if (result.success) {
-                    await fetchData();
-                } else {
-                    setError(result.error || 'Không thể xóa đánh giá');
-                }
-            } catch (error) {
-                console.error('Error deleting performance review:', error);
-                setError('Lỗi khi xóa đánh giá');
-            } finally {
-                setActionLoading(null);
+            const result = await response.json();
+
+            if (result.success) {
+                await fetchData();
+            } else {
+                setError(result.error || 'Không thể xóa đánh giá');
             }
+        } catch (error) {
+            console.error('Error deleting performance review:', error);
+            setError('Lỗi khi xóa đánh giá');
+        } finally {
+            setActionLoading(null);
         }
     };
 

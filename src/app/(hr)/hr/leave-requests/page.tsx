@@ -39,6 +39,7 @@ import {
     Cancel as RejectIcon
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 
 interface LeaveRequest {
@@ -85,6 +86,7 @@ const STATUS_LABELS = {
 
 export default function LeaveRequestsPage() {
     const { data: session } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
     const [loading, setLoading] = useState(true);
@@ -194,7 +196,14 @@ export default function LeaveRequestsPage() {
     };
 
     const handleDeleteRequest = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa đơn xin nghỉ này?')) return;
+        const confirmed = await confirmDialog({
+            title: 'Xóa đơn xin nghỉ',
+            message: 'Bạn có chắc chắn muốn xóa đơn xin nghỉ này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) return;
 
         try {
             const response = await fetch(`/api/hr/leave-requests/${id}`, {

@@ -42,6 +42,7 @@ import {
   getDocumentIcon, 
   getDocumentColor 
 } from '@/lib/cloudinary-client';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 interface DocumentListProps {
   entityType?: string;
@@ -72,6 +73,7 @@ export default function DocumentList({
     entityId,
     filters: { is_active: true }
   });
+  const confirmDialog = useConfirmDialog();
 
   const getDocumentIconComponent = (documentType: string, mimeType?: string) => {
     const iconType = getDocumentIcon(documentType, mimeType);
@@ -92,11 +94,18 @@ export default function DocumentList({
   };
 
   const handleDelete = async (document: Document) => {
-    if (confirm('Are you sure you want to delete this document?')) {
-      const success = await deleteDocument(document.id);
-      if (success) {
-        await refetch();
-      }
+    const confirmed = await confirmDialog({
+      title: 'Xóa tài liệu',
+      message: 'Bạn có chắc chắn muốn xóa tài liệu này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    const success = await deleteDocument(document.id);
+    if (success) {
+      await refetch();
     }
   };
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -68,6 +69,7 @@ const TRAINING_TYPE_LABELS = {
 
 export default function TrainingsPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
     const [trainings, setTrainings] = useState<Training[]>([]);
@@ -189,7 +191,14 @@ export default function TrainingsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa khóa đào tạo này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa khóa đào tạo',
+            message: 'Bạn có chắc chắn muốn xóa khóa đào tạo này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { ProgramBlockType, getProgramBlockTypeLabel } from '@/constants/programs';
 import { API_ROUTES } from '@/constants/routes';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -198,6 +199,7 @@ const REQUIRED_LABEL: Record<string, string> = {
 };
 
 export default function ProgramCourseMapPage(): JSX.Element {
+  const confirmDialog = useConfirmDialog();
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
   const [programBlocks, setProgramBlocks] = useState<ProgramBlockOption[]>([]);
@@ -722,7 +724,13 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
 
   const handleDelete = async (mapping: ProgramCourseMapListItem) => {
-    const confirmed = window.confirm(`Bạn có chắc chắn muốn xóa học phần "${mapping.course?.code ?? mapping.courseId}" khỏi chương trình này?`);
+    const confirmed = await confirmDialog({
+      title: 'Xóa học phần khỏi chương trình',
+      message: `Bạn có chắc chắn muốn xóa học phần "${mapping.course?.code ?? mapping.courseId}" khỏi chương trình này?`,
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
     if (!confirmed) return;
 
     try {
@@ -1352,7 +1360,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
         <Snackbar
             open={snackbar.open}
             autoHideDuration={4000}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         >
           <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} sx={{ width: '100%' }}>

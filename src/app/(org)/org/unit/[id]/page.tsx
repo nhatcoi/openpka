@@ -366,7 +366,7 @@ export default function UnitDetailPage() {
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 'medium' }}>
-              Đơn vị trực thuộc ({childUnits.length})
+              Quan hệ đơn vị ({childUnits.length})
             </Typography>
             <TableContainer>
               <Table size="small">

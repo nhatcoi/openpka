@@ -3,6 +3,7 @@
 import React, {useState, useEffect, useMemo} from 'react';
 import {useSession} from 'next-auth/react';
 import {useRouter} from 'next/navigation';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import {
     Box,
     Typography,
@@ -71,6 +72,7 @@ interface Employment {
 
 export default function EmploymentsPage() {
     const {data: session, status} = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const [employments, setEmployments] = useState<Employment[]>([]);
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -268,7 +270,14 @@ export default function EmploymentsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa hợp đồng lao động này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa hợp đồng lao động',
+            message: 'Bạn có chắc chắn muốn xóa hợp đồng lao động này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

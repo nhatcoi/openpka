@@ -22,6 +22,7 @@ import {
   FormControlLabel,
   Breadcrumbs,
   Link,
+  Snackbar,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -83,7 +84,10 @@ export default function CreateProgramPage(): JSX.Element {
   const [standaloneCourseSelection, setStandaloneCourseSelection] = useState<CourseOption | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const [programOptions, setProgramOptions] = useState<ProgramOption[]>([]);
   const [enableCopyStructure, setEnableCopyStructure] = useState(false);
 
@@ -747,7 +751,10 @@ export default function CreateProgramPage(): JSX.Element {
         }
       }
 
-      setSuccessMessage('Đã tạo chương trình đào tạo thành công.');
+      setSnackbar({
+        open: true,
+        message: 'Đã tạo chương trình đào tạo thành công.',
+      });
       setTimeout(() => router.push('/tms/programs'), 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Không thể tạo chương trình';
@@ -791,12 +798,6 @@ export default function CreateProgramPage(): JSX.Element {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {successMessage}
         </Alert>
       )}
 
@@ -1358,6 +1359,20 @@ export default function CreateProgramPage(): JSX.Element {
           </Paper>
         </Box>
       </Stack>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert
+          severity="success"
+          sx={{ width: '100%' }}
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 }

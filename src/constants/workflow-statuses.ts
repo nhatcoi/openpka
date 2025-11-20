@@ -129,9 +129,10 @@ export function getResourceStatusesForWorkflowStatus(
 }
 
 export enum CourseWorkflowStage {
-  FACULTY = 'FACULTY',
-  ACADEMIC_OFFICE = 'ACADEMIC_OFFICE',
-  ACADEMIC_BOARD = 'ACADEMIC_BOARD',
+  DRAFT = 'DRAFT',
+  REVIEWING = 'REVIEWING',
+  APPROVED = 'APPROVED',
+  PUBLISHED = 'PUBLISHED',
 }
 
 export enum ProgramWorkflowStage {
@@ -156,9 +157,10 @@ export enum OrgUnitWorkflowStage {
 }
 
 export const COURSE_WORKFLOW_STAGES: CourseWorkflowStage[] = [
-  CourseWorkflowStage.FACULTY,
-  CourseWorkflowStage.ACADEMIC_OFFICE,
-  CourseWorkflowStage.ACADEMIC_BOARD,
+  CourseWorkflowStage.DRAFT,
+  CourseWorkflowStage.REVIEWING,
+  CourseWorkflowStage.APPROVED,
+  CourseWorkflowStage.PUBLISHED,
 ];
 
 export const PROGRAM_WORKFLOW_STAGES: ProgramWorkflowStage[] = [
@@ -183,15 +185,17 @@ export const ORG_UNIT_WORKFLOW_STAGES: OrgUnitWorkflowStage[] = [
 ];
 
 export function getCourseWorkflowStageLabel(stage: CourseWorkflowStage | string): string {
-  switch (stage) {
-    case CourseWorkflowStage.FACULTY:
-      return 'Khoa';
-    case CourseWorkflowStage.ACADEMIC_OFFICE:
-      return 'Phòng đào tạo';
-    case CourseWorkflowStage.ACADEMIC_BOARD:
-      return 'Hội đồng khoa học';
+  switch ((stage || '').toUpperCase()) {
+    case CourseWorkflowStage.DRAFT:
+      return 'Giảng viên soạn thảo';
+    case CourseWorkflowStage.REVIEWING:
+      return 'Khoa xem xét';
+    case CourseWorkflowStage.APPROVED:
+      return 'Phòng đào tạo phê duyệt';
+    case CourseWorkflowStage.PUBLISHED:
+      return 'Hội đồng khoa học công bố';
     default:
-      return stage;
+      return stage || 'Không xác định';
   }
 }
 

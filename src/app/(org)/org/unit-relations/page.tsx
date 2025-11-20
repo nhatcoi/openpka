@@ -296,13 +296,13 @@ export default function UnitRelationsPage() {
         >
           Quản lý đơn vị
         </MuiLink>
-        <Typography color="text.primary">Quan hệ tổ chức</Typography>
+        <Typography color="text.primary">Thiết lập quan hệ</Typography>
       </Breadcrumbs>
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            Quan hệ tổ chức
+            Thiết lập quan hệ
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Quản lý quan hệ giữa các đơn vị trong tổ chức
@@ -351,7 +351,7 @@ export default function UnitRelationsPage() {
                       onClick={() => handleSort('parent_name')}
                     >
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <strong>Đơn vị cha</strong>
+                        <strong>Đơn vị</strong>
                         {sortState.field === 'parent_name' && (
                           <span>{sortState.order === 'asc' ? '↑' : '↓'}</span>
                         )}
@@ -362,7 +362,7 @@ export default function UnitRelationsPage() {
                       onClick={() => handleSort('child_name')}
                     >
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <strong>Đơn vị con</strong>
+                        <strong>Đơn vị</strong>
                         {sortState.field === 'child_name' && (
                           <span>{sortState.order === 'asc' ? '↑' : '↓'}</span>
                         )}

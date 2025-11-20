@@ -790,6 +790,7 @@ export default function MajorsPage(): JSX.Element {
         <Snackbar
           open={snackbar.open}
           autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         >
           <Alert

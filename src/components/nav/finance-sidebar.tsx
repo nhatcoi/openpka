@@ -20,14 +20,9 @@ import {
     Dashboard as DashboardIcon,
     MonetizationOn as MonetizationOnIcon,
     ReceiptLong as ReceiptLongIcon,
-    Savings as SavingsIcon,
     Assessment as AssessmentIcon,
-    InsertChartOutlined as ChartIcon,
     AccountBalanceWallet as AccountBalanceWalletIcon,
-    Add as AddIcon,
-    Warning as WarningIcon,
     TrendingUp as TrendingUpIcon,
-    Calculate as CalculateIcon,
     ExpandLess,
     ExpandMore,
 } from '@mui/icons-material';
@@ -72,49 +67,6 @@ const menuItems: MenuItem[] = [
         ],
     },
     {
-        key: 'calculate-completion',
-        label: 'Tính học phí hoàn thành CTĐT',
-        icon: <CalculateIcon />,
-        href: '/finance/calculate-completion-tuition',
-        // permission: 'finance.viewTuition',
-    },
-    {
-        key: 'payment-collection',
-        label: 'Thu học phí',
-        icon: <ReceiptLongIcon />,
-        href: '/finance/payments',
-        // permission: 'finance.collectTuition',
-    },
-    {
-        key: 'scholarship-management',
-        label: 'Miễn giảm & học bổng',
-        icon: <SavingsIcon />,
-        href: '/finance/discounts',
-        // permission: 'finance.manageScholarship',
-    },
-    {
-        key: 'debt-management',
-        label: 'Công nợ & cảnh báo',
-        icon: <WarningIcon />,
-        // permission: 'finance.viewDebts',
-        children: [
-            {
-                key: 'debts',
-                label: 'Danh sách công nợ',
-                icon: <ChartIcon />,
-                href: '/finance/debts',
-                // permission: 'finance.viewDebts',
-            },
-            {
-                key: 'debt-alerts',
-                label: 'Cảnh báo công nợ',
-                icon: <WarningIcon />,
-                href: '/finance/debt-alerts',
-                // permission: 'finance.viewDebts',
-            },
-        ],
-    },
-    {
         key: 'reports',
         label: 'Báo cáo tài chính',
         icon: <AssessmentIcon />,
@@ -150,7 +102,6 @@ export function FinanceSidebar() {
 
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({
         'tuition-management': true,
-        'debt-management': false,
         'reports': false,
     });
 

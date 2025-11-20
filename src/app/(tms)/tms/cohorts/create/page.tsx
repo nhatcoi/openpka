@@ -94,7 +94,10 @@ export default function CreateCohortPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string }>({
+    open: false,
+    message: '',
+  });
   const [redirecting, setRedirecting] = useState(false);
   const [helpDialogOpen, setHelpDialogOpen] = useState(false);
   const [majors, setMajors] = useState<Major[]>([]);
@@ -232,7 +235,10 @@ export default function CreateCohortPage() {
       }
 
       const result = await response.json();
-      setSuccessMessage('Tạo khóa học thành công!');
+      setSnackbar({
+        open: true,
+        message: 'Tạo khóa học thành công!',
+      });
       setRedirecting(true);
       
       setTimeout(() => {
@@ -576,10 +582,11 @@ export default function CreateCohortPage() {
 
       {/* Success Snackbar */}
       <Snackbar
-        open={!!successMessage}
+        open={snackbar.open}
         autoHideDuration={3000}
-        onClose={() => setSuccessMessage(null)}
-        message={successMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        message={snackbar.message}
       />
 
       {/* Help Dialog */}

@@ -238,9 +238,10 @@ const MAJOR_PROCESS_STAGES = [
 ];
 
 const COURSE_PROCESS_STAGES = [
-  { stage: CourseWorkflowStage.FACULTY, label: 'Khoa soạn thảo', Icon: DescriptionIcon },
-  { stage: CourseWorkflowStage.ACADEMIC_OFFICE, label: 'Phòng Đào Tạo xem xét', Icon: SchoolIcon },
-  { stage: CourseWorkflowStage.ACADEMIC_BOARD, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
+  { stage: CourseWorkflowStage.DRAFT, label: 'Giảng viên soạn thảo', Icon: DescriptionIcon },
+  { stage: CourseWorkflowStage.REVIEWING, label: 'Khoa gửi PĐT xem xét', Icon: SchoolIcon },
+  { stage: CourseWorkflowStage.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
+  { stage: CourseWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
 ];
 
 const COHORT_PROCESS_STAGES = [
@@ -1329,7 +1330,7 @@ export default function TmsReviewHub(): JSX.Element {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
