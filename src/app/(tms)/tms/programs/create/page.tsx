@@ -39,10 +39,9 @@ interface CourseOption {
   label: string;
 }
 import {
-  PROGRAM_STATUSES,
   PROGRAM_BLOCK_TYPES,
   PROGRAM_BLOCK_GROUP_TYPES,
-  ProgramStatus,
+  PROGRAM_WORKFLOW_STATUS_OPTIONS,
   ProgramBlockType,
   ProgramBlockGroupType,
   getProgramStatusColor,
@@ -1218,12 +1217,12 @@ export default function CreateProgramPage(): JSX.Element {
             <Stack spacing={2}>
               <Select
                 value={form.status}
-                onChange={(event) => updateForm('status', event.target.value as ProgramStatus)}
+                onChange={(event) => updateForm('status', event.target.value as string)}
                 fullWidth
               >
-                {PROGRAM_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {getProgramStatusLabel(status)}
+                {PROGRAM_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
                   </MenuItem>
                 ))}
               </Select>

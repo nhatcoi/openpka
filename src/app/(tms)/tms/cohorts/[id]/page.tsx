@@ -36,10 +36,8 @@ import {
   Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { 
-  CohortStatus,
   getCohortStatusLabel,
   getCohortStatusColor,
-  COHORT_STATUSES,
 } from '@/constants/cohorts';
 
 interface Cohort {
@@ -57,7 +55,7 @@ interface Cohort {
   actual_quota?: number;
   start_date?: string;
   expected_graduation_date?: string;
-  status: CohortStatus;
+  status: string;
   is_active: boolean;
   description?: string;
   created_at: string;

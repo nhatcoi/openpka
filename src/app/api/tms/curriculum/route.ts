@@ -6,7 +6,7 @@ import {
   DEFAULT_CURRICULUM_PAGE_SIZE,
   normalizeCurriculumStatus,
 } from '@/constants/curriculum';
-import { ProgramStatus } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 const LIST_CONTEXT = 'fetch curriculum overview';
 
@@ -86,7 +86,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
       code: program.code ?? null,
       nameVi: program.name_vi ?? null,
       nameEn: program.name_en ?? null,
-      status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+      status: (program.status ?? WorkflowStatus.DRAFT) as string,
       totalCredits: program.total_credits ?? null,
       version: program.version ?? null,
       orgUnit: program.OrgUnit

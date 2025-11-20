@@ -28,10 +28,10 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import {
-  CourseStatus,
   getStatusColor,
   getStatusLabel,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 interface Course {
   id: number;
@@ -53,7 +53,7 @@ export default function BuildSyllabusPage() {
   const [faculties, setFaculties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<CourseStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string | 'all'>('all');
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -181,17 +181,16 @@ export default function BuildSyllabusPage() {
               value={selectedStatus}
               label="Trạng thái"
               onChange={(e) => {
-                setSelectedStatus(e.target.value as CourseStatus | 'all');
+                setSelectedStatus(e.target.value as string | 'all');
                 setPage(1);
               }}
             >
               <MenuItem value="all">Tất cả</MenuItem>
-              <MenuItem value={CourseStatus.DRAFT}>Bản nháp</MenuItem>
-              <MenuItem value={CourseStatus.SUBMITTED}>Đã gửi</MenuItem>
-              <MenuItem value={CourseStatus.REVIEWING}>Đang xem xét</MenuItem>
-              <MenuItem value={CourseStatus.APPROVED}>Đã phê duyệt</MenuItem>
-              <MenuItem value={CourseStatus.PUBLISHED}>Đã công bố</MenuItem>
-              <MenuItem value={CourseStatus.REJECTED}>Bị từ chối</MenuItem>
+              <MenuItem value={WorkflowStatus.DRAFT}>Bản nháp</MenuItem>
+              <MenuItem value={WorkflowStatus.REVIEWING}>Đang xem xét</MenuItem>
+              <MenuItem value={WorkflowStatus.APPROVED}>Đã phê duyệt</MenuItem>
+              <MenuItem value={WorkflowStatus.PUBLISHED}>Đã công bố</MenuItem>
+              <MenuItem value={WorkflowStatus.REJECTED}>Bị từ chối</MenuItem>
             </Select>
           </FormControl>
           <FormControl sx={{ minWidth: 200 }}>

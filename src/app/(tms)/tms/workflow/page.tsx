@@ -83,7 +83,7 @@ export default function WorkflowPage() {
       code: 'CS101',
       name: 'Lập trình cơ bản',
       faculty: 'Công nghệ thông tin',
-      status: 'SUBMITTED',
+      status: 'REVIEWING',
       workflowStage: 'ACADEMIC_OFFICE',
       priority: 'HIGH',
       submittedBy: 'Nguyễn Văn A',
@@ -125,7 +125,6 @@ export default function WorkflowPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'DRAFT': return 'default';
-      case 'SUBMITTED': return 'primary';
       case 'REVIEWING': return 'warning';
       case 'APPROVED': return 'success';
       case 'REJECTED': return 'error';
@@ -137,7 +136,6 @@ export default function WorkflowPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'DRAFT': return 'Nháp';
-      case 'SUBMITTED': return 'Đã gửi';
       case 'REVIEWING': return 'Đang xem xét';
       case 'APPROVED': return 'Đã phê duyệt';
       case 'REJECTED': return 'Từ chối';
@@ -327,7 +325,6 @@ export default function WorkflowPage() {
             >
               <MenuItem value="all">Tất cả</MenuItem>
               <MenuItem value="DRAFT">Nháp</MenuItem>
-              <MenuItem value="SUBMITTED">Đã gửi</MenuItem>
               <MenuItem value="REVIEWING">Đang xem xét</MenuItem>
               <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
               <MenuItem value="REJECTED">Từ chối</MenuItem>

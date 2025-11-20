@@ -55,7 +55,7 @@ export interface UpdateCourseInput extends Partial<CreateCourseInput> {}
 export interface CourseQueryInput {
   page?: number;
   limit?: number;
-  status?: 'DRAFT' | 'SUBMITTED' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'PUBLISHED';
+  status?: 'DRAFT' | 'REVIEWING' | 'APPROVED' | 'REJECTED' | 'PUBLISHED';
   search?: string;
   orgUnitId?: number;
   workflowStage?: 'FACULTY' | 'ACADEMIC_OFFICE' | 'ACADEMIC_BOARD';

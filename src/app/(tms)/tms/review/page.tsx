@@ -57,59 +57,44 @@ import {
   Science as ScienceIcon,
 } from '@mui/icons-material';
 import {
-  PROGRAM_STATUSES,
-  ProgramStatus,
   ProgramWorkflowStage,
-  ProgramWorkflowAction,
-  getProgramStatusColor,
-  getProgramStatusLabel,
   getProgramWorkflowStageLabel,
+  CourseWorkflowStage,
+  getCourseWorkflowStageLabel,
+  CohortWorkflowStage,
+  getCohortWorkflowStageLabel,
+  OrgUnitWorkflowStage,
+  getOrgUnitWorkflowStageLabel,
+} from '@/constants/workflow-statuses';
+import {
   getProgramStageFromStatus,
   computeProgramStepIndex,
   formatProgramDateTime,
 } from '@/constants/programs';
 import {
-  MAJOR_STATUSES,
-  MajorStatus,
-  MajorWorkflowStage,
-  MajorWorkflowAction,
-  getMajorStatusColor,
-  getMajorStatusLabel,
-  getMajorWorkflowStageLabel,
-  getMajorStageFromStatus,
-  computeMajorStepIndex,
   formatMajorDateTime,
 } from '@/constants/majors';
 import {
-  COURSE_STATUSES,
-  CourseStatus,
-  WorkflowStage,
-  getStatusColor as getCourseStatusColor,
-  getStatusLabel as getCourseStatusLabel,
-  getWorkflowStageLabel,
   getCourseStageFromStatus,
   computeCourseStepIndex,
 } from '@/constants/courses';
 import {
-  COHORT_STATUSES,
-  CohortStatus,
-  CohortWorkflowStage,
-  getCohortStatusColor,
-  getCohortStatusLabel,
-  getCohortWorkflowStageLabel,
   getCohortStageFromStatus,
   computeCohortStepIndex,
 } from '@/constants/cohorts';
 import {
-  ORG_UNIT_STATUSES,
   OrgUnitStatus,
-  OrgUnitWorkflowStage,
-  getOrgUnitStatusColor,
-  getOrgUnitStatusLabel,
-  getOrgUnitWorkflowStageLabel,
   getOrgUnitStageFromStatus,
   computeOrgUnitStepIndex,
 } from '@/constants/org-units';
+import {
+  WORKFLOW_STATUS_OPTIONS,
+  WORKFLOW_STATUS_VALUES,
+  WorkflowStatus,
+  getWorkflowStatusColor,
+  getWorkflowStatusLabel,
+  normalizeWorkflowStatusFromResource,
+} from '@/constants/workflow-statuses';
 import { useSession } from 'next-auth/react';
 
 type ResourceType = 'program' | 'major' | 'course' | 'cohort' | 'org_unit';
@@ -118,7 +103,7 @@ interface ReviewRow {
   id: string;
   code: string;
   name: string;
-  status: string;
+  status: WorkflowStatus;
   owner?: string;
   updatedAt?: string;
 }
@@ -126,9 +111,9 @@ interface ReviewRow {
 interface ResourceConfig {
   label: string;
   fetchUrl: string;
-  statuses: string[];
-  getStatusLabel: (status: string) => string;
-  getStatusColor: (status: string) => 'default' | 'info' | 'warning' | 'success' | 'error';
+  statuses: WorkflowStatus[];
+  getStatusLabel: (status: WorkflowStatus) => string;
+  getStatusColor: (status: WorkflowStatus) => 'default' | 'info' | 'warning' | 'success' | 'error';
   mapItems: (items: unknown[]) => ReviewRow[];
   detailPath: (id: string) => string;
 }
@@ -137,15 +122,15 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   program: {
     label: 'Chương trình',
     fetchUrl: '/api/tms/programs?limit=200',
-    statuses: PROGRAM_STATUSES,
-    getStatusLabel: (status) => getProgramStatusLabel(status as ProgramStatus),
-    getStatusColor: (status) => getProgramStatusColor(status as ProgramStatus),
+    statuses: WORKFLOW_STATUS_VALUES,
+    getStatusLabel: (status) => getWorkflowStatusLabel(status),
+    getStatusColor: (status) => getWorkflowStatusColor(status),
     mapItems: (items) =>
       items.map((item: any) => ({
         id: String(item.id),
         code: item.code ?? '—',
         name: item.name_vi ?? item.nameVi ?? item.name_en ?? 'Không xác định',
-        status: item.status ?? 'DRAFT',
+        status: normalizeWorkflowStatusFromResource('program', item.status ?? WorkflowStatus.DRAFT),
         owner: item.OrgUnit?.name ?? item.org_unit?.name ?? '',
         updatedAt: item.updated_at ?? item.updatedAt ?? '',
       })),
@@ -154,15 +139,15 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   major: {
     label: 'Ngành đào tạo',
     fetchUrl: '/api/tms/majors?limit=200',
-    statuses: MAJOR_STATUSES,
-    getStatusLabel: (status) => getMajorStatusLabel(status as MajorStatus),
-    getStatusColor: (status) => getMajorStatusColor(status as MajorStatus),
+    statuses: WORKFLOW_STATUS_VALUES,
+    getStatusLabel: (status) => getWorkflowStatusLabel(status),
+    getStatusColor: (status) => getWorkflowStatusColor(status),
     mapItems: (items) =>
       items.map((item: any) => ({
         id: String(item.id),
         code: item.code ?? '—',
         name: item.name_vi ?? item.nameVi ?? item.name_en ?? 'Không xác định',
-        status: item.status ?? 'DRAFT',
+        status: normalizeWorkflowStatusFromResource('major', item.status ?? WorkflowStatus.DRAFT),
         owner: item.org_unit?.name ?? '',
         updatedAt: item.updated_at ?? item.updatedAt ?? '',
       })),
@@ -171,15 +156,15 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   course: {
     label: 'Học phần',
     fetchUrl: '/api/tms/courses?limit=200&list=true',
-    statuses: COURSE_STATUSES,
-    getStatusLabel: (status) => getCourseStatusLabel(status as CourseStatus),
-    getStatusColor: (status) => getCourseStatusColor(status as CourseStatus),
+    statuses: WORKFLOW_STATUS_VALUES,
+    getStatusLabel: (status) => getWorkflowStatusLabel(status),
+    getStatusColor: (status) => getWorkflowStatusColor(status),
     mapItems: (items) =>
       items.map((item: any) => ({
         id: String(item.id),
         code: item.code ?? '—',
         name: item.name_vi ?? item.nameVi ?? item.name_en ?? 'Không xác định',
-        status: item.status ?? 'DRAFT',
+        status: normalizeWorkflowStatusFromResource('course', item.status ?? WorkflowStatus.DRAFT),
         owner: item.OrgUnit?.name ?? '',
         updatedAt: item.updated_at ?? item.updatedAt ?? '',
       })),
@@ -188,15 +173,15 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   cohort: {
     label: 'Khóa học',
     fetchUrl: '/api/cohorts?limit=200',
-    statuses: COHORT_STATUSES,
-    getStatusLabel: (status) => getCohortStatusLabel(status as CohortStatus),
-    getStatusColor: (status) => getCohortStatusColor(status as CohortStatus),
+    statuses: WORKFLOW_STATUS_VALUES,
+    getStatusLabel: (status) => getWorkflowStatusLabel(status),
+    getStatusColor: (status) => getWorkflowStatusColor(status),
     mapItems: (items) =>
       items.map((item: any) => ({
         id: String(item.id),
         code: item.code ?? '—',
         name: item.name_vi ?? item.nameVi ?? item.name_en ?? 'Không xác định',
-        status: item.status ?? 'PLANNING',
+        status: normalizeWorkflowStatusFromResource('cohort', item.status ?? WorkflowStatus.DRAFT),
         owner: item.org_unit_id?.toString() ?? '',
         updatedAt: item.updated_at ?? item.updatedAt ?? '',
       })),
@@ -205,15 +190,15 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   org_unit: {
     label: 'Đơn vị',
     fetchUrl: '/api/org/units?limit=200',
-    statuses: ORG_UNIT_STATUSES,
-    getStatusLabel: (status) => getOrgUnitStatusLabel(status as OrgUnitStatus),
-    getStatusColor: (status) => getOrgUnitStatusColor(status as OrgUnitStatus),
+    statuses: WORKFLOW_STATUS_VALUES,
+    getStatusLabel: (status) => getWorkflowStatusLabel(status),
+    getStatusColor: (status) => getWorkflowStatusColor(status),
     mapItems: (items) =>
       items.map((item: any) => ({
         id: String(item.id),
         code: item.code ?? '—',
         name: item.name ?? 'Không xác định',
-        status: item.status ?? 'DRAFT',
+        status: normalizeWorkflowStatusFromResource('org_unit', item.status ?? OrgUnitStatus.DRAFT),
         owner: item.parent?.name ?? '',
         updatedAt: item.updated_at ?? item.updatedAt ?? '',
       })),
@@ -237,18 +222,6 @@ const emptyLoaded: Record<ResourceType, boolean> = {
   org_unit: false,
 };
 
-const COMMON_STATUSES = [
-  { value: 'DRAFT', label: 'Bản nháp' },
-  { value: 'REVIEWING', label: 'Đang xem xét' },
-  { value: 'APPROVED', label: 'Đã phê duyệt' },
-  { value: 'REJECTED', label: 'Bị từ chối' },
-  { value: 'PUBLISHED', label: 'Đã công bố' },
-  { value: 'ACTIVE', label: 'Đang hoạt động' },
-  { value: 'SUSPENDED', label: 'Tạm dừng' },
-  { value: 'CLOSED', label: 'Đã đóng' },
-  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
-] as const;
-
 // Workflow stages for each resource type
 const PROGRAM_PROCESS_STAGES = [
   { stage: ProgramWorkflowStage.DRAFT, label: 'Giảng viên soạn thảo', Icon: DescriptionIcon },
@@ -258,16 +231,16 @@ const PROGRAM_PROCESS_STAGES = [
 ];
 
 const MAJOR_PROCESS_STAGES = [
-  { stage: MajorWorkflowStage.DRAFT, label: 'Giảng viên soạn thảo', Icon: DescriptionIcon },
-  { stage: MajorWorkflowStage.REVIEWING, label: 'Khoa gửi PĐT xem xét', Icon: SchoolIcon },
-  { stage: MajorWorkflowStage.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
-  { stage: MajorWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
+  { stage: WorkflowStatus.DRAFT, label: 'Giảng viên soạn thảo', Icon: DescriptionIcon },
+  { stage: WorkflowStatus.REVIEWING, label: 'Khoa gửi PĐT xem xét', Icon: SchoolIcon },
+  { stage: WorkflowStatus.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
+  { stage: WorkflowStatus.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
 ];
 
 const COURSE_PROCESS_STAGES = [
-  { stage: WorkflowStage.FACULTY, label: 'Khoa soạn thảo', Icon: DescriptionIcon },
-  { stage: WorkflowStage.ACADEMIC_OFFICE, label: 'Phòng Đào Tạo xem xét', Icon: SchoolIcon },
-  { stage: WorkflowStage.ACADEMIC_BOARD, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
+  { stage: CourseWorkflowStage.FACULTY, label: 'Khoa soạn thảo', Icon: DescriptionIcon },
+  { stage: CourseWorkflowStage.ACADEMIC_OFFICE, label: 'Phòng Đào Tạo xem xét', Icon: SchoolIcon },
+  { stage: CourseWorkflowStage.ACADEMIC_BOARD, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
 ];
 
 const COHORT_PROCESS_STAGES = [
@@ -290,7 +263,7 @@ interface ApprovalHistoryEntry {
   actor: string;
   role: string;
   action: string;
-  status: string;
+  status: WorkflowStatus;
   note?: string;
 }
 
@@ -304,7 +277,7 @@ export default function TmsReviewHub(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | WorkflowStatus>('all');
 
   // Modal states
   const [detailOpen, setDetailOpen] = useState(false);
@@ -322,7 +295,7 @@ export default function TmsReviewHub(): JSX.Element {
 
   // Progress bar states
   const [processIndex, setProcessIndex] = useState<number>(0);
-  const [focusedStatus, setFocusedStatus] = useState<string>('DRAFT');
+  const [focusedStatus, setFocusedStatus] = useState<WorkflowStatus>(WorkflowStatus.DRAFT);
   const [focusedStage, setFocusedStage] = useState<string>('DRAFT');
   const [historyEntries, setHistoryEntries] = useState<ApprovalHistoryEntry[]>([]);
 
@@ -397,7 +370,7 @@ export default function TmsReviewHub(): JSX.Element {
   };
 
   const handleStatusChange = (event: SelectChangeEvent<string>) => {
-    setStatusFilter(event.target.value);
+    setStatusFilter(event.target.value as WorkflowStatus | 'all');
   };
 
   const filteredRows = useMemo(() => {
@@ -410,10 +383,15 @@ export default function TmsReviewHub(): JSX.Element {
   }, [data, resourceType, statusFilter, searchTerm]);
 
   const statusCounts = useMemo(() => {
-    return data[resourceType].reduce<Record<string, number>>((acc, row) => {
+    const initialCounts = WORKFLOW_STATUS_VALUES.reduce<Record<WorkflowStatus, number>>((acc, status) => {
+      acc[status] = 0;
+      return acc;
+    }, {} as Record<WorkflowStatus, number>);
+
+    return data[resourceType].reduce((acc, row) => {
       acc[row.status] = (acc[row.status] || 0) + 1;
       return acc;
-    }, {});
+    }, initialCounts);
   }, [data, resourceType]);
 
   const refreshCurrent = () => {
@@ -427,9 +405,7 @@ export default function TmsReviewHub(): JSX.Element {
     return date.toLocaleDateString('vi-VN');
   };
 
-  const resolveStatusLabel = (status: string) =>
-    COMMON_STATUSES.find((s) => s.value === status)?.label ||
-    currentConfig.getStatusLabel(status);
+  const resolveStatusLabel = (status: WorkflowStatus) => currentConfig.getStatusLabel(status);
 
   // Workflow functions
   const getProcessStages = () => {
@@ -444,66 +420,63 @@ export default function TmsReviewHub(): JSX.Element {
   const updateProcessContext = (status?: string) => {
     if (!status) {
       setProcessIndex(0);
-      setFocusedStatus('DRAFT');
+      setFocusedStatus(WorkflowStatus.DRAFT);
       setFocusedStage(resourceType === 'course' ? 'FACULTY' : 'DRAFT');
       return;
     }
 
+    const normalizedDisplayStatus = normalizeWorkflowStatusFromResource(resourceType, status);
+    setFocusedStatus(normalizedDisplayStatus);
+
     if (resourceType === 'program') {
-      const stage = getProgramStageFromStatus(status as ProgramStatus);
-      setProcessIndex(computeProgramStepIndex(status as ProgramStatus));
-      setFocusedStatus(status);
+      const stage = getProgramStageFromStatus(status);
+      setProcessIndex(computeProgramStepIndex(status));
       setFocusedStage(stage);
     } else if (resourceType === 'major') {
-      const stage = getMajorStageFromStatus(status as MajorStatus);
-      setProcessIndex(computeMajorStepIndex(status as MajorStatus));
-      setFocusedStatus(status);
+      const normalizedStatus = normalizeWorkflowStatusFromResource('major', status);
+      const statusToStageMap: Record<WorkflowStatus, string> = {
+        [WorkflowStatus.DRAFT]: WorkflowStatus.DRAFT,
+        [WorkflowStatus.REVIEWING]: WorkflowStatus.REVIEWING,
+        [WorkflowStatus.APPROVED]: WorkflowStatus.APPROVED,
+        [WorkflowStatus.REJECTED]: WorkflowStatus.REVIEWING,
+        [WorkflowStatus.PUBLISHED]: WorkflowStatus.PUBLISHED,
+        [WorkflowStatus.ARCHIVED]: WorkflowStatus.DRAFT,
+      };
+      const stage = statusToStageMap[normalizedStatus] || WorkflowStatus.DRAFT;
+      const stageIndexMap: Record<WorkflowStatus, number> = {
+        [WorkflowStatus.DRAFT]: 0,
+        [WorkflowStatus.REVIEWING]: 1,
+        [WorkflowStatus.APPROVED]: 2,
+        [WorkflowStatus.REJECTED]: 1,
+        [WorkflowStatus.PUBLISHED]: 3,
+        [WorkflowStatus.ARCHIVED]: 0,
+      };
+      setProcessIndex(stageIndexMap[normalizedStatus] || 0);
       setFocusedStage(stage);
     } else if (resourceType === 'course') {
-      const stage = getCourseStageFromStatus(status as CourseStatus);
-      setProcessIndex(computeCourseStepIndex(status as CourseStatus));
-      setFocusedStatus(status);
+      const stage = getCourseStageFromStatus(status);
+      setProcessIndex(computeCourseStepIndex(status));
       setFocusedStage(stage);
     } else if (resourceType === 'cohort') {
-      const stage = getCohortStageFromStatus(status as CohortStatus);
-      setProcessIndex(computeCohortStepIndex(status as CohortStatus));
-      setFocusedStatus(status);
+      const stage = getCohortStageFromStatus(status);
+      setProcessIndex(computeCohortStepIndex(status));
       setFocusedStage(stage);
     } else if (resourceType === 'org_unit') {
       const stage = getOrgUnitStageFromStatus(status as OrgUnitStatus);
       setProcessIndex(computeOrgUnitStepIndex(status as OrgUnitStatus));
-      setFocusedStatus(status);
       setFocusedStage(stage);
     }
   };
 
-  const mapApprovalActionToStatus = (action: string): string => {
+  const mapApprovalActionToStatus = (action: string): WorkflowStatus => {
     const normalized = action.toUpperCase();
-    if (resourceType === 'cohort') {
-      // Map to cohort statuses
-      if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return 'PLANNING';
-      if (normalized.includes('APPROVE')) return 'ACTIVE';
-      if (normalized.includes('REJECT')) return 'SUSPENDED';
-      if (normalized.includes('PUBLISH')) return 'GRADUATED';
-      if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return 'RECRUITING';
-      return 'PLANNING';
-    } else if (resourceType === 'org_unit') {
-      // Map to org unit statuses
-      if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return 'DRAFT';
-      if (normalized.includes('APPROVE')) return 'APPROVED';
-      if (normalized.includes('REJECT')) return 'REJECTED';
-      if (normalized.includes('PUBLISH') || normalized.includes('ACTIVATE')) return 'ACTIVE';
-      if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return 'REVIEWING';
-      return 'DRAFT';
-    } else {
-      // Map to program/major/course statuses
-      if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return 'DRAFT';
-      if (normalized.includes('APPROVE')) return 'APPROVED';
-      if (normalized.includes('REJECT')) return 'REJECTED';
-      if (normalized.includes('PUBLISH')) return 'PUBLISHED';
-      if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return 'REVIEWING';
-      return 'DRAFT';
-    }
+    if (normalized.includes('APPROVE')) return WorkflowStatus.APPROVED;
+    if (normalized.includes('REJECT')) return WorkflowStatus.REJECTED;
+    if (normalized.includes('PUBLISH') || normalized.includes('ACTIVATE')) return WorkflowStatus.PUBLISHED;
+    if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return WorkflowStatus.REVIEWING;
+    if (normalized.includes('ARCHIVE')) return WorkflowStatus.ARCHIVED;
+    if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return WorkflowStatus.DRAFT;
+    return WorkflowStatus.DRAFT;
   };
 
   const openDetailDialog = async (row: ReviewRow) => {
@@ -763,23 +736,9 @@ export default function TmsReviewHub(): JSX.Element {
       : resourceType === 'cohort' ? 'tms.cohort.publish'
       : 'org_unit.unit.activate';
 
-    // Map cohort/org_unit statuses to workflow statuses for button logic
-    const workflowStatus = resourceType === 'cohort' 
-      ? (row.status === 'PLANNING' ? 'DRAFT'
-        : row.status === 'RECRUITING' ? 'REVIEWING'
-        : row.status === 'ACTIVE' ? 'APPROVED'
-        : row.status === 'GRADUATED' ? 'PUBLISHED'
-        : row.status)
-      : resourceType === 'org_unit'
-      ? (row.status === 'DRAFT' ? 'DRAFT'
-        : row.status === 'REVIEWING' ? 'REVIEWING'
-        : row.status === 'APPROVED' ? 'APPROVED'
-        : row.status === 'ACTIVE' ? 'PUBLISHED'
-        : row.status)
-      : row.status;
+    const workflowStatus = row.status;
 
-    // Action buttons based on status
-    if (workflowStatus === 'DRAFT' || workflowStatus === 'PLANNING') {
+    if (workflowStatus === WorkflowStatus.DRAFT) {
       buttons.push(
         <Button
           key={`submit-${row.id}`}
@@ -794,7 +753,7 @@ export default function TmsReviewHub(): JSX.Element {
       );
     }
 
-    if (workflowStatus === 'REVIEWING' || workflowStatus === 'RECRUITING') {
+    if (workflowStatus === WorkflowStatus.REVIEWING) {
       if (hasPermission(approvePerm)) {
         buttons.push(
           <Button
@@ -837,7 +796,7 @@ export default function TmsReviewHub(): JSX.Element {
       }
     }
 
-    if (workflowStatus === 'APPROVED' || workflowStatus === 'ACTIVE') {
+    if (workflowStatus === WorkflowStatus.APPROVED) {
       if (hasPermission(publishPerm)) {
         buttons.push(
           <Button
@@ -867,10 +826,18 @@ export default function TmsReviewHub(): JSX.Element {
       return getProgramWorkflowStageLabel(focusedStage as ProgramWorkflowStage);
     }
     if (resourceType === 'major') {
-      return getMajorWorkflowStageLabel(focusedStage as MajorWorkflowStage);
+      const stageLabelMap: Record<WorkflowStatus, string> = {
+        [WorkflowStatus.DRAFT]: 'Giảng viên soạn thảo',
+        [WorkflowStatus.REVIEWING]: 'Khoa gửi PĐT xem xét',
+        [WorkflowStatus.APPROVED]: 'Phòng Đào Tạo phê duyệt',
+        [WorkflowStatus.REJECTED]: 'Khoa gửi PĐT xem xét',
+        [WorkflowStatus.PUBLISHED]: 'Hội đồng khoa học công bố',
+        [WorkflowStatus.ARCHIVED]: 'Giảng viên soạn thảo',
+      };
+      return stageLabelMap[focusedStage as WorkflowStatus] || focusedStage;
     }
     if (resourceType === 'course') {
-      return getWorkflowStageLabel(focusedStage as WorkflowStage);
+      return getCourseWorkflowStageLabel(focusedStage as CourseWorkflowStage);
     }
     if (resourceType === 'cohort') {
       return getCohortWorkflowStageLabel(focusedStage as CohortWorkflowStage);
@@ -883,6 +850,9 @@ export default function TmsReviewHub(): JSX.Element {
 
   const activeStageLabel = getActiveStageLabel();
   const activeStatusLabel = resolveStatusLabel(focusedStatus);
+  const detailDisplayStatus = detail
+    ? normalizeWorkflowStatusFromResource(resourceType, detail.status)
+    : WorkflowStatus.DRAFT;
 
   return (
     <Container
@@ -948,7 +918,7 @@ export default function TmsReviewHub(): JSX.Element {
                 sx={{ minWidth: 160 }}
               >
                 <MenuItem value="all">Tất cả trạng thái</MenuItem>
-                {COMMON_STATUSES.map((status) => (
+                {WORKFLOW_STATUS_OPTIONS.map((status) => (
                   <MenuItem key={status.value} value={status.value}>
                     {status.label}
                   </MenuItem>
@@ -973,7 +943,7 @@ export default function TmsReviewHub(): JSX.Element {
 
         <Paper sx={{ p: 3 }}>
           <Stack direction="row" spacing={1} flexWrap="wrap">
-            {COMMON_STATUSES.map((status) => (
+            {WORKFLOW_STATUS_OPTIONS.map((status) => (
               <Chip
                 key={status.value}
                 label={`${status.label} (${statusCounts[status.value] || 0})`}
@@ -1079,14 +1049,14 @@ export default function TmsReviewHub(): JSX.Element {
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center">
                     <Chip
-                      label={resolveStatusLabel(detail.status)}
-                      color={currentConfig.getStatusColor(detail.status)}
+                      label={resolveStatusLabel(detailDisplayStatus)}
+                      color={currentConfig.getStatusColor(detailDisplayStatus)}
                       size="small"
                     />
                     {processStages.length > 0 && (
                       <Chip
                         label={activeStageLabel}
-                        color={currentConfig.getStatusColor(detail.status)}
+                      color={currentConfig.getStatusColor(detailDisplayStatus)}
                         size="small"
                         variant="outlined"
                       />
@@ -1293,7 +1263,15 @@ export default function TmsReviewHub(): JSX.Element {
         <DialogActions>
           {detail && (
             <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mr: 'auto' }}>
-              {getActionButtons({ ...detail, id: detail.id, code: detail.code, name: detail.name_vi ?? detail.nameVi, status: detail.status, owner: detail.org_unit?.name, updatedAt: detail.updated_at })}
+              {getActionButtons({
+                ...detail,
+                id: detail.id,
+                code: detail.code,
+                name: detail.name_vi ?? detail.nameVi,
+                status: detailDisplayStatus,
+                owner: detail.org_unit?.name,
+                updatedAt: detail.updated_at,
+              })}
             </Stack>
           )}
           {detail && (

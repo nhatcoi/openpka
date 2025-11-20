@@ -19,7 +19,7 @@ const createMajorSchema = z.object({
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional().default(2),
-  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional().default('DRAFT'),
+  status: z.enum(['DRAFT', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED', 'ARCHIVED']).optional().default('DRAFT'),
   closed_at: z.string().optional(),
 });
 

@@ -6,12 +6,14 @@ import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { CreateCourseInput, CourseQueryInput } from '@/lib/api/schemas/course';
 import {
+  CourseWorkflowStage,
+} from '@/constants/workflow-statuses';
+import {
   CoursePrerequisiteType,
-  CourseStatus,
   CourseType,
-  WorkflowStage,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 
 // GET /api/tms/courses
@@ -49,8 +51,8 @@ export const GET = withErrorHandling(
     }
     
     // Filter by course status and workflow stage
-    if (normalizedStatus && (Object.values(CourseStatus) as string[]).includes(normalizedStatus)) {
-        where.status = normalizedStatus as CourseStatus;
+    if (normalizedStatus) {
+        where.status = normalizedStatus;
     }
     // Note: Legacy workflow filtering removed - use unified workflow system instead
     // if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
@@ -151,7 +153,7 @@ export const POST = withBody(
           org_unit_id: BigInt(courseData.org_unit_id),
           type: courseTypeValue,
           description: courseData.description || null,
-          status: CourseStatus.DRAFT,
+          status: WorkflowStatus.DRAFT,
           created_at: new Date(),
           updated_at: new Date(),
         }
@@ -183,7 +185,7 @@ export const POST = withBody(
         data: {
           course_id: course.id,
           version: '1',
-          status: CourseStatus.DRAFT,
+          status: WorkflowStatus.DRAFT,
           effective_from: new Date(),
           effective_to: null,
         }

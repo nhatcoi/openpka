@@ -25,6 +25,11 @@ import {
   Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
+import {
+  getWorkflowStatusColor,
+  getWorkflowStatusLabel,
+  normalizeWorkflowStatusFromResource,
+} from '@/constants/workflow-statuses';
 
 type IdLike = number | string;
 
@@ -89,25 +94,11 @@ export default function MajorDetailPage() {
   }, [majorId]);
 
   const getStatusConfig = (status: string) => {
-    const normalized = status.toUpperCase();
-
-    switch (normalized) {
-      case 'ACTIVE':
-        return { color: 'success' as const, label: 'Hoạt động' };
-      case 'SUSPENDED':
-        return { color: 'warning' as const, label: 'Tạm dừng' };
-      case 'CLOSED':
-        return { color: 'error' as const, label: 'Đã đóng' };
-      case 'PROPOSED':
-        return { color: 'info' as const, label: 'Đề xuất' };
-      case 'REVIEWING':
-        return { color: 'info' as const, label: 'Đang xem xét' };
-      case 'APPROVED':
-        return { color: 'success' as const, label: 'Đã phê duyệt' };
-      case 'DRAFT':
-      default:
-        return { color: 'default' as const, label: 'Nháp' };
-    }
+    const normalized = normalizeWorkflowStatusFromResource('major', status);
+    return {
+      color: getWorkflowStatusColor(normalized),
+      label: getWorkflowStatusLabel(normalized),
+    };
   };
 
   const getDegreeLevelText = (level?: string) => {

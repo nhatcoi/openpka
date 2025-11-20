@@ -2,12 +2,12 @@ import { withIdParam, withIdAndBody, createErrorResponse } from '@/lib/api/api-h
 import { db } from '@/lib/db';
 import {
   ProgramPriority,
-  ProgramStatus,
   PROGRAM_PERMISSIONS,
   normalizeProgramPriority,
   normalizeProgramBlockTypeForDb,
   normalizeProgramBlockGroupType,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { UpdateProgramInput, ProgramWorkflowAction } from '@/lib/api/schemas/program';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
@@ -39,7 +39,7 @@ export const GET = withIdParam(async (id: string) => {
 
   return {
     ...program,
-    status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (program.status ?? WorkflowStatus.DRAFT) as string,
     stats: {
       student_count: program._count?.StudentAcademicProgress ?? 0,
       block_count: program.ProgramCourseMap?.length ?? 0,
@@ -123,13 +123,13 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
   }
 
   // Directly derive program status from workflow action (immediate status update)
-  const resolveStatusFromAction = (action?: string | null): ProgramStatus | undefined => {
+  const resolveStatusFromAction = (action?: string | null): string | undefined => {
     const a = (action || '').toLowerCase();
-    if (a === 'submit' || a === 'review') return ProgramStatus.REVIEWING;
-    if (a === 'approve') return ProgramStatus.APPROVED;
-    if (a === 'reject') return ProgramStatus.REJECTED;
-    if (a === 'publish' || a === 'science_council_publish') return ProgramStatus.PUBLISHED;
-    if (a === 'request_edit') return ProgramStatus.DRAFT;
+    if (a === 'submit' || a === 'review') return WorkflowStatus.REVIEWING;
+    if (a === 'approve') return WorkflowStatus.APPROVED;
+    if (a === 'reject') return WorkflowStatus.REJECTED;
+    if (a === 'publish' || a === 'science_council_publish') return WorkflowStatus.PUBLISHED;
+    if (a === 'request_edit') return WorkflowStatus.DRAFT;
     return undefined;
   };
 
@@ -194,12 +194,12 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
       courseCountOverride = courseCounter;
     }
 
-    let statusOverride: ProgramStatus | undefined;
+    let statusOverride: string | undefined;
     let workflowSnapshot = null;
     const workflowAction = payload.workflow_action;
 
     // If status was directly provided, persist an approval history entry
-    const directStatus = (payload as any).status as ProgramStatus | undefined;
+    const directStatus = (payload as any).status as string | undefined;
     if (directStatus) {
       // Ensure workflow instance exists
       let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
@@ -212,20 +212,13 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
         }) as any;
       }
 
-      const mapStatusToAction = (s: ProgramStatus): string => {
-        switch (s) {
-          case ProgramStatus.REVIEWING:
-            return 'REVIEW';
-          case ProgramStatus.APPROVED:
-            return 'APPROVE';
-          case ProgramStatus.REJECTED:
-            return 'REJECT';
-          case ProgramStatus.PUBLISHED:
-            return 'PUBLISH';
-          case ProgramStatus.DRAFT:
-          default:
-            return 'RETURN';
-        }
+      const mapStatusToAction = (s: string): string => {
+        const normalized = (s || '').toUpperCase();
+        if (normalized.includes('REVIEWING')) return 'REVIEW';
+        if (normalized.includes('APPROVED')) return 'APPROVE';
+        if (normalized.includes('REJECTED')) return 'REJECT';
+        if (normalized.includes('PUBLISHED')) return 'PUBLISH';
+        return 'RETURN';
       };
 
       await tx.approvalRecord.create({
@@ -247,7 +240,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
           select: { status: true }
         });
         
-        if (!workflowDerivedStatus && currentProgram?.status !== ProgramStatus.APPROVED) {
+        if (!workflowDerivedStatus && currentProgram?.status !== WorkflowStatus.APPROVED) {
           // Use workflow for other cases
           let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('PROGRAM', programBigInt);
 
@@ -333,19 +326,19 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
           if (!workflowDerivedStatus) {
             switch (updatedInstance.status) {
               case 'PENDING':
-                statusOverride = ProgramStatus.REVIEWING;
+                statusOverride = WorkflowStatus.REVIEWING;
                 break;
               case 'IN_PROGRESS':
-                statusOverride = ProgramStatus.REVIEWING;
+                statusOverride = WorkflowStatus.REVIEWING;
                 break;
               case 'APPROVED':
-                statusOverride = ProgramStatus.APPROVED;
+                statusOverride = WorkflowStatus.APPROVED;
                 break;
               case 'REJECTED':
-                statusOverride = ProgramStatus.REJECTED;
+                statusOverride = WorkflowStatus.REJECTED;
                 break;
               case 'COMPLETED':
-                statusOverride = ProgramStatus.PUBLISHED;
+                statusOverride = WorkflowStatus.PUBLISHED;
                 break;
               default:
                 break;
@@ -383,7 +376,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
 
   return {
     ...result.program,
-    status: (result.program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (result.program.status ?? WorkflowStatus.DRAFT) as string,
     stats: {
       student_count: result.program._count?.StudentAcademicProgress ?? 0,
       block_count: result.blockCount,

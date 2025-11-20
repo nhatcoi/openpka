@@ -1,4 +1,8 @@
-// Org Unit workflow enums and helpers
+import {
+  OrgUnitWorkflowStage,
+  ORG_UNIT_WORKFLOW_STAGES,
+  getOrgUnitWorkflowStageLabel,
+} from '@/constants/workflow-statuses';
 
 export enum OrgUnitStatus {
   DRAFT = 'DRAFT',
@@ -11,6 +15,8 @@ export enum OrgUnitStatus {
   ARCHIVED = 'ARCHIVED',
 }
 
+export { OrgUnitWorkflowStage, ORG_UNIT_WORKFLOW_STAGES, getOrgUnitWorkflowStageLabel };
+
 export const ORG_UNIT_STATUSES: OrgUnitStatus[] = [
   OrgUnitStatus.DRAFT,
   OrgUnitStatus.REVIEWING,
@@ -22,7 +28,6 @@ export const ORG_UNIT_STATUSES: OrgUnitStatus[] = [
   OrgUnitStatus.ARCHIVED,
 ];
 
-// Helper functions
 export function getOrgUnitStatusLabel(status: OrgUnitStatus | string): string {
   switch (status) {
     case OrgUnitStatus.DRAFT:
@@ -69,37 +74,6 @@ export function getOrgUnitStatusColor(status: OrgUnitStatus | string): 'default'
   }
 }
 
-// Org unit workflow stages (mapped to statuses)
-export enum OrgUnitWorkflowStage {
-  DRAFT = 'DRAFT',
-  REVIEWING = 'reviewing',
-  APPROVED = 'approved',
-  PUBLISHED = 'published',
-}
-
-export const ORG_UNIT_WORKFLOW_STAGES: OrgUnitWorkflowStage[] = [
-  OrgUnitWorkflowStage.DRAFT,
-  OrgUnitWorkflowStage.REVIEWING,
-  OrgUnitWorkflowStage.APPROVED,
-  OrgUnitWorkflowStage.PUBLISHED,
-];
-
-export function getOrgUnitWorkflowStageLabel(stage: OrgUnitWorkflowStage | string): string {
-  switch (stage) {
-    case OrgUnitWorkflowStage.DRAFT:
-      return 'Soạn thảo';
-    case OrgUnitWorkflowStage.REVIEWING:
-      return 'Đang xem xét';
-    case OrgUnitWorkflowStage.APPROVED:
-      return 'Đã phê duyệt';
-    case OrgUnitWorkflowStage.PUBLISHED:
-      return 'Đã công bố';
-    default:
-      return stage;
-  }
-}
-
-// Map org unit status to workflow stage
 export function getOrgUnitStageFromStatus(status: OrgUnitStatus | string): OrgUnitWorkflowStage {
   switch (status?.toUpperCase()) {
     case OrgUnitStatus.DRAFT:
@@ -118,7 +92,6 @@ export function getOrgUnitStageFromStatus(status: OrgUnitStatus | string): OrgUn
   }
 }
 
-// Compute step index for progress bar
 export function computeOrgUnitStepIndex(status: OrgUnitStatus | string): number {
   const stage = getOrgUnitStageFromStatus(status);
   switch (stage) {
@@ -134,4 +107,3 @@ export function computeOrgUnitStepIndex(status: OrgUnitStatus | string): number 
       return 0;
   }
 }
-

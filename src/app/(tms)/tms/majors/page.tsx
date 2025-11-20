@@ -46,11 +46,11 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import {
-  MajorStatus,
   getMajorStatusColor,
   getMajorStatusLabel,
   getMajorDegreeLevelLabel,
 } from '@/constants/majors';
+import { WORKFLOW_STATUS_OPTIONS, WorkflowStatus } from '@/constants/workflow-statuses';
 
 interface Major {
   id: number;
@@ -85,7 +85,7 @@ export default function MajorsPage() {
   const [totalItems, setTotalItems] = useState(0);
   const [searchValue, setSearchValue] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<MajorStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
   const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
   const [orgUnits, setOrgUnits] = useState<Array<{id: number; name: string; code: string}>>([]);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; major: Major | null }>({
@@ -184,7 +184,7 @@ export default function MajorsPage() {
 
   // Handle filter changes
   const handleStatusChange = (event: any) => {
-    setSelectedStatus(event.target.value);
+    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
     setPage(1);
   };
 
@@ -351,15 +351,11 @@ export default function MajorsPage() {
                   onChange={handleStatusChange}
                 >
                   <MenuItem value="all">Tất cả</MenuItem>
-                  <MenuItem value="draft">Nháp</MenuItem>
-                  <MenuItem value="proposed">Đề xuất</MenuItem>
-                  <MenuItem value="reviewing">Đang xem xét</MenuItem>
-                  <MenuItem value="approved">Đã phê duyệt</MenuItem>
-                  <MenuItem value="rejected">Bị từ chối</MenuItem>
-                  <MenuItem value="published">Đã công bố</MenuItem>
-                  <MenuItem value="active">Hoạt động</MenuItem>
-                  <MenuItem value="suspended">Tạm dừng</MenuItem>
-                  <MenuItem value="closed">Đã đóng</MenuItem>
+                {WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
                 </Select>
               </FormControl>
 

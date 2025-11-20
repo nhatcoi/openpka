@@ -3,7 +3,7 @@ import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
-import { CohortStatus } from '@/constants/cohorts';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 // GET /api/cohorts/[id] - Lấy chi tiết khóa học
@@ -257,7 +257,7 @@ export async function PUT(
       });
 
       // If status was directly provided, persist an approval history entry
-      const directStatus = status as CohortStatus | undefined;
+      const directStatus = status as string | undefined;
       if (directStatus && directStatus !== existingCohort.status) {
         // Ensure workflow instance exists
         let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COHORT' as any, cohortId);
@@ -270,20 +270,13 @@ export async function PUT(
           }) as any;
         }
 
-        const mapStatusToAction = (s: CohortStatus): string => {
-          switch (s) {
-            case CohortStatus.RECRUITING:
-              return 'REVIEW';
-            case CohortStatus.ACTIVE:
-              return 'APPROVE';
-            case CohortStatus.SUSPENDED:
-              return 'REJECT';
-            case CohortStatus.GRADUATED:
-              return 'PUBLISH';
-            case CohortStatus.PLANNING:
-            default:
-              return 'RETURN';
-          }
+        const mapStatusToAction = (s: string): string => {
+          const normalized = (s || '').toUpperCase();
+          if (normalized.includes('RECRUITING')) return 'REVIEW';
+          if (normalized.includes('ACTIVE')) return 'APPROVE';
+          if (normalized.includes('SUSPENDED')) return 'REJECT';
+          if (normalized.includes('GRADUATED')) return 'PUBLISH';
+          return 'RETURN';
         };
 
         await tx.approvalRecord.create({

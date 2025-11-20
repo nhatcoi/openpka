@@ -39,7 +39,6 @@ import {
 import {
   getProgramStatusColor,
   getProgramStatusLabel,
-  ProgramStatus,
 } from '@/constants/programs';
 import type { ReportsOverviewResponse } from '@/lib/api/schemas/reports';
 
@@ -48,7 +47,7 @@ const decimalFormatter = new Intl.NumberFormat('vi-VN', { minimumFractionDigits:
 
 const chipColorFromStatus = (status: string | null): ChipProps['color'] => {
   if (!status) return 'default';
-  const mapped = getProgramStatusColor(status as ProgramStatus | string);
+  const mapped = getProgramStatusColor(status as string);
   switch (mapped) {
     case 'error':
     case 'info':

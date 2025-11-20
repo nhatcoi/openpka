@@ -1,14 +1,19 @@
 import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { withErrorHandling } from '@/lib/api/api-handler';
-import { ProgramStatus } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 export const GET = withErrorHandling(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search') || undefined;
+  const status = searchParams.get('status') || undefined;
   const limit = Math.max(parseInt(searchParams.get('limit') || '50', 10), 1);
 
   const where: Record<string, unknown> = {};
+
+  if (status) {
+    where.status = status;
+  }
 
   if (search) {
     where.OR = [
@@ -46,7 +51,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     value: program.id.toString(),
     total_credits: program.total_credits,
     version: program.version,
-    status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (program.status ?? WorkflowStatus.DRAFT) as string,
     org_unit_id: program.org_unit_id?.toString() ?? null,
   }));
 

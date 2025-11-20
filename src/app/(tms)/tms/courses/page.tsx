@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -59,14 +59,18 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import {
-  COURSE_STATUSES,
-  CourseStatus,
-  WorkflowStage,
+  CourseWorkflowStage,
+  getCourseWorkflowStageLabel,
+} from '@/constants/workflow-statuses';
+import {
+  COURSE_WORKFLOW_STATUS_OPTIONS,
   getCourseTypeLabel,
   getStatusColor,
   getStatusLabel,
-  getWorkflowStageLabel,
+  getRawCourseStatuses,
+  normalizeCourseWorkflowStatus,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 interface Course {
   id: number;
@@ -118,7 +122,7 @@ export default function CoursesPage() {
   const [faculties, setFaculties] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedStatus, setSelectedStatus] = useState<CourseStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
   const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -150,10 +154,22 @@ export default function CoursesPage() {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '50',
-        ...(selectedStatus !== 'all' && { status: selectedStatus }),
-        ...(selectedFaculty !== 'all' && { orgUnitId: selectedFaculty }),
-        ...(debouncedSearchTerm && { search: debouncedSearchTerm })
       });
+
+      if (selectedFaculty !== 'all') {
+        params.append('orgUnitId', selectedFaculty);
+      }
+
+      if (debouncedSearchTerm) {
+        params.append('search', debouncedSearchTerm);
+      }
+
+      if (selectedStatus !== 'all') {
+        const rawStatuses = getRawCourseStatuses(selectedStatus);
+        if (rawStatuses.length === 1) {
+          params.append('status', rawStatuses[0]);
+        }
+      }
 
       const response = await fetch(`/api/tms/courses?${params}`);
       const result = await response.json();
@@ -193,8 +209,10 @@ export default function CoursesPage() {
     fetchCourses();
   }, [page, selectedStatus, selectedFaculty, debouncedSearchTerm]);
 
-  // Filter courses (now handled by API)
-  const filteredCourses = courses;
+  const filteredCourses = useMemo(() => {
+    if (selectedStatus === 'all') return courses;
+    return courses.filter((course) => normalizeCourseWorkflowStatus(course.status) === selectedStatus);
+  }, [courses, selectedStatus]);
 
   const handleViewDetails = (course: Course) => {
     router.push(`/tms/courses/${course.id}`);
@@ -252,7 +270,7 @@ export default function CoursesPage() {
       </Button>
     );
 
-    if (subject.status === CourseStatus.SUBMITTED) {
+    if (subject.status === WorkflowStatus.REVIEWING) {
       buttons.push(
         <Button
           key="review"
@@ -266,8 +284,8 @@ export default function CoursesPage() {
       );
     }
 
-    if (subject.status === CourseStatus.REVIEWING) {
-      if (subject.workflowStage === WorkflowStage.ACADEMIC_OFFICE) {
+    if (subject.status === WorkflowStatus.REVIEWING) {
+      if (subject.workflowStage === CourseWorkflowStage.ACADEMIC_OFFICE) {
         buttons.push(
           <Button
             key="approve"
@@ -294,7 +312,7 @@ export default function CoursesPage() {
       }
     }
 
-    if (subject.status === CourseStatus.APPROVED) {
+    if (subject.status === WorkflowStatus.APPROVED) {
       buttons.push(
         <Button
           key="publish"
@@ -372,13 +390,13 @@ export default function CoursesPage() {
             <InputLabel>Trạng thái</InputLabel>
             <Select
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as CourseStatus | 'all')}
+              onChange={(e) => setSelectedStatus(e.target.value as WorkflowStatus | 'all')}
               label="Trạng thái"
             >
               <MenuItem value="all">Tất cả</MenuItem>
-              {COURSE_STATUSES.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {getStatusLabel(status)}
+              {COURSE_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                <MenuItem key={status.value} value={status.value}>
+                  {status.label}
                 </MenuItem>
               ))}
             </Select>

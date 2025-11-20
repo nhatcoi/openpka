@@ -42,14 +42,16 @@ import {
   FilterList as FilterIcon,
 } from '@mui/icons-material';
 import { 
-  CohortStatus, 
   CohortIntakeTerm,
   getCohortStatusLabel, 
   getCohortStatusColor,
   getCohortIntakeTermLabel,
-  COHORT_STATUSES,
-  COHORT_INTAKE_TERMS 
+  COHORT_WORKFLOW_STATUS_OPTIONS,
+  COHORT_INTAKE_TERMS,
+  getRawCohortStatuses,
+  normalizeCohortWorkflowStatus, 
 } from '@/constants/cohorts';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 interface Cohort {
   id: string;
@@ -66,7 +68,7 @@ interface Cohort {
   actual_quota?: number;
   start_date?: string;
   expected_graduation_date?: string;
-  status: CohortStatus;
+  status: string;
   is_active: boolean;
   description?: string;
   created_at: string;
@@ -81,7 +83,7 @@ export default function CohortsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CohortStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<WorkflowStatus | 'all'>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<Cohort | null>(null);
 
@@ -93,8 +95,14 @@ export default function CohortsPage() {
         page: page.toString(),
         limit: '10',
         ...(searchTerm && { search: searchTerm }),
-        ...(statusFilter && { status: statusFilter }),
       });
+
+      if (statusFilter !== 'all') {
+        const rawStatuses = getRawCohortStatuses(statusFilter);
+        if (rawStatuses.length > 0) {
+          params.append('status', rawStatuses[0]);
+        }
+      }
 
       const response = await fetch(`/api/cohorts?${params}`);
       if (!response.ok) {
@@ -142,7 +150,8 @@ export default function CohortsPage() {
       cohort.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cohort.name_vi.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = !statusFilter || cohort.status === statusFilter;
+    const matchesStatus =
+      statusFilter === 'all' || normalizeCohortWorkflowStatus(cohort.status) === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
@@ -207,12 +216,12 @@ export default function CohortsPage() {
                 select
                 label="Trạng thái"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as CohortStatus | '')}
+                onChange={(e) => setStatusFilter(e.target.value as WorkflowStatus | 'all')}
               >
-                <MenuItem value="">Tất cả</MenuItem>
-                {COHORT_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {getCohortStatusLabel(status)}
+                <MenuItem value="all">Tất cả</MenuItem>
+                {COHORT_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
                   </MenuItem>
                 ))}
               </TextField>

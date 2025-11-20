@@ -29,8 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  PROGRAM_STATUSES,
-  ProgramStatus,
+  PROGRAM_WORKFLOW_STATUS_OPTIONS,
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
@@ -586,12 +585,12 @@ export default function EditProgramPage(): JSX.Element {
               <Stack spacing={2}>
                 <Select
                   value={form.status}
-                  onChange={(event) => updateForm('status', event.target.value as ProgramStatus)}
+                  onChange={(event) => updateForm('status', event.target.value as string)}
                   fullWidth
                 >
-                  {PROGRAM_STATUSES.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {getProgramStatusLabel(status)}
+                  {PROGRAM_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
                     </MenuItem>
                   ))}
                 </Select>

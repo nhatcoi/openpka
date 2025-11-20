@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
-import { ProgramStatus } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 export async function GET() {
   try {
@@ -31,22 +31,21 @@ export async function GET() {
       const count = stat._count.id;
       result.total += count;
 
-      const status = (stat.status || '').toUpperCase() as ProgramStatus | string;
+      const status = (stat.status || '').toUpperCase();
 
       switch (status) {
-        case ProgramStatus.DRAFT:
-        case ProgramStatus.SUBMITTED:
+        case WorkflowStatus.DRAFT:
           result.pending += count;
           break;
-        case ProgramStatus.REVIEWING:
+        case WorkflowStatus.REVIEWING:
           result.reviewing += count;
           break;
-        case ProgramStatus.APPROVED:
-        case ProgramStatus.PUBLISHED:
+        case WorkflowStatus.APPROVED:
+        case WorkflowStatus.PUBLISHED:
           result.approved += count;
           break;
-        case ProgramStatus.REJECTED:
-        case ProgramStatus.ARCHIVED:
+        case WorkflowStatus.REJECTED:
+        case WorkflowStatus.ARCHIVED:
           result.rejected += count;
           break;
         default:

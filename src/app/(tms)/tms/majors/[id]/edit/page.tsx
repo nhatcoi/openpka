@@ -41,6 +41,7 @@ import {
   getMajorStatusLabel,
   getMajorStatusColor
 } from '@/constants/majors';
+import { WORKFLOW_STATUS_OPTIONS } from '@/constants/workflow-statuses';
 
 interface OrgUnit {
   id: number;
@@ -532,15 +533,11 @@ export default function EditMajorPage(): JSX.Element {
                     label="Trạng thái"
                     onChange={(e) => handleInputChange('status', e.target.value)}
                 >
-                  <MenuItem value="DRAFT">Nháp</MenuItem>
-                  <MenuItem value="PROPOSED">Đề xuất</MenuItem>
-                  <MenuItem value="REVIEWING">Đang xem xét</MenuItem>
-                  <MenuItem value="APPROVED">Đã phê duyệt</MenuItem>
-                  <MenuItem value="REJECTED">Bị từ chối</MenuItem>
-                  <MenuItem value="PUBLISHED">Đã công bố</MenuItem>
-                  <MenuItem value="ACTIVE">Hoạt động</MenuItem>
-                  <MenuItem value="SUSPENDED">Tạm dừng</MenuItem>
-                  <MenuItem value="CLOSED">Đã đóng</MenuItem>
+                  {WORKFLOW_STATUS_OPTIONS.map((status) => (
+                    <MenuItem key={status.value} value={status.value}>
+                      {status.label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Paper>

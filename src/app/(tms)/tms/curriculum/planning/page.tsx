@@ -147,7 +147,6 @@ export default function CurriculumPlanningPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'DRAFT': return 'default';
-      case 'SUBMITTED': return 'primary';
       case 'APPROVED': return 'success';
       case 'ACTIVE': return 'info';
       case 'COMPLETED': return 'success';
@@ -158,7 +157,6 @@ export default function CurriculumPlanningPage() {
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'DRAFT': return 'Nháp';
-      case 'SUBMITTED': return 'Đã gửi';
       case 'APPROVED': return 'Đã phê duyệt';
       case 'ACTIVE': return 'Đang áp dụng';
       case 'COMPLETED': return 'Hoàn thành';

@@ -1,14 +1,13 @@
-// Program-related enums and helpers
-
-export enum ProgramStatus {
-  DRAFT = 'DRAFT',
-  SUBMITTED = 'SUBMITTED',
-  REVIEWING = 'REVIEWING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-  PUBLISHED = 'PUBLISHED',
-  ARCHIVED = 'ARCHIVED',
-}
+import {
+  WORKFLOW_STATUS_OPTIONS,
+  WorkflowStatus,
+  getWorkflowStatusColor as getWorkflowStatusColorBase,
+  getWorkflowStatusLabel as getWorkflowStatusLabelBase,
+  normalizeWorkflowStatusFromResource,
+  ProgramWorkflowStage,
+  PROGRAM_WORKFLOW_STAGES,
+  getProgramWorkflowStageLabel,
+} from '@/constants/workflow-statuses';
 
 export enum ProgramPriority {
   HIGH = 'HIGH',
@@ -16,11 +15,15 @@ export enum ProgramPriority {
   LOW = 'LOW',
 }
 
-export enum ProgramWorkflowStage {
-  DRAFT = 'DRAFT',
-  REVIEWING = 'REVIEWING',
-  APPROVED = 'APPROVED',
-  PUBLISHED = 'PUBLISHED',
+export enum ProgramWorkflowAction {
+  SUBMIT = 'submit',
+  REVIEW = 'review',
+  APPROVE = 'approve',
+  REJECT = 'reject',
+  PUBLISH = 'publish',
+  DELETE = 'delete',
+  REQUEST_EDIT = 'request_edit',
+  SCIENCE_COUNCIL_PUBLISH = 'science_council_publish',
 }
 
 export enum ProgramBlockType {
@@ -34,7 +37,6 @@ export enum ProgramBlockType {
   OTHER = 'other',
 }
 
-// NEW: Template-based block types
 export enum ProgramBlockTemplateType {
   REQUIRED = 'REQUIRED',
   ELECTIVE = 'ELECTIVE',
@@ -59,9 +61,6 @@ export enum BlockTemplateCategoryCode {
   ELECTIVE = 'ELECTIVE',
 }
 
-export const PROGRAM_BLOCK_GROUP_TYPES = ['required', 'elective', 'core', 'other'] as const;
-export type ProgramBlockGroupType = (typeof PROGRAM_BLOCK_GROUP_TYPES)[number];
-
 export enum ProgramDegreeLevel {
   BACHELOR = 'bachelor',
   MASTER = 'master',
@@ -71,49 +70,15 @@ export enum ProgramDegreeLevel {
   CERTIFICATE = 'certificate',
 }
 
-export const PROGRAM_STATUSES: ProgramStatus[] = [
-  ProgramStatus.DRAFT,
-  ProgramStatus.SUBMITTED,
-  ProgramStatus.REVIEWING,
-  ProgramStatus.APPROVED,
-  ProgramStatus.REJECTED,
-  ProgramStatus.PUBLISHED,
-  ProgramStatus.ARCHIVED,
-];
+export const PROGRAM_BLOCK_GROUP_TYPES = ['required', 'elective', 'core', 'other'] as const;
+export type ProgramBlockGroupType = (typeof PROGRAM_BLOCK_GROUP_TYPES)[number];
 
+export const PROGRAM_WORKFLOW_STATUS_OPTIONS = WORKFLOW_STATUS_OPTIONS;
 export const PROGRAM_PRIORITIES: ProgramPriority[] = [
   ProgramPriority.HIGH,
   ProgramPriority.MEDIUM,
   ProgramPriority.LOW,
 ];
-
-export const PROGRAM_WORKFLOW_STAGES: ProgramWorkflowStage[] = [
-  ProgramWorkflowStage.DRAFT,
-  ProgramWorkflowStage.REVIEWING,
-  ProgramWorkflowStage.APPROVED,
-  ProgramWorkflowStage.PUBLISHED,
-];
-
-export const PROGRAM_PERMISSIONS = {
-  // New permissions structure
-  VIEW: 'tms.program.view',
-  CREATE: 'tms.program.create',
-  UPDATE: 'tms.program.update',
-  DELETE: 'tms.program.delete',
-  APPROVE: 'tms.program.approve',
-  PUBLISH: 'tms.program.publish',
-  // Legacy aliases for backward compatibility
-  READ: 'tms.program.view',
-  WRITE: 'tms.program.create', // Use CREATE for write operations
-  SUBMIT: 'tms.program.create', // Use CREATE for submit
-  REVIEW: 'tms.program.approve',
-  REJECT: 'tms.program.approve', // Alias for APPROVE
-  PUBLISH: 'tms.program.approve', // Alias for APPROVE
-  REQUEST_EDIT: 'tms.program.write', // Alias for WRITE
-  SCIENCE_COUNCIL_PUBLISH: 'tms.program.approve', // Alias for APPROVE
-  MANAGE: 'tms.program.write', // Alias for WRITE (use write + approve for full manage)
-} as const;
-
 export const PROGRAM_BLOCK_TYPES: ProgramBlockType[] = [
   ProgramBlockType.GENERAL,
   ProgramBlockType.FOUNDATION,
@@ -124,7 +89,6 @@ export const PROGRAM_BLOCK_TYPES: ProgramBlockType[] = [
   ProgramBlockType.INTERNSHIP,
   ProgramBlockType.OTHER,
 ];
-
 export const PROGRAM_DEGREE_LEVELS: ProgramDegreeLevel[] = [
   ProgramDegreeLevel.BACHELOR,
   ProgramDegreeLevel.MASTER,
@@ -133,6 +97,61 @@ export const PROGRAM_DEGREE_LEVELS: ProgramDegreeLevel[] = [
   ProgramDegreeLevel.ASSOCIATE,
   ProgramDegreeLevel.CERTIFICATE,
 ];
+export const PROGRAM_WORKFLOW_ACTIONS: ProgramWorkflowAction[] = [
+  ProgramWorkflowAction.SUBMIT,
+  ProgramWorkflowAction.REVIEW,
+  ProgramWorkflowAction.APPROVE,
+  ProgramWorkflowAction.REJECT,
+  ProgramWorkflowAction.PUBLISH,
+  ProgramWorkflowAction.DELETE,
+  ProgramWorkflowAction.REQUEST_EDIT,
+  ProgramWorkflowAction.SCIENCE_COUNCIL_PUBLISH,
+];
+
+export const PROGRAM_PERMISSIONS = {
+  VIEW: 'tms.program.view',
+  CREATE: 'tms.program.create',
+  UPDATE: 'tms.program.update',
+  DELETE: 'tms.program.delete',
+  APPROVE: 'tms.program.approve',
+  PUBLISH: 'tms.program.publish',
+  READ: 'tms.program.view',
+  WRITE: 'tms.program.create',
+  SUBMIT: 'tms.program.create',
+  REVIEW: 'tms.program.approve',
+  REJECT: 'tms.program.approve',
+  REQUEST_EDIT: 'tms.program.write',
+  SCIENCE_COUNCIL_PUBLISH: 'tms.program.approve',
+  MANAGE: 'tms.program.write',
+} as const;
+
+export const PROGRAM_STAGE_CHIP_COLORS: Record<ProgramWorkflowStage, 'default' | 'info' | 'success' | 'warning'> = {
+  [ProgramWorkflowStage.DRAFT]: 'default',
+  [ProgramWorkflowStage.REVIEWING]: 'info',
+  [ProgramWorkflowStage.APPROVED]: 'success',
+  [ProgramWorkflowStage.PUBLISHED]: 'success',
+};
+
+export const DEFAULT_PROGRAM_PAGE_SIZE = 10;
+export const DEFAULT_PROGRAM_STATS = {
+  pending: 0,
+  reviewing: 0,
+  approved: 0,
+  rejected: 0,
+  total: 0,
+} as const;
+
+export function normalizeProgramWorkflowStatus(status?: string | null): WorkflowStatus {
+  return normalizeWorkflowStatusFromResource('program', status);
+}
+
+export function getProgramStatusLabel(status: string): string {
+  return getWorkflowStatusLabelBase(normalizeProgramWorkflowStatus(status));
+}
+
+export function getProgramStatusColor(status: string): 'default' | 'info' | 'warning' | 'success' | 'error' {
+  return getWorkflowStatusColorBase(normalizeProgramWorkflowStatus(status));
+}
 
 export function normalizeProgramPriority(priority?: string | null): ProgramPriority {
   switch ((priority || '').toUpperCase()) {
@@ -143,45 +162,6 @@ export function normalizeProgramPriority(priority?: string | null): ProgramPrior
     case ProgramPriority.MEDIUM:
     default:
       return ProgramPriority.MEDIUM;
-  }
-}
-
-export function getProgramStatusLabel(status: ProgramStatus | string): string {
-  switch (status) {
-    case ProgramStatus.PUBLISHED:
-      return 'Đã xuất bản';
-    case ProgramStatus.APPROVED:
-      return 'Đã phê duyệt';
-    case ProgramStatus.REVIEWING:
-      return 'Đang xem xét';
-    case ProgramStatus.SUBMITTED:
-      return 'Đã gửi';
-    case ProgramStatus.DRAFT:
-      return 'Bản nháp';
-    case ProgramStatus.REJECTED:
-      return 'Từ chối';
-    case ProgramStatus.ARCHIVED:
-      return 'Lưu trữ';
-    default:
-      return status;
-  }
-}
-
-export function getProgramStatusColor(status: ProgramStatus | string): 'default' | 'info' | 'warning' | 'success' | 'error' {
-  switch (status) {
-    case ProgramStatus.PUBLISHED:
-    case ProgramStatus.APPROVED:
-      return 'success';
-    case ProgramStatus.REVIEWING:
-      return 'warning';
-    case ProgramStatus.SUBMITTED:
-      return 'info';
-    case ProgramStatus.REJECTED:
-      return 'error';
-    case ProgramStatus.DRAFT:
-    case ProgramStatus.ARCHIVED:
-    default:
-      return 'default';
   }
 }
 
@@ -260,6 +240,10 @@ export function normalizeProgramBlockType(type?: string | null): ProgramBlockTyp
   return ProgramBlockType.CORE;
 }
 
+export function normalizeProgramBlockTypeForDb(type?: string | null): string {
+  return normalizeProgramBlockType(type).toUpperCase();
+}
+
 export function getProgramBlockGroupBaseType(type?: string | null): ProgramBlockGroupType {
   const value = (type || '').toLowerCase();
   if (value.startsWith('elective')) return 'elective';
@@ -282,86 +266,37 @@ export function getProgramBlockGroupTypeLabel(type: ProgramBlockGroupType | stri
   }
 }
 
-export function getProgramWorkflowStageLabel(stage: ProgramWorkflowStage | string): string {
-  switch ((stage || '').toUpperCase()) {
-    case ProgramWorkflowStage.DRAFT:
-      return 'Giảng viên soạn thảo';
-    case ProgramWorkflowStage.REVIEWING:
-      return 'Khoa xem xét';
-    case ProgramWorkflowStage.APPROVED:
-      return 'Phòng đào tạo phê duyệt';
-    case ProgramWorkflowStage.PUBLISHED:
-      return 'Hội đồng khoa học công bố';
-    default:
-      return stage || 'Không xác định';
-  }
-}
-
-export function getProgramStageFromStatus(status?: ProgramStatus | string | null): ProgramWorkflowStage {
-  const normalized = (status || '').toUpperCase();
-
-  switch (normalized) {
-    case ProgramStatus.DRAFT:
-      return ProgramWorkflowStage.DRAFT;
-    case ProgramStatus.SUBMITTED:
-    case ProgramStatus.REVIEWING:
-      return ProgramWorkflowStage.REVIEWING;
-    case ProgramStatus.APPROVED:
-      return ProgramWorkflowStage.APPROVED;
-    case ProgramStatus.PUBLISHED:
-      return ProgramWorkflowStage.PUBLISHED;
-    case ProgramStatus.REJECTED:
-      return ProgramWorkflowStage.REVIEWING;
-    case ProgramStatus.ARCHIVED:
-    default:
-      return ProgramWorkflowStage.DRAFT;
-  }
-}
-
 export function normalizeProgramBlockGroupType(type?: string | null): string {
   return (type ?? 'OTHER').toString().trim().toUpperCase();
 }
 
-export function normalizeProgramBlockTypeForDb(type?: string | null): string {
-  // Prisma check constraint expects UPPERCASE values
-  return normalizeProgramBlockType(type).toUpperCase();
+export function getProgramStageFromStatus(status?: string | null): ProgramWorkflowStage {
+  const normalized = (status || '').toUpperCase();
+  if (normalized === 'DRAFT') return ProgramWorkflowStage.DRAFT;
+  if (normalized === 'SUBMITTED' || normalized === 'REVIEWING') return ProgramWorkflowStage.REVIEWING;
+  if (normalized === 'APPROVED') return ProgramWorkflowStage.APPROVED;
+  if (normalized === 'PUBLISHED') return ProgramWorkflowStage.PUBLISHED;
+  if (normalized === 'REJECTED') return ProgramWorkflowStage.REVIEWING;
+  return ProgramWorkflowStage.DRAFT;
 }
 
-export const DEFAULT_PROGRAM_PAGE_SIZE = 10;
-
-// Program Review Constants
-export interface ProgramStatsSummary {
-  pending: number;
-  reviewing: number;
-  approved: number;
-  rejected: number;
-  total: number;
+export function getProgramStageChipColor(stage: ProgramWorkflowStage): 'default' | 'info' | 'success' | 'warning' {
+  return PROGRAM_STAGE_CHIP_COLORS[stage];
 }
 
-export const DEFAULT_PROGRAM_STATS: ProgramStatsSummary = {
-  pending: 0,
-  reviewing: 0,
-  approved: 0,
-  rejected: 0,
-  total: 0,
-};
+export function computeProgramStepIndex(status: string): number {
+  const stage = getProgramStageFromStatus(status);
+  const index = PROGRAM_WORKFLOW_STAGES.indexOf(stage);
+  return index >= 0 ? index : 0;
+}
 
-export const PROGRAM_STAGE_CHIP_COLORS: Record<ProgramWorkflowStage, 'default' | 'info' | 'success' | 'warning'> = {
-  [ProgramWorkflowStage.DRAFT]: 'default',
-  [ProgramWorkflowStage.REVIEWING]: 'info',
-  [ProgramWorkflowStage.APPROVED]: 'success',
-  [ProgramWorkflowStage.PUBLISHED]: 'success',
-};
-
-export enum ProgramWorkflowAction {
-  SUBMIT = 'submit',
-  REVIEW = 'review',
-  APPROVE = 'approve',
-  REJECT = 'reject',
-  PUBLISH = 'publish',
-  DELETE = 'delete',
-  REQUEST_EDIT = 'request_edit',
-  SCIENCE_COUNCIL_PUBLISH = 'science_council_publish',
+export function formatProgramDateTime(value?: string | null): string {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString('vi-VN');
+  } catch {
+    return value;
+  }
 }
 
 export interface ProgramActionCopy {
@@ -413,33 +348,14 @@ export const PROGRAM_ACTION_COPY: Record<ProgramWorkflowAction, ProgramActionCop
   },
 };
 
-// Program Process Stages
-export interface ProgramProcessStage {
-  stage: ProgramWorkflowStage;
-  label: string;
-  Icon: React.ComponentType<any>;
-}
-
-// Utility functions for program review
-export function getProgramStageChipColor(stage: ProgramWorkflowStage): 'default' | 'info' | 'success' | 'warning' {
-  return PROGRAM_STAGE_CHIP_COLORS[stage];
-}
-
 export function getProgramActionCopy(action: ProgramWorkflowAction): ProgramActionCopy {
   return PROGRAM_ACTION_COPY[action];
 }
 
-export function formatProgramDateTime(value?: string | null): string {
-  if (!value) return '—';
-  try {
-    return new Date(value).toLocaleString('vi-VN');
-  } catch {
-    return value;
-  }
-}
-
-export function computeProgramStepIndex(status: ProgramStatus): number {
-  const stage = getProgramStageFromStatus(status);
-  const index = PROGRAM_WORKFLOW_STAGES.indexOf(stage);
-  return index >= 0 ? index : 0;
+export interface ProgramStatsSummary {
+  pending: number;
+  reviewing: number;
+  approved: number;
+  rejected: number;
+  total: number;
 }

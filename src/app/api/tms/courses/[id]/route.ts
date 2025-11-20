@@ -5,11 +5,13 @@ import { authOptions } from '@/lib/auth/auth';
 import { withErrorHandling, withIdParam, withIdAndBody, createErrorResponse, createSuccessResponse } from '@/lib/api/api-handler';
 import { UpdateCourseInput } from '@/lib/api/schemas/course';
 import {
-  CourseStatus,
+  CourseWorkflowStage,
+} from '@/constants/workflow-statuses';
+import {
   CourseType,
-  WorkflowStage,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
@@ -173,16 +175,15 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
   const courseData = body as any;
   const prerequisitesString = courseData.prerequisites?.map((p: any) => typeof p === 'string' ? p : p.label).join(', ') || null;
 
-  const toCourseStatus = (value: unknown): CourseStatus | undefined => {
+  const toCourseStatus = (value: unknown): string | undefined => {
     if (!value) return undefined;
-    const upper = String(value).toUpperCase();
-    return (Object.values(CourseStatus) as string[]).includes(upper) ? (upper as CourseStatus) : undefined;
+    return String(value).toUpperCase();
   };
 
-  const toWorkflowStage = (value: unknown): WorkflowStage | undefined => {
+  const toWorkflowStage = (value: unknown): CourseWorkflowStage | undefined => {
     if (!value) return undefined;
     const upper = String(value).toUpperCase();
-    return (Object.values(WorkflowStage) as string[]).includes(upper) ? (upper as WorkflowStage) : undefined;
+    return (Object.values(CourseWorkflowStage) as string[]).includes(upper) ? (upper as CourseWorkflowStage) : undefined;
   };
 
   const toCourseType = (value: unknown): CourseType | undefined => {
@@ -294,21 +295,13 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         }) as any;
       }
 
-      const mapStatusToAction = (s: CourseStatus): string => {
-        switch (s) {
-          case CourseStatus.REVIEWING:
-          case CourseStatus.SUBMITTED:
-            return 'REVIEW';
-          case CourseStatus.APPROVED:
-            return 'APPROVE';
-          case CourseStatus.REJECTED:
-            return 'REJECT';
-          case CourseStatus.PUBLISHED:
-            return 'PUBLISH';
-          case CourseStatus.DRAFT:
-          default:
-            return 'RETURN';
-        }
+      const mapStatusToAction = (s: string): string => {
+        const normalized = (s || '').toUpperCase();
+        if (normalized.includes('REVIEWING') || normalized.includes('SUBMITTED')) return 'REVIEW';
+        if (normalized.includes('APPROVED')) return 'APPROVE';
+        if (normalized.includes('REJECTED')) return 'REJECT';
+        if (normalized.includes('PUBLISHED')) return 'PUBLISH';
+        return 'RETURN';
       };
 
       await tx.approvalRecord.create({
@@ -334,7 +327,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
           data: {
             course_id: BigInt(courseId),
             version: '1',
-            status: CourseStatus.DRAFT,
+            status: WorkflowStatus.DRAFT,
           }
         });
       }
@@ -428,19 +421,19 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         let courseStatus = resolvedStatus;
         switch (updatedInstance.status) {
           case 'PENDING':
-            courseStatus = CourseStatus.DRAFT;
+            courseStatus = WorkflowStatus.DRAFT;
             break;
           case 'IN_PROGRESS':
-            courseStatus = CourseStatus.REVIEWING;
+            courseStatus = WorkflowStatus.REVIEWING;
             break;
           case 'APPROVED':
-            courseStatus = CourseStatus.APPROVED;
+            courseStatus = WorkflowStatus.APPROVED;
             break;
           case 'REJECTED':
-            courseStatus = CourseStatus.REJECTED;
+            courseStatus = WorkflowStatus.REJECTED;
             break;
           case 'COMPLETED':
-            courseStatus = CourseStatus.PUBLISHED;
+            courseStatus = WorkflowStatus.PUBLISHED;
             break;
         }
 

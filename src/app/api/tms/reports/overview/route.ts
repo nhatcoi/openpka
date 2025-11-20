@@ -3,10 +3,10 @@ import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { createErrorResponse, withErrorHandling } from '@/lib/api/api-handler';
 import {
-  ProgramStatus,
   getProgramStatusLabel,
   getProgramBlockTypeLabel,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import type { ReportsOverviewResponse, StatusBreakdownItem } from '@/lib/api/schemas/reports';
 
 const CONTEXT = 'fetch tms reports overview';
@@ -23,7 +23,6 @@ const COURSE_TYPE_LABELS: Record<string, string> = {
 const COURSE_STATUS_LABELS: Record<string, string> = {
   APPROVED: 'Đã phê duyệt',
   DRAFT: 'Nháp',
-  SUBMITTED: 'Đã gửi',
   REVIEWING: 'Đang duyệt',
   REJECTED: 'Từ chối',
   PUBLISHED: 'Đã xuất bản',
@@ -138,16 +137,16 @@ export const GET = withErrorHandling<ReportsOverviewResponse>(async () => {
 
   programStatus.forEach((item) => {
     const status = (item.status ?? '').toUpperCase();
-    if (status === ProgramStatus.APPROVED || status === ProgramStatus.PUBLISHED) {
+    if (status === WorkflowStatus.APPROVED || status === WorkflowStatus.PUBLISHED) {
       activePrograms += item.count;
     }
-    if (status === ProgramStatus.DRAFT) {
+    if (status === WorkflowStatus.DRAFT) {
       draftPrograms += item.count;
     }
-    if (status === ProgramStatus.PUBLISHED) {
+    if (status === WorkflowStatus.PUBLISHED) {
       publishedPrograms += item.count;
     }
-    if (status === ProgramStatus.SUBMITTED || status === ProgramStatus.REVIEWING) {
+    if (status === WorkflowStatus.REVIEWING) {
       pendingPrograms += item.count;
     }
   });

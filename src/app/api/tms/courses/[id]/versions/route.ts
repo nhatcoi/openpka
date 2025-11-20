@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { withIdAndBody, createSuccessResponse, createErrorResponse } from '@/lib/api/api-handler';
 import { requirePermission } from '@/lib/auth/api-permissions';
-import { CourseStatus } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // POST /api/tms/courses/[id]/versions - Create new version
 export const POST = withIdAndBody(
@@ -50,7 +50,7 @@ export const POST = withIdAndBody(
         data: {
           course_id: BigInt(courseId),
           version: nextVersion,
-          status: CourseStatus.DRAFT,
+          status: WorkflowStatus.DRAFT,
           created_at: new Date(),
           updated_at: new Date(),
         },

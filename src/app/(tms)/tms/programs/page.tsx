@@ -42,12 +42,12 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   DEFAULT_PROGRAM_PAGE_SIZE,
-  PROGRAM_STATUSES,
-  ProgramStatus,
+  PROGRAM_WORKFLOW_STATUS_OPTIONS,
   getProgramDegreeLabel,
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import {
   OrgUnitApiItem,
   OrgUnitOption,
@@ -73,7 +73,7 @@ export default function ProgramsPage(): JSX.Element {
     totalPages: 1,
     totalItems: 0,
   });
-  const [selectedStatus, setSelectedStatus] = useState<ProgramStatus | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<WorkflowStatus | 'all'>('all');
   const [selectedOrgUnit, setSelectedOrgUnit] = useState<string>('all');
   const [searchValue, setSearchValue] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -171,8 +171,8 @@ export default function ProgramsPage(): JSX.Element {
     setPagination((prev) => ({ ...prev, page: newPage }));
   };
 
-  const handleStatusChange = (event: SelectChangeEvent<ProgramStatus | 'all'>) => {
-    setSelectedStatus(event.target.value as ProgramStatus | 'all');
+  const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
+    setSelectedStatus(event.target.value as WorkflowStatus | 'all');
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
@@ -290,9 +290,9 @@ export default function ProgramsPage(): JSX.Element {
               <InputLabel>Trạng thái</InputLabel>
               <Select value={selectedStatus} label="Trạng thái" onChange={handleStatusChange}>
                 <MenuItem value="all">Tất cả</MenuItem>
-                {PROGRAM_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {getProgramStatusLabel(status)}
+                {PROGRAM_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
                   </MenuItem>
                 ))}
               </Select>

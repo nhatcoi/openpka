@@ -73,21 +73,23 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
-  COURSE_STATUSES,
+  CourseWorkflowStage,
+  getCourseWorkflowStageLabel,
+} from '@/constants/workflow-statuses';
+import {
+  COURSE_WORKFLOW_STATUS_OPTIONS,
   CoursePrerequisiteType,
   CoursePriority,
-  CourseStatus,
   CourseType,
-  WorkflowStage,
   getCourseTypeLabel,
   getPrereqChipColor,
   getPrereqLabelVi,
   getPriorityLabel,
   getStatusColor,
   getStatusLabel,
-  getWorkflowStageLabel,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // Helper function to format decimal values
 const formatCredit = (value: any): string => {
@@ -121,7 +123,7 @@ interface CourseDetail {
   theory_credit?: number;
   practical_credit?: number;
   type: CourseType | string;
-  status: CourseStatus | string;
+  status: string;
   org_unit_id: string;
   created_at: string;
   updated_at: string;
@@ -132,8 +134,8 @@ interface CourseDetail {
   };
   workflows?: Array<{
     id: string;
-    status: CourseStatus | string;
-    workflow_stage: WorkflowStage | string;
+    status: string;
+    workflow_stage: CourseWorkflowStage | string;
     priority: CoursePriority | string;
     notes?: string;
     created_at: string;
@@ -251,7 +253,7 @@ export default function CourseDetailPage() {
         theory_credit: courseDetail.theory_credit || null,
         practical_credit: courseDetail.practical_credit || null,
         description: courseDetail.description || '',
-        status: courseDetail.status || CourseStatus.DRAFT,
+        status: courseDetail.status || WorkflowStatus.DRAFT,
         org_unit_id: courseDetail.org_unit_id || '',
         type: courseDetail.type || ''
       });
@@ -401,8 +403,8 @@ export default function CourseDetailPage() {
         },
         body: JSON.stringify({
           ...editData,
-          status: CourseStatus.SUBMITTED,
-          workflow_stage: WorkflowStage.ACADEMIC_OFFICE
+          status: WorkflowStatus.REVIEWING,
+          workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE
         }),
       });
       
@@ -437,13 +439,13 @@ export default function CourseDetailPage() {
       const response = await fetch(`/api/tms/courses/${routeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: CourseStatus.REVIEWING, workflow_stage: WorkflowStage.ACADEMIC_OFFICE })
+        body: JSON.stringify({ status: WorkflowStatus.REVIEWING, workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE })
       });
       const result = await response.json();
       if (result.success) {
         setCourseDetail(prev => prev ? {
           ...prev,
-          status: CourseStatus.REVIEWING,
+          status: WorkflowStatus.REVIEWING,
           // Update unified workflow status
           unified_workflow: prev.unified_workflow ? {
             ...prev.unified_workflow,
@@ -451,8 +453,8 @@ export default function CourseDetailPage() {
           } : prev.unified_workflow,
           workflows: prev.workflows ? [{
             ...prev.workflows[0],
-            status: CourseStatus.REVIEWING,
-            workflow_stage: WorkflowStage.ACADEMIC_OFFICE
+            status: WorkflowStatus.REVIEWING,
+            workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE
           }, ...prev.workflows.slice(1)] : prev.workflows
         } : prev);
         setToast({ open: true, message: 'Đã gửi xem xét. Học phần chuyển sang trạng thái Đang xem xét.', severity: 'success' });
@@ -852,19 +854,19 @@ export default function CourseDetailPage() {
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Chip
-              label={getStatusLabel(courseDetail.status || CourseStatus.DRAFT)}
-              color={getStatusColor(courseDetail.status || CourseStatus.DRAFT) as any}
+              label={getStatusLabel(courseDetail.status || WorkflowStatus.DRAFT)}
+              color={getStatusColor(courseDetail.status || WorkflowStatus.DRAFT) as any}
               sx={{ mr: 1 }}
             />
             <Chip
               label={courseDetail.unified_workflow && courseDetail.unified_workflow.workflow ? 
                 (courseDetail.unified_workflow.workflow.steps.find(step => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
-                getWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY)
+                getCourseWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || CourseWorkflowStage.FACULTY)
               }
               variant="outlined"
               sx={{ mr: 1 }}
             />
-            {(courseDetail.status === CourseStatus.DRAFT || courseDetail.status === CourseStatus.REJECTED) && (
+            {(courseDetail.status === WorkflowStatus.DRAFT || courseDetail.status === WorkflowStatus.REJECTED) && (
               <Button
                 variant="contained"
                 endIcon={<SendIcon />}
@@ -878,7 +880,7 @@ export default function CourseDetailPage() {
         </Box>
       </Box>
 
-    {courseDetail.status === CourseStatus.REJECTED && (
+    {courseDetail.status === WorkflowStatus.REJECTED && (
       <Alert severity="error" sx={{ mb: 3 }}>
         Học phần bị từ chối - thực hiện chỉnh sửa lại và gửi yêu cầu đi
       </Alert>
@@ -1412,12 +1414,12 @@ export default function CourseDetailPage() {
               <InputLabel>Trạng thái</InputLabel>
               <Select
                 value={editData.status}
-                onChange={(e) => handleInputChange('status', e.target.value as CourseStatus)}
+                onChange={(e) => handleInputChange('status', e.target.value as string)}
                 variant="outlined"
               >
-                {COURSE_STATUSES.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {getStatusLabel(status)}
+                {COURSE_WORKFLOW_STATUS_OPTIONS.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
                   </MenuItem>
                 ))}
               </Select>

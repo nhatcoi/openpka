@@ -11,9 +11,9 @@ import {
 import {
   DEFAULT_PROGRAM_PAGE_SIZE,
   ProgramPriority,
-  ProgramStatus,
   normalizeProgramPriority,
 } from '@/constants/programs';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { CreateProgramInput } from '@/lib/api/schemas/program';
 
 const LIST_CONTEXT = 'lấy danh sách chương trình đào tạo';
@@ -100,7 +100,7 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
     name_vi: program.name_vi,
     name_en: program.name_en,
     description: program.description,
-    status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (program.status ?? WorkflowStatus.DRAFT) as string,
     total_credits: program.total_credits,
     version: program.version,
     effective_from: program.effective_from,
@@ -371,7 +371,7 @@ export const POST = withBody(async (body: unknown) => {
         description: data.description || null,
         version,
         total_credits: data.total_credits ?? 120,
-        status: data.status || ProgramStatus.DRAFT,
+        status: data.status || WorkflowStatus.DRAFT,
         org_unit_id: orgUnitId,
         major_id: majorId,
         plo: plo as any,
@@ -419,7 +419,7 @@ export const POST = withBody(async (body: unknown) => {
     name_vi: program.name_vi,
     name_en: program.name_en,
     description: program.description,
-    status: (program.status ?? ProgramStatus.DRAFT) as ProgramStatus,
+    status: (program.status ?? WorkflowStatus.DRAFT) as string,
     total_credits: program.total_credits,
     version: program.version,
     effective_from: program.effective_from,

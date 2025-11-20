@@ -5,7 +5,7 @@ import { withErrorHandling, withIdParam, withIdAndBody, validateSchema, createEr
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
-import { MajorStatus, MAJOR_PERMISSIONS } from '@/constants/majors';
+import { MAJOR_PERMISSIONS } from '@/constants/majors';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 
 // Simplified update schema aligned with current DB columns
@@ -21,7 +21,7 @@ const updateMajorSchema = z.object({
   total_credits_min: z.number().min(1).max(1000).optional(),
   total_credits_max: z.number().min(1).max(1000).optional(),
   semesters_per_year: z.number().min(1).max(4).optional(),
-  status: z.enum(['DRAFT', 'PROPOSED', 'ACTIVE', 'SUSPENDED', 'CLOSED', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED']).optional(),
+  status: z.enum(['DRAFT', 'REVIEWING', 'APPROVED', 'REJECTED', 'PUBLISHED', 'ARCHIVED']).optional(),
   closed_at: z.string().optional(),
   workflow_notes: z.string().optional(),
 });
@@ -181,7 +181,7 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
     });
 
     // If status was directly provided, persist an approval history entry
-    const directStatus = (body as any).status as MajorStatus | undefined;
+    const directStatus = (body as any).status as string | undefined;
     if (directStatus) {
       // Ensure workflow instance exists
       let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('MAJOR', majorBigInt);
@@ -194,20 +194,13 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
         }) as any;
       }
 
-      const mapStatusToAction = (s: MajorStatus): string => {
-        switch (s) {
-          case MajorStatus.REVIEWING:
-            return 'REVIEW';
-          case MajorStatus.APPROVED:
-            return 'APPROVE';
-          case MajorStatus.REJECTED:
-            return 'REJECT';
-          case MajorStatus.PUBLISHED:
-            return 'PUBLISH';
-          case MajorStatus.DRAFT:
-          default:
-            return 'RETURN';
-        }
+      const mapStatusToAction = (s: string): string => {
+        const normalized = (s || '').toUpperCase();
+        if (normalized.includes('REVIEWING')) return 'REVIEW';
+        if (normalized.includes('APPROVED')) return 'APPROVE';
+        if (normalized.includes('REJECTED')) return 'REJECT';
+        if (normalized.includes('PUBLISHED')) return 'PUBLISH';
+        return 'RETURN';
       };
 
       await tx.approvalRecord.create({

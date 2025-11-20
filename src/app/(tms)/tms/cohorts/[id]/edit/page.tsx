@@ -28,14 +28,13 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { 
-  CohortStatus, 
   CohortIntakeTerm,
   generateCohortCode,
   generateCohortName,
   getAcademicYear,
-  COHORT_STATUSES,
   COHORT_INTAKE_TERMS,
-  COHORT_DEFAULTS 
+  COHORT_DEFAULTS,
+  COHORT_WORKFLOW_STATUS_OPTIONS
 } from '@/constants/cohorts';
 
 interface Major {
@@ -552,9 +551,9 @@ export default function EditCohortPage() {
                       onChange={(e) => handleInputChange('status', e.target.value)}
                       label="Trạng thái"
                     >
-                      {COHORT_STATUSES.map((status) => (
-                        <MenuItem key={status} value={status}>
-                          {status}
+                      {COHORT_WORKFLOW_STATUS_OPTIONS.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
                         </MenuItem>
                       ))}
                     </Select>

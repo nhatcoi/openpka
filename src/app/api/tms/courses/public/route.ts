@@ -2,11 +2,13 @@ import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { withErrorHandling } from '@/lib/api/api-handler';
 import {
-  CourseStatus,
+  CourseWorkflowStage,
+} from '@/constants/workflow-statuses';
+import {
   CourseType,
-  WorkflowStage,
   normalizeCoursePriority,
 } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // Public API endpoints không cần authentication để demo
 
@@ -35,8 +37,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
   }
   
   // Filter by course status and workflow stage
-  if (normalizedStatus && (Object.values(CourseStatus) as string[]).includes(normalizedStatus)) {
-    where.status = normalizedStatus as CourseStatus;
+  if (normalizedStatus) {
+    where.status = normalizedStatus;
   }
   // Note: Legacy workflow filtering removed - use unified workflow system instead
   // if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
@@ -92,8 +94,8 @@ export const GET = withErrorHandling(async (request: NextRequest) => {
         credits: parseFloat(course.credits.toString()),
         
         // Flatten workflow data
-        status: (course.workflows?.[0]?.status || CourseStatus.DRAFT) as CourseStatus,
-        workflow_stage: (course.workflows?.[0]?.workflow_stage || WorkflowStage.FACULTY) as WorkflowStage,
+        status: (course.workflows?.[0]?.status || WorkflowStatus.DRAFT) as string,
+        workflow_stage: (course.workflows?.[0]?.workflow_stage || CourseWorkflowStage.FACULTY) as CourseWorkflowStage,
         workflow_priority: normalizeCoursePriority(course.workflows?.[0]?.priority).toLowerCase(),
         
         // Flatten content data

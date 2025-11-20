@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../../lib/auth/auth';
 import { db } from '../../../../../lib/db';
-import { CourseStatus } from '@/constants/courses';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,21 +33,20 @@ export async function GET(request: NextRequest) {
       const count = stat._count.id;
       result.total += count;
 
-      const status = (stat.status || '').toUpperCase() as CourseStatus | 'CANCELLED' | '';
+      const status = (stat.status || '').toUpperCase();
 
       switch (status) {
-        case CourseStatus.DRAFT:
-        case CourseStatus.SUBMITTED:
+        case WorkflowStatus.DRAFT:
           result.pending += count;
           break;
-        case CourseStatus.REVIEWING:
+        case WorkflowStatus.REVIEWING:
           result.reviewing += count;
           break;
-        case CourseStatus.APPROVED:
-        case CourseStatus.PUBLISHED:
+        case WorkflowStatus.APPROVED:
+        case WorkflowStatus.PUBLISHED:
           result.approved += count;
           break;
-        case CourseStatus.REJECTED:
+        case WorkflowStatus.REJECTED:
         case 'CANCELLED':
           result.rejected += count;
           break;
