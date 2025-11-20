@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -75,6 +76,7 @@ interface Permission {
 
 export default function PermissionsPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
     const [permissions, setPermissions] = useState<Permission[]>([]);
@@ -152,7 +154,14 @@ export default function PermissionsPage() {
     };
 
     const handleDelete = async (permission: Permission) => {
-        if (!confirm(`Bạn có chắc chắn muốn xóa quyền "${permission.name}"?`)) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa quyền',
+            message: `Bạn có chắc chắn muốn xóa quyền "${permission.name}"?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

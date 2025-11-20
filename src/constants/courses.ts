@@ -131,12 +131,17 @@ export function getCourseTypeLabel(type: CourseType | string): string {
 
 export function getCourseStageFromStatus(status?: string | null): CourseWorkflowStage {
   const normalized = (status || '').toUpperCase();
-  if (normalized === 'DRAFT') return CourseWorkflowStage.FACULTY;
-  if (normalized === 'SUBMITTED' || normalized === 'REVIEWING') return CourseWorkflowStage.ACADEMIC_OFFICE;
-  if (normalized === 'APPROVED') return CourseWorkflowStage.ACADEMIC_OFFICE;
-  if (normalized === 'PUBLISHED') return CourseWorkflowStage.ACADEMIC_BOARD;
-  if (normalized === 'REJECTED') return CourseWorkflowStage.ACADEMIC_OFFICE;
-  return CourseWorkflowStage.FACULTY;
+  if (normalized === 'DRAFT') return CourseWorkflowStage.DRAFT;
+  if (normalized === 'SUBMITTED' || normalized === 'REVIEWING' || normalized === 'REJECTED') {
+    return CourseWorkflowStage.REVIEWING;
+  }
+  if (normalized === 'APPROVED') {
+    return CourseWorkflowStage.APPROVED;
+  }
+  if (normalized === 'PUBLISHED' || normalized === 'ARCHIVED') {
+    return CourseWorkflowStage.PUBLISHED;
+  }
+  return CourseWorkflowStage.DRAFT;
 }
 
 export function computeCourseStepIndex(status: string): number {

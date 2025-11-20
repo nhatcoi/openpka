@@ -73,6 +73,7 @@ import {
   mapOrgUnitOptions,
   mapCourseResponse,
 } from './course-utils';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 interface PaginationState {
   page: number;
@@ -84,6 +85,7 @@ const DEFAULT_COURSE_PAGE_SIZE = 10;
 
 export default function CoursesPage(): JSX.Element {
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -234,7 +236,13 @@ export default function CoursesPage(): JSX.Element {
   };
 
   const handleDelete = async (courseId: string) => {
-    const confirmed = window.confirm('Bạn có chắc chắn muốn xóa học phần này?');
+    const confirmed = await confirmDialog({
+      title: 'Xóa học phần',
+      message: 'Bạn có chắc chắn muốn xóa học phần này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
     if (!confirmed) return;
 
     try {
@@ -751,6 +759,7 @@ export default function CoursesPage(): JSX.Element {
         <Snackbar
           open={snackbar.open}
           autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         >
           <Alert

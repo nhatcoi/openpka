@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -62,6 +63,7 @@ interface Role {
 
 export default function RolesPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
     const [roles, setRoles] = useState<Role[]>([]);
@@ -136,7 +138,14 @@ export default function RolesPage() {
     };
 
     const handleDelete = async (role: Role) => {
-        if (!confirm(`Bạn có chắc chắn muốn xóa vai trò "${role.name}"?`)) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa vai trò',
+            message: `Bạn có chắc chắn muốn xóa vai trò "${role.name}"?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

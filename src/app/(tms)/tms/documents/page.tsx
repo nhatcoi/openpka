@@ -65,8 +65,10 @@ import {
   getDocumentIcon, 
   getDocumentColor 
 } from '@/lib/cloudinary-client';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 export default function DocumentsPage() {
+  const confirmDialog = useConfirmDialog();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadForm, setUploadForm] = useState({
@@ -173,11 +175,20 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (document: Document, hardDelete = false) => {
-    if (confirm(hardDelete ? 'Are you sure you want to permanently delete this document?' : 'Are you sure you want to delete this document?')) {
-      const success = await deleteDocument(document.id);
-      if (success) {
-        await refetch();
-      }
+    const confirmed = await confirmDialog({
+      title: hardDelete ? 'Xóa vĩnh viễn tài liệu' : 'Xóa tài liệu',
+      message: hardDelete
+        ? 'Bạn có chắc chắn muốn xóa vĩnh viễn tài liệu này? Hành động không thể hoàn tác.'
+        : 'Bạn có chắc chắn muốn xóa tài liệu này?',
+      confirmText: hardDelete ? 'Xóa vĩnh viễn' : 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    const success = await deleteDocument(document.id);
+    if (success) {
+      await refetch();
     }
   };
 

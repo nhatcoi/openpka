@@ -163,52 +163,21 @@ export const PUT = withIdAndBody(
 
 export const DELETE = withIdParam(
   async (id: string) => {
+    const assignmentId = BigInt(id);
 
     const assignment = await db.orgAssignment.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: assignmentId },
     });
+
     if (!assignment) {
       throw new Error('Assignment not found');
     }
 
-    // soft delete
-    const deletedAssignment = await db.orgAssignment.update({
-      where: { id: BigInt(id) },
-      data: {
-        end_date: new Date(),
-        is_primary: false,
-      },
-      include: {
-        Employee: {
-          include: {
-            User: {
-              select: {
-                id: true,
-                full_name: true,
-                email: true,
-              },
-            },
-          },
-        },
-        OrgUnit: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            type: true,
-          },
-        },
-        JobPosition: {
-          select: {
-            id: true,
-            title: true,
-            code: true,
-          },
-        },
-      },
+    await db.orgAssignment.delete({
+      where: { id: assignmentId },
     });
 
-    return deletedAssignment;
+    return { success: true };
   },
   'delete assignment'
 );

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Box,
@@ -77,6 +78,7 @@ interface EmployeeQualification {
 
 function EmployeeQualificationsPageContent() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
     const [employeeQualifications, setEmployeeQualifications] = useState<EmployeeQualification[]>([]);
@@ -225,7 +227,14 @@ function EmployeeQualificationsPageContent() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa thông tin bằng cấp này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa thông tin bằng cấp',
+            message: 'Bạn có chắc chắn muốn xóa thông tin bằng cấp này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

@@ -35,6 +35,7 @@ import {
   Refresh as RefreshIcon,
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material'
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider'
 
 type ProgramOption = {
   id: string
@@ -99,6 +100,7 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export default function FinancePage() {
+  const confirmDialog = useConfirmDialog()
   const yearOptions = useMemo(() => buildYearOptions(6), [])
   const [academicYear, setAcademicYear] = useState(yearOptions[0])
   const [programs, setPrograms] = useState<ProgramOption[]>([])
@@ -227,7 +229,12 @@ export default function FinancePage() {
     if (response.status === 409) {
       const body = await response.json().catch(() => ({}))
       if (body.code === 'RATE_EXISTS' && !forceUpdate) {
-        const confirmOverride = window.confirm('Đơn giá đã tồn tại. Bạn có muốn cập nhật lại không?')
+        const confirmOverride = await confirmDialog({
+          title: 'Đơn giá đã tồn tại',
+          message: 'Đơn giá cho năm học này đã tồn tại. Bạn có muốn cập nhật lại không?',
+          confirmText: 'Cập nhật',
+          cancelText: 'Hủy',
+        })
         if (confirmOverride) {
           return submitTuitionRate(true)
         }
@@ -555,6 +562,7 @@ export default function FinancePage() {
         <Snackbar
           open={toast.open}
           autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           onClose={() => setToast((prev) => (prev ? { ...prev, open: false } : prev))}
         >
           <Alert severity={toast.severity} onClose={() => setToast(null)} sx={{ width: '100%' }}>

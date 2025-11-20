@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -70,6 +71,7 @@ interface RolePermission {
 
 export default function RolePermissionsPage() {
     const { data: session, status } = useSession();
+  const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
     const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
@@ -230,7 +232,14 @@ export default function RolePermissionsPage() {
 
     const handleDelete = async (rolePermission: RolePermission) => {
         const roleName = rolePermission.roles?.name || rolePermission.Role?.name || 'vai trò này';
-        if (!confirm(`Bạn có chắc chắn muốn xóa tất cả phân quyền của vai trò "${roleName}"?`)) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa phân quyền',
+            message: `Bạn có chắc chắn muốn xóa tất cả phân quyền của vai trò "${roleName}"?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

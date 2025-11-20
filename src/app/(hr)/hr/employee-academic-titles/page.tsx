@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Box,
@@ -65,6 +66,7 @@ interface EmployeeAcademicTitle {
 
 function EmployeeAcademicTitlesPageContent() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -207,7 +209,14 @@ function EmployeeAcademicTitlesPageContent() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa học hàm học vị này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa học hàm học vị',
+            message: 'Bạn có chắc chắn muốn xóa học hàm học vị này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

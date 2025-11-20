@@ -44,6 +44,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { API_ROUTES } from '@/constants/routes';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 interface SyllabusWeek {
   id?: string;
@@ -79,6 +80,7 @@ export default function CourseSyllabusPage() {
   const params = useParams();
   const { data: session } = useSession();
   const courseId = params.id as string;
+  const confirmDialog = useConfirmDialog();
 
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -204,11 +206,18 @@ export default function CourseSyllabusPage() {
   };
 
   const handleDeleteWeek = async (index: number) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa tuần học này?')) {
-      const newData = syllabusData.filter((_, i) => i !== index);
-      setSyllabusData(newData);
-      await handleSave(newData);
-    }
+    const confirmed = await confirmDialog({
+      title: 'Xóa tuần học',
+      message: 'Bạn có chắc chắn muốn xóa tuần học này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
+
+    const newData = syllabusData.filter((_, i) => i !== index);
+    setSyllabusData(newData);
+    await handleSave(newData);
   };
 
   const handleSave = async (data?: SyllabusWeek[]) => {
@@ -653,6 +662,7 @@ export default function CourseSyllabusPage() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
       />

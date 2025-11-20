@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/use-org-units';
 import { useEmployeeSearch } from '@/hooks/use-employee-search';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 interface PersonnelTabProps {
   unit: OrgUnit;
@@ -110,6 +111,7 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
   
   // Employee search hook
   const { employees, loading: searchLoading, error: searchError, searchEmployees, loadAllEmployees } = useEmployeeSearch();
+  const confirmDialog = useConfirmDialog();
   
   // Track user input to prevent search loop
   const [isUserTyping, setIsUserTyping] = useState(false);
@@ -230,7 +232,14 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
   };
 
   const handleDeleteAssignment = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Xóa phân công nhân sự',
+      message: 'Bạn có chắc chắn muốn xóa phân công này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
     
     try {
       const response = await fetch(`/api/org/assignments/${id}`, {

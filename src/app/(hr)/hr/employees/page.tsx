@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import {
     Box,
     Paper,
@@ -79,6 +80,7 @@ interface Employee {
 export default function EmployeesPage() {
     const { data: session, status } = useSession()
     const router = useRouter()
+    const confirmDialog = useConfirmDialog()
     const [employees, setEmployees] = useState<Employee[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -115,27 +117,33 @@ export default function EmployeesPage() {
     };
 
     const handleDeleteEmployee = async (employeeId: string, employeeName: string) => {
-        if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employeeName}?`)) {
-            try {
-                setActionLoading(`delete-${employeeId}`);
-                const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employeeId), {
-                    method: 'DELETE',
-                });
+        const confirmed = await confirmDialog({
+            title: 'Xóa nhân viên',
+            message: `Bạn có chắc chắn muốn xóa nhân viên ${employeeName}?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) return;
 
-                const result = await response.json();
+        try {
+            setActionLoading(`delete-${employeeId}`);
+            const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employeeId), {
+                method: 'DELETE',
+            });
 
-                if (result.success) {
-                    // Refresh the list
-                    await fetchEmployees();
-                } else {
-                    setError(result.error || 'Không thể xóa nhân viên');
-                }
-            } catch (error) {
-                console.error('Error deleting employee:', error);
-                setError('Lỗi khi xóa nhân viên');
-            } finally {
-                setActionLoading(null);
+            const result = await response.json();
+
+            if (result.success) {
+                await fetchEmployees();
+            } else {
+                setError(result.error || 'Không thể xóa nhân viên');
             }
+        } catch (error) {
+            console.error('Error deleting employee:', error);
+            setError('Lỗi khi xóa nhân viên');
+        } finally {
+            setActionLoading(null);
         }
     };
 

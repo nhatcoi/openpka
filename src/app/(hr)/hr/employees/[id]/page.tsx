@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import {
     Box,
     Paper,
@@ -81,6 +82,7 @@ export default function EmployeeDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const [employee, setEmployee] = useState<Employee | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -120,23 +122,30 @@ export default function EmployeeDetailPage() {
     const handleDelete = async () => {
         if (!employee) return;
 
-        if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employee.User?.full_name}?`)) {
-            try {
-                const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employee.id), {
-                    method: 'DELETE',
-                });
+        const confirmed = await confirmDialog({
+            title: 'Xóa nhân viên',
+            message: `Bạn có chắc chắn muốn xóa nhân viên ${employee.User?.full_name}?`,
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) return;
 
-                const result = await response.json();
+        try {
+            const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employee.id), {
+                method: 'DELETE',
+            });
 
-                if (result.success) {
-                    router.push(HR_ROUTES.EMPLOYEES);
-                } else {
-                    setError(result.error || 'Không thể xóa nhân viên');
-                }
-            } catch (error) {
-                console.error('Error deleting employee:', error);
-                setError('Lỗi khi xóa nhân viên');
+            const result = await response.json();
+
+            if (result.success) {
+                router.push(HR_ROUTES.EMPLOYEES);
+            } else {
+                setError(result.error || 'Không thể xóa nhân viên');
             }
+        } catch (error) {
+            console.error('Error deleting employee:', error);
+            setError('Lỗi khi xóa nhân viên');
         }
     };
 

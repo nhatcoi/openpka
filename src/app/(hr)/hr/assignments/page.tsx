@@ -26,6 +26,7 @@ import {
     Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 // Types
 interface Assignment {
@@ -115,6 +116,7 @@ const formatAllocation = (allocation: string): string => {
 
 export default function AssignmentsPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     
     // State
@@ -199,7 +201,14 @@ export default function AssignmentsPage() {
 
     // Handlers
     const handleDelete = useCallback(async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa phân công',
+            message: 'Bạn có chắc chắn muốn xóa phân công này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -220,7 +229,7 @@ export default function AssignmentsPage() {
             console.error('Error deleting assignment:', err);
             setError('Lỗi khi xóa phân công');
         }
-    }, []);
+    }, [confirmDialog]);
 
     const handleView = useCallback((id: string) => {
         router.push(HR_ROUTES.ASSIGNMENTS_DETAIL(id));

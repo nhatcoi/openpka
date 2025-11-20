@@ -46,6 +46,7 @@ import {
   Work as WorkIcon,
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 
 // Types
 interface OrgAssignment {
@@ -105,6 +106,7 @@ interface JobPosition {
 
 export default function AssignmentsPage() {
   const { data: session } = useSession();
+  const confirmDialog = useConfirmDialog();
   const [assignments, setAssignments] = useState<OrgAssignment[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
@@ -227,7 +229,14 @@ export default function AssignmentsPage() {
   };
 
   const handleDeleteAssignment = async (id: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Xóa phân công',
+      message: 'Bạn có chắc chắn muốn xóa phân công này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
     
     try {
       const response = await fetch(API_ROUTES.ORG.ASSIGNMENTS_BY_ID(id), {

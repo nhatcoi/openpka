@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { useRouter } from 'next/navigation';
 import {
     Box,
@@ -40,6 +41,7 @@ interface Qualification {
 
 export default function QualificationsPage() {
     const { data: session, status } = useSession();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const [qualifications, setQualifications] = useState<Qualification[]>([]);
     const [loading, setLoading] = useState(true);
@@ -145,7 +147,14 @@ export default function QualificationsPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa bằng cấp này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa bằng cấp',
+            message: 'Bạn có chắc chắn muốn xóa bằng cấp này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 

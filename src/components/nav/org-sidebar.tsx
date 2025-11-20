@@ -92,7 +92,7 @@ const menuItems: MenuItem[] = [
             },
             {
                 key: 'unit-relations',
-                label: 'Quan hệ tổ chức',
+                label: 'Thiết lập quan hệ',
                 icon: <ShareIcon />,
                 href: '/org/unit-relations',
                 permission: 'org_unit.unit.view',
@@ -106,7 +106,7 @@ const menuItems: MenuItem[] = [
             },
             {
                 key: 'unit-audit',
-                label: 'Theo dõi biến đổi',
+                label: 'Lịch sử thay đổi',
                 icon: <StorageIcon />,
                 href: '/org/unit/create/audit',
                 permission: 'org_unit.unit.view',

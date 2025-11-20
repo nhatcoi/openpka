@@ -48,6 +48,7 @@ import {
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
@@ -217,6 +218,7 @@ export default function CourseDetailPage() {
   const routeParams = useParams<{ id: string }>();
   const routeId = routeParams?.id as string;
   const { data: session } = useSession();
+  const confirmDialog = useConfirmDialog();
   const [activeTab, setActiveTab] = useState(0);
   const [toast, setToast] = useState<{ open: boolean; message: string; severity: 'success' | 'info' | 'warning' | 'error' }>({ open: false, message: '', severity: 'success' });
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
@@ -405,7 +407,7 @@ export default function CourseDetailPage() {
         body: JSON.stringify({
           ...editData,
           status: WorkflowStatus.REVIEWING,
-          workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE
+          workflow_stage: CourseWorkflowStage.REVIEWING
         }),
       });
       
@@ -440,7 +442,7 @@ export default function CourseDetailPage() {
       const response = await fetch(`/api/tms/courses/${routeId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: WorkflowStatus.REVIEWING, workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE })
+        body: JSON.stringify({ status: WorkflowStatus.REVIEWING, workflow_stage: CourseWorkflowStage.REVIEWING })
       });
       const result = await response.json();
       if (result.success) {
@@ -455,7 +457,7 @@ export default function CourseDetailPage() {
           workflows: prev.workflows ? [{
             ...prev.workflows[0],
             status: WorkflowStatus.REVIEWING,
-            workflow_stage: CourseWorkflowStage.ACADEMIC_OFFICE
+            workflow_stage: CourseWorkflowStage.REVIEWING
           }, ...prev.workflows.slice(1)] : prev.workflows
         } : prev);
         setToast({ open: true, message: 'Đã gửi xem xét. Học phần chuyển sang trạng thái Đang xem xét.', severity: 'success' });
@@ -745,7 +747,14 @@ export default function CourseDetailPage() {
   };
 
   const handleDeletePrerequisite = async (prereqId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa điều kiện này?')) {
+    const confirmed = await confirmDialog({
+      title: 'Xóa điều kiện tiên quyết',
+      message: 'Bạn có chắc chắn muốn xóa điều kiện này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) {
       return;
     }
 
@@ -789,7 +798,7 @@ export default function CourseDetailPage() {
         open={toast.open}
         autoHideDuration={3000}
         onClose={() => setToast(prev => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert onClose={() => setToast(prev => ({ ...prev, open: false }))} severity={toast.severity} variant="filled" sx={{ width: '100%' }}>
           {toast.message}
@@ -862,7 +871,7 @@ export default function CourseDetailPage() {
             <Chip
               label={courseDetail.unified_workflow && courseDetail.unified_workflow.workflow ? 
                 (courseDetail.unified_workflow.workflow.steps.find(step => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
-                getCourseWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || CourseWorkflowStage.FACULTY)
+                getCourseWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || CourseWorkflowStage.DRAFT)
               }
               variant="outlined"
               sx={{ mr: 1 }}

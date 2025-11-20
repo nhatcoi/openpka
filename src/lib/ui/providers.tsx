@@ -6,6 +6,7 @@ import { CssBaseline } from '@mui/material';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { lightTheme } from './mui-theme';
+import { ConfirmDialogProvider } from '@/components/dialogs/ConfirmDialogProvider';
 
 interface ProvidersProps {
   children: React.ReactNode;
@@ -19,7 +20,9 @@ export function Providers({ children }: ProvidersProps) {
       <QueryClientProvider client={queryClient}>
         <ThemeProvider theme={lightTheme}>
           <CssBaseline />
-          {children}
+          <ConfirmDialogProvider>
+            {children}
+          </ConfirmDialogProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </SessionProvider>

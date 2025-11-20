@@ -245,13 +245,13 @@ export default function CreateAuditPage() {
         >
           Quản lý đơn vị
         </MuiLink>
-        <Typography color="text.primary">Theo dõi biến đổi</Typography>
+        <Typography color="text.primary">Lịch sử thay đổi</Typography>
       </Breadcrumbs>
 
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', mb: 1 }}>
-            Theo dõi biến đổi
+          Lịch sử thay đổi
           </Typography>
           <Typography variant="body1" color="text.secondary">
             Xem lịch sử thay đổi của các đơn vị trong hệ thống

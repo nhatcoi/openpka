@@ -15,13 +15,7 @@ import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
-// GET /api/tms/courses/[id] - Lấy chi tiết course
 const getCourseById = async (id: string, request: Request) => {
-  // const session = await getServerSession(authOptions);
-  // if (!session?.user?.id) {
-  //   return createErrorResponse('Unauthorized', 'Authentication required', 401);
-  // }
-
   const courseId = parseInt(id);
   if (isNaN(courseId)) {
     throw new Error('Invalid course ID');
@@ -46,7 +40,6 @@ const getCourseById = async (id: string, request: Request) => {
       OrgUnit: {
         select: { name: true, code: true }
       },
-      // Legacy workflow data removed - using unified workflow system
       contents: {
         select: {
           id: true,
@@ -58,7 +51,6 @@ const getCourseById = async (id: string, request: Request) => {
           updated_at: true
         }
       },
-      // Legacy approval history removed - using unified workflow system
       instructor_qualifications: {
         select: {
           id: true,
@@ -98,7 +90,6 @@ const getCourseById = async (id: string, request: Request) => {
 
 
 
-  // Fetch unified workflow data separately; lazily create if missing and definition exists
   let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
   if (!workflowInstance) {
     try {
@@ -115,11 +106,9 @@ const getCourseById = async (id: string, request: Request) => {
         workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
       }
     } catch (e) {
-      // Non-fatal: keep unified_workflow as null if creation fails
     }
   }
 
-  // Enrich approval records with approver details (UI expects approver.full_name)
   const workflowInstanceAny = (workflowInstance as any) || null;
   let enrichedApprovalRecords: any[] | null = null;
   if (workflowInstanceAny?.approval_records && workflowInstanceAny.approval_records.length > 0) {
@@ -140,12 +129,10 @@ const getCourseById = async (id: string, request: Request) => {
     }
   }
 
-  // Transform Decimal fields to numbers for JSON serialization
   const transformedCourse = {
     ...course,
     theory_credit: course.theory_credit ? Number(course.theory_credit) : null,
     practical_credit: course.practical_credit ? Number(course.practical_credit) : null,
-    // Add unified workflow data
     unified_workflow: workflowInstanceAny ? {
       id: workflowInstanceAny.id,
       status: workflowInstanceAny.status,
@@ -160,7 +147,6 @@ const getCourseById = async (id: string, request: Request) => {
   return transformedCourse;
 };
 
-// PUT /api/tms/courses/[id] - Cập nhật course
 const updateCourse = async (id: string, body: unknown, request: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -197,7 +183,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
   const resolvedPriority = normalizeCoursePriority(courseData.workflow_priority).toLowerCase();
   const resolvedType = toCourseType(courseData.type);
 
-  // Determine current user's active role
   let currentUserRoleName: string | null = null;
   let currentUserRoleDescription: string | null = null;
   try {
@@ -211,23 +196,17 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
     const rawDesc = (activeUserRole?.Role as any)?.description as string | undefined;
     currentUserRoleDescription = rawDesc ?? null;
   } catch (e) {
-    // fallback silently
     currentUserRoleName = null;
     currentUserRoleDescription = null;
   }
 
-  // Remove role-to-stage mapping: we will store reviewer_role exactly as current user role
-
-  // Get request context and actor info for history tracking
   const requestContext = getRequestContext(request);
   const actorInfo = await getActorInfo(session.user.id, db);
 
   const result = await db.$transaction(async (tx) => {
-    // IMPORTANT: Set history context FIRST before any other queries
-    // This ensures session variables are available when triggers fire
     await setHistoryContext(tx, {
-      actorId: actorInfo.actorId,
-      actorName: actorInfo.actorName,
+      actorId: actorInfo.actorId ?? undefined,
+      actorName: actorInfo.actorName ?? undefined,
       userAgent: requestContext.userAgent || undefined,
       metadata: {
         course_id: courseId,
@@ -236,7 +215,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       },
     });
 
-    // 1. Update main course record
     const updatedCourse = await tx.course.update({
       where: { id: BigInt(courseId) },
       data: {
@@ -254,9 +232,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     });
 
-    // 2. Legacy workflow update removed - using unified workflow system
-
-    // 3. Update CourseContent record (only set fields that are provided)
     const contentUpdateData: any = {};
     if (Object.prototype.hasOwnProperty.call(courseData, 'prerequisites')) {
       contentUpdateData.prerequisites = prerequisitesString;
@@ -279,12 +254,10 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       });
     }
 
-    // 4. If status was directly provided, persist an approval history entry
     const courseBigInt = BigInt(courseId);
     const actorId = BigInt(session.user.id);
     const directStatus = resolvedStatus;
     if (directStatus) {
-      // Ensure workflow instance exists
       let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', courseBigInt);
       if (!workflowInstance) {
         workflowInstance = await academicWorkflowEngine.createWorkflow({
@@ -315,9 +288,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       });
     }
 
-    // 5. Update syllabus if provided
     if (courseData.syllabus && Array.isArray(courseData.syllabus)) {
-      // Resolve course version (use latest, or create if none)
       let courseVersion = await tx.courseVersion.findFirst({
         where: { course_id: BigInt(courseId) },
         orderBy: { created_at: 'desc' }
@@ -332,12 +303,10 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         });
       }
 
-      // Delete existing syllabus for this version
       await tx.courseSyllabus.deleteMany({
         where: { course_version_id: courseVersion.id }
       });
 
-      // Create new syllabus entry with all weeks in JSONB format
       if (courseData.syllabus.length > 0) {
         const syllabusWeeks = courseData.syllabus
           .map((week: any, index: number) => ({
@@ -363,7 +332,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     }
 
-    // 6. Update instructors if provided (replace strategy)
     if (Array.isArray((courseData as any).instructors)) {
       await tx.instructorQualifications.deleteMany({
         where: { course_id: BigInt(courseId) }
@@ -384,17 +352,15 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     }
 
-    // 7. Handle workflow actions via unified academic workflow system
     if ((courseData as any).workflow_action) {
       const workflowAction = (courseData as any).workflow_action;
+      const actionStr = String(workflowAction || '').toLowerCase();
       const comment = (courseData as any).comment || '';
       
-      // Get or create workflow instance for this course
       let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
       
       if (!workflowInstance) {
-        // Create new workflow instance if doesn't exist
-        workflowInstance = await academicWorkflowEngine.createWorkflow({
+        await academicWorkflowEngine.createWorkflow({
           entityType: 'COURSE',
           entityId: BigInt(courseId),
           initiatedBy: BigInt(session?.user?.id || 1),
@@ -403,21 +369,40 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
             legacy_migration: true
           }
         });
+        workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
       }
 
-      // Check if workflow is already completed
-      if (workflowInstance.status === 'COMPLETED' || workflowInstance.status === 'REJECTED') {
-        // Skip workflow action if already completed
-        console.log(`Workflow instance ${workflowInstance.id} is already ${workflowInstance.status}, skipping action`);
+      const engineActionMap: Record<string, 'APPROVE' | 'REJECT' | 'RETURN'> = {
+        submit: 'APPROVE',
+        review: 'APPROVE',
+        approve: 'APPROVE',
+        publish: 'APPROVE',
+        reject: 'REJECT',
+        request_edit: 'RETURN',
+      };
+
+      const engineAction = engineActionMap[actionStr];
+
+      if (
+        !workflowInstance ||
+        !engineAction ||
+        workflowInstance.status === 'COMPLETED' ||
+        workflowInstance.status === 'REJECTED'
+      ) {
+        if (!workflowInstance) {
+          console.warn(`No workflow instance found for course ${courseId}, skipping workflow action.`);
+        } else if (!engineAction) {
+          console.warn(`Unsupported course workflow action "${workflowAction}", skipping engine update.`);
+        } else {
+          console.log(`Workflow instance ${workflowInstance.id} is already ${workflowInstance.status}, skipping action`);
+        }
       } else {
-        // Process workflow action using unified system
         const updatedInstance = await academicWorkflowEngine.processAction(workflowInstance.id, {
-          action: workflowAction,
+          action: engineAction,
           comments: comment,
           approverId: BigInt(session?.user?.id || 1)
         });
 
-        // Update course status based on workflow status
         let courseStatus = resolvedStatus;
         switch (updatedInstance.status) {
           case 'PENDING':
@@ -437,7 +422,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
             break;
         }
 
-        // Update course status
         await tx.course.update({
           where: { id: BigInt(courseId) },
           data: { status: courseStatus }
@@ -448,25 +432,21 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
     return { updatedCourse, updatedContent };
   }).catch((error) => {
     if (error.code === 'P2002') {
-      // Unique constraint violation
       if (error.meta?.target?.includes('org_unit_id') && error.meta?.target?.includes('code')) {
         throw new Error(`Mã môn học '${courseData.code}' đã tồn tại trong đơn vị tổ chức này.`);
       }
     } else if (error.code === 'P2003') {
-      // Foreign key constraint violation
       if (error.meta?.field_name?.includes('org_unit_id')) {
         throw new Error('Đơn vị tổ chức không hợp lệ.');
       }
     }
-    throw error; // Re-throw other errors
+    throw error;
   });
 
-  // Sau khi update thành công, fetch lại dữ liệu đầy đủ
   const updatedCourseData = await getCourseById(courseId.toString(), request);
   return updatedCourseData;
 };
 
-// DELETE /api/tms/courses/[id] - Xóa course
 const deleteCourse = async (id: string, request: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -494,8 +474,8 @@ const deleteCourse = async (id: string, request: Request) => {
 
   await db.$transaction(async (tx) => {
     await setHistoryContext(tx, {
-      actorId: actorInfo.actorId,
-      actorName: actorInfo.actorName,
+      actorId: actorInfo.actorId ?? undefined,
+      actorName: actorInfo.actorName ?? undefined,
       userAgent: requestContext.userAgent || undefined,
       metadata: {
         course_id: courseId,

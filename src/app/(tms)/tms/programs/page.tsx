@@ -62,6 +62,7 @@ import {
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
+import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
 import {
@@ -82,6 +83,7 @@ interface PaginationState {
 
 export default function ProgramsPage(): JSX.Element {
   const router = useRouter();
+  const confirmDialog = useConfirmDialog();
   const [programs, setPrograms] = useState<ProgramListItem[]>([]);
   const [orgUnits, setOrgUnits] = useState<OrgUnitOption[]>([]);
   const [pagination, setPagination] = useState<PaginationState>({
@@ -231,7 +233,13 @@ export default function ProgramsPage(): JSX.Element {
   };
 
   const handleDelete = async (programId: string) => {
-    const confirmed = window.confirm('Bạn có chắc chắn muốn xóa chương trình này?');
+    const confirmed = await confirmDialog({
+      title: 'Xóa chương trình',
+      message: 'Bạn có chắc chắn muốn xóa chương trình này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
     if (!confirmed) return;
 
     try {
@@ -811,6 +819,7 @@ export default function ProgramsPage(): JSX.Element {
         <Snackbar
           open={snackbar.open}
           autoHideDuration={4000}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
         >
           <Alert
