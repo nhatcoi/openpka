@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -43,6 +43,7 @@ import {
     Info as InfoIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Employee {
     id: string;
@@ -137,6 +138,7 @@ export default function EmployeeLogsPage() {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedLog, setSelectedLog] = useState<EmployeeLog | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -226,6 +228,27 @@ export default function EmployeeLogsPage() {
         setAnchorEl(null);
         setSelectedLog(null);
     };
+
+    const filteredLogs = useMemo(() => {
+        if (!searchTerm.trim()) return logs;
+        const term = searchTerm.trim().toLowerCase();
+        return logs.filter((log) => {
+            const values = [
+                log.Employee?.User?.full_name,
+                log.Employee?.employee_no,
+                log.action,
+                log.entity_type,
+                log.User?.full_name,
+                log.User?.username,
+                log.reason,
+                log.field_name,
+                log.old_value,
+                log.new_value,
+                log.ip_address,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [logs, searchTerm]);
 
     const handleViewDetails = () => {
         if (selectedLog) {
@@ -383,6 +406,14 @@ export default function EmployeeLogsPage() {
                 </CardContent>
             </Card>
 
+            <Box sx={{ maxWidth: 420, mb: 2 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm nhanh theo nhân viên, hành động, người thực hiện..."
+                />
+            </Box>
+
             {/* Logs Table */}
             <TableContainer component={Paper}>
                 <Table>
@@ -397,61 +428,72 @@ export default function EmployeeLogsPage() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {logs.map((log) => (
-                            <TableRow key={log.id}>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {new Date(log.created_at).toLocaleString('vi-VN')}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {log.Employee?.User?.full_name || 'N/A'}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {log.Employee?.employee_no || log.employee_id}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={log.action}
-                                        color={ACTION_COLORS[log.action as keyof typeof ACTION_COLORS] as string || 'default'}
-                                        variant="outlined"
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {log.entity_type}
-                                    </Typography>
-                                    {log.entity_id && (
-                                        <Typography variant="caption" color="text.secondary">
-                                            ID: {log.entity_id}
+                        {filteredLogs.length > 0 ? (
+                            filteredLogs.map((log) => (
+                                <TableRow key={log.id}>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {new Date(log.created_at).toLocaleString('vi-VN')}
                                         </Typography>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {log.User?.full_name || 'N/A'}
-                                    </Typography>
-                                    {log.User && (
-                                        <Typography variant="caption" color="text.secondary">
-                                            @{log.User.username}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {log.Employee?.User?.full_name || 'N/A'}
                                         </Typography>
-                                    )}
-                                </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        onClick={(e) => handleMenuOpen(e, log)}
-                                        color="primary"
-
-                                    >
-                                        <MoreVertIcon />
-                                    </IconButton>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {log.Employee?.employee_no || log.employee_id}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={log.action}
+                                            color={ACTION_COLORS[log.action as keyof typeof ACTION_COLORS] as string || 'default'}
+                                            variant="outlined"
+                                            size="small"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {log.entity_type}
+                                        </Typography>
+                                        {log.entity_id && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                ID: {log.entity_id}
+                                            </Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {log.User?.full_name || 'N/A'}
+                                        </Typography>
+                                        {log.User && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                @{log.User.username}
+                                            </Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => handleMenuOpen(e, log)}
+                                            color="primary"
+                                        >
+                                            <MoreVertIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy nhật ký phù hợp'
+                                            : 'Không có dữ liệu'}
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
@@ -518,7 +560,7 @@ export default function EmployeeLogsPage() {
             {/* Summary */}
             <Box mt={2}>
                 <Typography variant="body2" color="text.secondary">
-                    Hiển thị {logs.length} / {pagination.total} bản ghi
+                    Hiển thị {filteredLogs.length} / {pagination.total} bản ghi
                 </Typography>
             </Box>
         </Box>

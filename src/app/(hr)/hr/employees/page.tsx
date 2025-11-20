@@ -22,12 +22,12 @@ import {
 import {
     Add as AddIcon,
     Edit as EditIcon,
-    Delete as DeleteIcon,
     Visibility as ViewIcon,
     Work as WorkIcon,
     Assessment as AssessmentIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 
 interface Employee {
@@ -83,6 +83,7 @@ export default function EmployeesPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [actionLoading, setActionLoading] = useState<string | null>(null)
+    const [searchTerm, setSearchTerm] = useState('')
 
     useEffect(() => {
         if (status === 'loading') return
@@ -170,9 +171,40 @@ export default function EmployeesPage() {
         )
     }
 
+    const normalizeString = (value: string | null | undefined) =>
+        value ? value.toLowerCase() : ''
+
+    const filteredEmployees = employees.filter((employee) => {
+        if (!searchTerm.trim()) {
+            return true
+        }
+
+        const term = searchTerm.trim().toLowerCase()
+
+        return [
+            employee.employee_no,
+            employee.User?.full_name,
+            employee.User?.username,
+            employee.User?.email,
+            employee.User?.phone,
+            employee.OrgAssignment?.find((assignment) => assignment.is_primary)?.OrgUnit?.name ?? ''
+        ]
+            .map(normalizeString)
+            .some((value) => value.includes(term))
+    })
+
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', md: 'row' },
+                    justifyContent: 'space-between',
+                    alignItems: { xs: 'flex-start', md: 'center' },
+                    gap: 2,
+                    mb: 2
+                }}
+            >
                 <Typography variant="h4" component="h1" fontWeight="bold">
                     Danh sách nhân viên
                 </Typography>
@@ -181,12 +213,20 @@ export default function EmployeesPage() {
                     startIcon={<AddIcon />}
                     onClick={() => router.push(HR_ROUTES.EMPLOYEES_NEW)}
                     sx={{
+                        whiteSpace: 'nowrap',
                         bgcolor: 'primary.main',
                         '&:hover': { bgcolor: 'primary.dark' }
                     }}
                 >
                     Thêm nhân viên
                 </Button>
+            </Box>
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo mã, họ tên, email, số điện thoại hoặc đơn vị"
+                />
             </Box>
 
             <Paper sx={{ width: '100%', overflow: 'hidden' }}>
@@ -209,7 +249,7 @@ export default function EmployeesPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {employees.map((employee) => {
+                            {filteredEmployees.map((employee) => {
                                 const primaryAssignment = employee.OrgAssignment?.find(a => a.is_primary);
                                 return (
                                     <TableRow key={employee.id} hover>
@@ -351,13 +391,17 @@ export default function EmployeesPage() {
                 </TableContainer>
             </Paper>
 
-            {employees.length === 0 && !loading && (
+            {filteredEmployees.length === 0 && !loading && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                     <Typography variant="h6" color="text.secondary">
-                        Chưa có nhân viên nào
+                        {searchTerm.trim()
+                            ? 'Không tìm thấy nhân viên phù hợp'
+                            : 'Chưa có nhân viên nào'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                        Nhấn &quot;Thêm nhân viên&quot; để bắt đầu
+                        {searchTerm.trim()
+                            ? 'Thử từ khoá khác hoặc kiểm tra lại thông tin tìm kiếm'
+                            : 'Nhấn "Thêm nhân viên" để bắt đầu'}
                     </Typography>
                 </Box>
             )}

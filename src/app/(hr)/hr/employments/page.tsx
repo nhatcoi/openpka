@@ -1,6 +1,6 @@
 'use client';
 
-import React, {useState, useEffect} from 'react';
+import React, {useState, useEffect, useMemo} from 'react';
 import {useSession} from 'next-auth/react';
 import {useRouter} from 'next/navigation';
 import {
@@ -27,7 +27,8 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    Grid
+    Grid,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -38,6 +39,7 @@ import {
     Visibility as ViewIcon
 } from '@mui/icons-material';
 import {HR_ROUTES, API_ROUTES} from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Employee {
     id: string;
@@ -88,6 +90,7 @@ export default function EmploymentsPage() {
         salary_band: ''
     });
     const [saving, setSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     const contractTypes = [
         {value: 'permanent', label: 'Hợp đồng không xác định thời hạn'},
@@ -309,6 +312,21 @@ export default function EmploymentsPage() {
         }
     };
 
+    const filteredEmployments = useMemo(() => {
+        if (!searchTerm.trim()) return employments;
+        const term = searchTerm.trim().toLowerCase();
+        return employments.filter((employment) => {
+            const values = [
+                employment.Employee?.User?.full_name,
+                employment.Employee?.employee_no,
+                employment.contract_no,
+                getContractTypeLabel(employment.contract_type),
+                employment.salary_band,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [employments, searchTerm]);
+
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -322,7 +340,13 @@ export default function EmploymentsPage() {
 
     return (
         <Box sx={{p: 3}}>
-            <Box sx={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3}}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box sx={{display: 'flex', alignItems: 'center'}}>
                     <WorkIcon sx={{mr: 2, fontSize: 32, color: 'primary.main'}}/>
                     <Box>
@@ -351,6 +375,14 @@ export default function EmploymentsPage() {
                 >
                     Thêm hợp đồng
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, số hợp đồng, loại hợp đồng hoặc bậc lương"
+                />
             </Box>
 
             {error && (
@@ -375,84 +407,68 @@ export default function EmploymentsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {employments.map((employment) => (
-                                <TableRow key={employment.id} hover>
-                                    <TableCell>
-                                        <Box>
+                            {filteredEmployments.length > 0 ? (
+                                filteredEmployments.map((employment) => (
+                                    <TableRow key={employment.id} hover>
+                                        <TableCell>
+                                            <Box>
+                                                <Typography variant="body2" fontWeight="medium">
+                                                    {employment.Employee?.User?.full_name || 'N/A'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {employment.Employee?.employee_no || 'N/A'}
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>
                                             <Typography variant="body2" fontWeight="medium">
-                                                {employment.Employee?.User?.full_name || 'N/A'}
+                                                {employment.contract_no}
                                             </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {employment.Employee?.employee_no || 'N/A'}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={getContractTypeLabel(employment.contract_type)}
+                                                color={getContractTypeColor(employment.contract_type) as never}
+                                                size="small"
+                                                variant="outlined"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {new Date(employment.start_date).toLocaleDateString('vi-VN')}
                                             </Typography>
-                                        </Box>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2" fontWeight="medium">
-                                            {employment.contract_no}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={getContractTypeLabel(employment.contract_type)}
-                                            color={getContractTypeColor(employment.contract_type) as never}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {new Date(employment.start_date).toLocaleDateString('vi-VN')}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {employment.end_date ? new Date(employment.end_date).toLocaleDateString('vi-VN') : 'Không xác định'}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {employment.fte} ({Math.round(employment.fte * 100)}%)
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={employment.salary_band}
-                                            color="primary"
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                    </TableCell>
-                                    {/* <TableCell>
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            <IconButton
-                                                size="small"
-                                                color="info"
-                                                onClick={() => handleViewEmployment(employment)}
-                                                title="Xem chi tiết"
-                                            >
-                                                <ViewIcon />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {employment.end_date ? new Date(employment.end_date).toLocaleDateString('vi-VN') : 'Không xác định'}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {employment.fte} ({Math.round(employment.fte * 100)}%)
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={employment.salary_band}
                                                 color="primary"
-                                                onClick={() => handleOpenDialog(employment)}
-                                                title="Sửa hợp đồng"
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton
                                                 size="small"
-                                                color="error"
-                                                onClick={() => handleDelete(employment.id)}
-                                                title="Xóa hợp đồng"
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Box>
-                                    </TableCell> */}
+                                                variant="outlined"
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {searchTerm.trim()
+                                                ? 'Không tìm thấy hợp đồng phù hợp'
+                                                : 'Chưa có hợp đồng nào'}
+                                        </Typography>
+                                    </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>

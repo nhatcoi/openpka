@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -23,6 +23,7 @@ import {
     Alert,
     CircularProgress,
     Chip,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -31,6 +32,7 @@ import {
     School as SchoolIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface AcademicTitle {
     id: string;
@@ -51,6 +53,7 @@ export default function AcademicTitlesPage() {
         code: '',
         title: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -165,6 +168,14 @@ export default function AcademicTitlesPage() {
         }
     };
 
+    const filteredAcademicTitles = useMemo(() => {
+        if (!searchTerm.trim()) return academicTitles;
+        const term = searchTerm.trim().toLowerCase();
+        return academicTitles.filter((title) =>
+            [title.code, title.title].some((value) => value?.toLowerCase().includes(term))
+        );
+    }, [academicTitles, searchTerm]);
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -175,7 +186,13 @@ export default function AcademicTitlesPage() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box display="flex" alignItems="center" gap={2}>
                     <SchoolIcon color="primary" sx={{ fontSize: 32 }} />
                     <Typography variant="h4" component="h1">
@@ -189,6 +206,14 @@ export default function AcademicTitlesPage() {
                 >
                     Thêm học hàm học vị
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo mã hoặc tên học hàm học vị"
+                />
             </Box>
 
             {error && (
@@ -207,36 +232,48 @@ export default function AcademicTitlesPage() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {academicTitles.map((title) => (
-                            <TableRow key={title.id}>
-                                <TableCell>
-                                    <Chip label={title.code} color="primary" variant="outlined" />
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body1" fontWeight="medium">
-                                        {title.title}
+                        {filteredAcademicTitles.length > 0 ? (
+                            filteredAcademicTitles.map((title) => (
+                                <TableRow key={title.id}>
+                                    <TableCell>
+                                        <Chip label={title.code} color="primary" variant="outlined" />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body1" fontWeight="medium">
+                                            {title.title}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={() => handleOpenDialog(title)}
+                                            title="Chỉnh sửa"
+                                        >
+                                            <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDelete(title.id)}
+                                            title="Xóa"
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy học hàm học vị phù hợp'
+                                            : 'Chưa có học hàm học vị nào'}
                                     </Typography>
                                 </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleOpenDialog(title)}
-                                        title="Chỉnh sửa"
-                                    >
-                                        <EditIcon />
-                                    </IconButton>
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDelete(title.id)}
-                                        title="Xóa"
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
-                                </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>

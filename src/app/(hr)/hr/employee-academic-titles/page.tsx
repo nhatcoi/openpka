@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -29,6 +29,7 @@ import {
     MenuItem,
     Breadcrumbs,
     Link,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -38,6 +39,7 @@ import {
     Person as PersonIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Employee {
     id: string;
@@ -80,6 +82,7 @@ function EmployeeAcademicTitlesPageContent() {
         academic_title_id: '',
         awarded_date: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const employeeId = searchParams.get('employee_id');
@@ -242,6 +245,19 @@ function EmployeeAcademicTitlesPageContent() {
         ? employees.find(emp => emp.id === searchParams.get('employee_id'))
         : null;
 
+    const filteredEmployeeAcademicTitles = useMemo(() => {
+        if (!searchTerm.trim()) return employeeAcademicTitles;
+        const term = searchTerm.trim().toLowerCase();
+        return employeeAcademicTitles.filter((record) => {
+            const values = [
+                getEmployeeName(record.employee_id),
+                getAcademicTitleName(record.academic_title_id),
+                record.awarded_date,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [employeeAcademicTitles, searchTerm]);
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -264,7 +280,13 @@ function EmployeeAcademicTitlesPageContent() {
                 <Typography color="text.primary">Học hàm học vị</Typography>
             </Breadcrumbs>
 
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box display="flex" alignItems="center" gap={2}>
                     <SchoolIcon color="primary" sx={{ fontSize: 32 }} />
                     <Box>
@@ -285,6 +307,14 @@ function EmployeeAcademicTitlesPageContent() {
                 >
                     Thêm học hàm học vị
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, học hàm học vị hoặc ngày được phong"
+                />
             </Box>
 
             {error && (
@@ -304,48 +334,60 @@ function EmployeeAcademicTitlesPageContent() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {employeeAcademicTitles.map((title) => (
-                            <TableRow key={title.id}>
-                                <TableCell>
-                                    <Box display="flex" alignItems="center" gap={1}>
-                                        <PersonIcon color="action" />
+                        {filteredEmployeeAcademicTitles.length > 0 ? (
+                            filteredEmployeeAcademicTitles.map((title) => (
+                                <TableRow key={title.id}>
+                                    <TableCell>
+                                        <Box display="flex" alignItems="center" gap={1}>
+                                            <PersonIcon color="action" />
+                                            <Typography variant="body2">
+                                                {getEmployeeName(title.employee_id)}
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={getAcademicTitleName(title.academic_title_id)}
+                                            color="primary"
+                                            variant="outlined"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
                                         <Typography variant="body2">
-                                            {getEmployeeName(title.employee_id)}
+                                            {new Date(title.awarded_date).toLocaleDateString('vi-VN')}
                                         </Typography>
-                                    </Box>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={getAcademicTitleName(title.academic_title_id)}
-                                        color="primary"
-                                        variant="outlined"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {new Date(title.awarded_date).toLocaleDateString('vi-VN')}
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={() => handleOpenDialog(title)}
+                                            title="Chỉnh sửa"
+                                        >
+                                            <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDelete(title.id)}
+                                            title="Xóa"
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy học hàm học vị phù hợp'
+                                            : 'Chưa có học hàm học vị nào'}
                                     </Typography>
                                 </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleOpenDialog(title)}
-                                        title="Chỉnh sửa"
-                                    >
-                                        <EditIcon />
-                                    </IconButton>
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDelete(title.id)}
-                                        title="Xóa"
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
-                                </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>

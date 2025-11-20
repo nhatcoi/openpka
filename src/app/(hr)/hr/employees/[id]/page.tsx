@@ -15,12 +15,10 @@ import {
     Alert,
     CircularProgress,
     Divider,
-    IconButton,
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
     Edit as EditIcon,
-    Delete as DeleteIcon,
     Work as WorkIcon,
     School as SchoolIcon,
     Assessment as AssessmentIcon,
@@ -117,29 +115,6 @@ export default function EmployeeDetailPage() {
         }
     };
 
-    const handleDelete = async () => {
-        if (!employee) return;
-
-        if (confirm(`Bạn có chắc chắn muốn xóa nhân viên ${employee.User?.full_name}?`)) {
-            try {
-                const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employee.id), {
-                    method: 'DELETE',
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    router.push(HR_ROUTES.EMPLOYEES);
-                } else {
-                    setError(result.error || 'Không thể xóa nhân viên');
-                }
-            } catch (error) {
-                console.error('Error deleting employee:', error);
-                setError('Lỗi khi xóa nhân viên');
-            }
-        }
-    };
-
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -198,14 +173,6 @@ export default function EmployeeDetailPage() {
                         onClick={() => router.push(`${HR_ROUTES.EMPLOYEES}/${employee.id}/edit`)}
                     >
                         Chỉnh sửa
-                    </Button>
-                    <Button
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={handleDelete}
-                    >
-                        Xóa
                     </Button>
                 </Box>
             </Box>

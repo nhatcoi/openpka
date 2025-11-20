@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { db } from '@/lib/db';
 import { serializeBigIntArray } from '@/utils/serialize';
+import { requirePermission } from '@/lib/auth/api-permissions';
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,8 +12,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if user has permission to view evaluation periods
-        if (!session.user.permissions?.includes('performance_review.read')) {
+        const canView =
+            session.user.permissions?.includes('hr.performance_review.view') ||
+            session.user.permissions?.includes('hr.performance_review.create');
+
+        if (!canView) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
         }
 
@@ -85,10 +89,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Check if user has permission to create evaluation periods
-        if (!session.user.permissions?.includes('performance_review.create')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
+        requirePermission(session, 'hr.performance_review.create');
 
         const body = await request.json();
         const { period, description, startDate, endDate } = body;

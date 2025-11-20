@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box,
     Typography,
@@ -24,7 +24,8 @@ import {
     Grid,
     Card,
     CardContent,
-    CardActions
+    CardActions,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -32,6 +33,7 @@ import {
     GetApp as DownloadIcon,
     Refresh as RefreshIcon
 } from '@mui/icons-material';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface EvaluationPeriod {
     review_period: string;
@@ -62,6 +64,7 @@ export default function EvaluationPeriodsPage() {
     const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
     const [evaluationUrls, setEvaluationUrls] = useState<EvaluationUrl[]>([]);
     const [urlsLoading, setUrlsLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Form data for creating new period
     const [formData, setFormData] = useState({
@@ -78,7 +81,9 @@ export default function EvaluationPeriodsPage() {
     const fetchPeriods = async () => {
         try {
             setLoading(true);
-            const response = await fetch('/api/hr/evaluation-periods');
+            const response = await fetch('/api/hr/evaluation-periods', {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error('Failed to fetch evaluation periods');
             }
@@ -86,7 +91,7 @@ export default function EvaluationPeriodsPage() {
             setPeriods(data.data || []);
         } catch (error) {
             console.error('Error fetching periods:', error);
-            setError('Không thể tải danh sách kỳ đánh giá');
+            setError(error instanceof Error ? error.message : 'Không thể tải danh sách kỳ đánh giá');
         } finally {
             setLoading(false);
         }
@@ -125,7 +130,9 @@ export default function EvaluationPeriodsPage() {
             setUrlsLoading(true);
             setSelectedPeriod(period);
 
-            const response = await fetch(`/api/hr/evaluation-urls?period=${encodeURIComponent(period)}`);
+            const response = await fetch(`/api/hr/evaluation-urls?period=${encodeURIComponent(period)}`, {
+                credentials: 'include',
+            });
             if (!response.ok) {
                 throw new Error('Failed to generate evaluation URLs');
             }
@@ -135,7 +142,7 @@ export default function EvaluationPeriodsPage() {
             setUrlsDialogOpen(true);
         } catch (error) {
             console.error('Error generating URLs:', error);
-            setError('Không thể tạo URL đánh giá');
+            setError(error instanceof Error ? error.message : 'Không thể tạo URL đánh giá');
         } finally {
             setUrlsLoading(false);
         }
@@ -168,6 +175,19 @@ export default function EvaluationPeriodsPage() {
         return new Date(dateString).toLocaleDateString('vi-VN');
     };
 
+    const filteredPeriods = useMemo(() => {
+        if (!searchTerm.trim()) return periods;
+        const term = searchTerm.trim().toLowerCase();
+        return periods.filter((period) =>
+            [
+                period.review_period,
+                formatDate(period.created_at),
+                formatDate(period.updated_at),
+                period._count.id?.toString(),
+            ].some((value) => value?.toLowerCase().includes(term))
+        );
+    }, [periods, searchTerm]);
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -178,7 +198,13 @@ export default function EvaluationPeriodsPage() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Typography variant="h4" component="h1">
                     Quản lý Kỳ Đánh Giá
                 </Typography>
@@ -199,6 +225,14 @@ export default function EvaluationPeriodsPage() {
                         Tạo Kỳ Đánh Giá
                     </Button>
                 </Box>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo tên kỳ đánh giá hoặc ngày tạo"
+                />
             </Box>
 
             {error && (
@@ -221,33 +255,45 @@ export default function EvaluationPeriodsPage() {
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {periods.map((period) => (
-                                    <TableRow key={period.review_period}>
-                                        <TableCell>
-                                            <Typography variant="subtitle1" fontWeight="medium">
-                                                {period.review_period}
+                                {filteredPeriods.length > 0 ? (
+                                    filteredPeriods.map((period) => (
+                                        <TableRow key={period.review_period}>
+                                            <TableCell>
+                                                <Typography variant="subtitle1" fontWeight="medium">
+                                                    {period.review_period}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={period._count.id}
+                                                    color="primary"
+                                                    size="small"
+                                                />
+                                            </TableCell>
+                                            <TableCell>{formatDate(period.created_at)}</TableCell>
+                                            <TableCell>{formatDate(period.updated_at)}</TableCell>
+                                            <TableCell align="center">
+                                                <IconButton
+                                                    color="primary"
+                                                    onClick={() => handleGenerateUrls(period.review_period)}
+                                                    disabled={urlsLoading}
+                                                >
+                                                    <VisibilityIcon />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {searchTerm.trim()
+                                                    ? 'Không tìm thấy kỳ đánh giá phù hợp'
+                                                    : 'Chưa có kỳ đánh giá nào'}
                                             </Typography>
                                         </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={period._count.id}
-                                                color="primary"
-                                                size="small"
-                                            />
-                                        </TableCell>
-                                        <TableCell>{formatDate(period.created_at)}</TableCell>
-                                        <TableCell>{formatDate(period.updated_at)}</TableCell>
-                                        <TableCell align="center">
-                                            <IconButton
-                                                color="primary"
-                                                onClick={() => handleGenerateUrls(period.review_period)}
-                                                disabled={urlsLoading}
-                                            >
-                                                <VisibilityIcon />
-                                            </IconButton>
-                                        </TableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>

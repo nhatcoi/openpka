@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -27,7 +27,8 @@ import {
     InputLabel,
     Select,
     MenuItem,
-    Autocomplete
+    Autocomplete,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -37,6 +38,7 @@ import {
     Person as PersonIcon
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Qualification {
     id: string;
@@ -94,6 +96,7 @@ function EmployeeQualificationsPageContent() {
         awarded_date: ''
     });
     const [saving, setSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -247,6 +250,22 @@ function EmployeeQualificationsPageContent() {
         }
     };
 
+    const filteredEmployeeQualifications = useMemo(() => {
+        if (!searchTerm.trim()) return employeeQualifications;
+        const term = searchTerm.trim().toLowerCase();
+        return employeeQualifications.filter((record) => {
+            const values = [
+                record.Employee?.User?.full_name,
+                record.Employee?.employee_no,
+                record.Qualification?.title,
+                record.Qualification?.code,
+                record.major_field,
+                record.institution,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [employeeQualifications, searchTerm]);
+
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -260,7 +279,13 @@ function EmployeeQualificationsPageContent() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <PersonIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
                     <Box>
@@ -288,6 +313,14 @@ function EmployeeQualificationsPageContent() {
                 >
                     Thêm bằng cấp
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, bằng cấp, chuyên ngành hoặc tổ chức cấp"
+                />
             </Box>
 
             {error && (
@@ -310,61 +343,73 @@ function EmployeeQualificationsPageContent() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {employeeQualifications.map((record) => (
-                                <TableRow key={record.id} hover>
-                                    <TableCell>
-                                        <Box>
-                                            <Typography variant="body2" fontWeight="medium">
-                                                {record.Employee?.User?.full_name || 'N/A'}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {record.Employee?.employee_no || 'N/A'}
-                                            </Typography>
-                                        </Box>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={record.Qualification?.title || 'N/A'}
-                                            color="primary"
-                                            variant="outlined"
-                                            size="small"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {record.major_field}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {record.institution}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body2">
-                                            {new Date(record.awarded_date).toLocaleDateString('vi-VN')}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            <IconButton
-                                                size="small"
+                            {filteredEmployeeQualifications.length > 0 ? (
+                                filteredEmployeeQualifications.map((record) => (
+                                    <TableRow key={record.id} hover>
+                                        <TableCell>
+                                            <Box>
+                                                <Typography variant="body2" fontWeight="medium">
+                                                    {record.Employee?.User?.full_name || 'N/A'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {record.Employee?.employee_no || 'N/A'}
+                                                </Typography>
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={record.Qualification?.title || 'N/A'}
                                                 color="primary"
-                                                onClick={() => handleOpenDialog(record)}
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton
+                                                variant="outlined"
                                                 size="small"
-                                                color="error"
-                                                onClick={() => handleDelete(record.id)}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Box>
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {record.major_field}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {record.institution}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">
+                                                {new Date(record.awarded_date).toLocaleDateString('vi-VN')}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                <IconButton
+                                                    size="small"
+                                                    color="primary"
+                                                    onClick={() => handleOpenDialog(record)}
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={() => handleDelete(record.id)}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {searchTerm.trim()
+                                                ? 'Không tìm thấy bằng cấp nhân viên phù hợp'
+                                                : 'Chưa có bằng cấp nhân viên nào'}
+                                        </Typography>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>

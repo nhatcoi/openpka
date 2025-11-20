@@ -11,6 +11,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/hr/assignments': ['hr.assignment.view'],
     '/hr/assignments/new': ['hr.assignment.create'],
     '/hr/assignments/[id]/edit': ['hr.assignment.update'],
+    '/hr/assignments/[id]': ['hr.assignment.view'],
     '/hr/leave-requests': ['hr.leave_request.view'],
     '/hr/leave-requests/new': ['hr.leave_request.create'],
     '/hr/leave-requests/[id]': ['hr.leave_request.view'],
@@ -18,6 +19,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
     '/hr/performance-reviews': ['hr.performance_review.view'],
     '/hr/performance-reviews/new': ['hr.performance_review.create'],
     '/hr/performance-reviews/[id]/edit': ['hr.performance_review.update'],
+    '/hr/evaluation-periods': ['hr.performance_review.view'],
     '/hr/qualifications': ['hr.qualification.view'],
     '/hr/qualifications/new': ['hr.qualification.create'],
     '/hr/qualifications/[id]/edit': ['hr.qualification.update'],
@@ -100,6 +102,7 @@ const API_ROUTE_PERMISSIONS: Record<string, string[]> = {
     // HR API Routes - Assignments
     'GET:/api/hr/assignments': ['hr.assignment.view'],
     'POST:/api/hr/assignments': ['hr.assignment.create'],
+    'GET:/api/hr/assignments/[id]': ['hr.assignment.view'],
     'PUT:/api/hr/assignments/[id]': ['hr.assignment.update'],
     'DELETE:/api/hr/assignments/[id]': ['hr.assignment.delete'],
     
@@ -114,6 +117,10 @@ const API_ROUTE_PERMISSIONS: Record<string, string[]> = {
     'POST:/api/hr/performance-reviews': ['hr.performance_review.create'],
     'PUT:/api/hr/performance-reviews/[id]': ['hr.performance_review.update'],
     'POST:/api/hr/performance-reviews/[id]/approve': ['hr.performance_review.approve'],
+    'GET:/api/hr/evaluation-periods': ['hr.performance_review.view'],
+    'POST:/api/hr/evaluation-periods': ['hr.performance_review.create'],
+    'GET:/api/hr/evaluation-urls': ['hr.performance_review.view'],
+    'POST:/api/hr/evaluation-urls': ['hr.performance_review.create'],
     
     // HR API Routes - Qualifications
     'GET:/api/hr/qualifications': ['hr.qualification.view'],
@@ -156,6 +163,7 @@ const API_ROUTE_PERMISSIONS: Record<string, string[]> = {
     'POST:/api/hr/roles': ['hr.rbac.create'],
     'PUT:/api/hr/roles/[id]': ['hr.rbac.update'],
     'DELETE:/api/hr/roles/[id]': ['hr.rbac.delete'],
+    'GET:/api/hr/org-units': ['hr.assignment.view'],
     'GET:/api/hr/permissions': ['hr.rbac.view'],
     'POST:/api/hr/permissions': ['hr.rbac.create'],
     'PUT:/api/hr/permissions/[id]': ['hr.rbac.update'],
