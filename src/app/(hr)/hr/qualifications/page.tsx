@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -22,7 +22,8 @@ import {
     TextField,
     Alert,
     CircularProgress,
-    Chip
+    Chip,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -31,6 +32,7 @@ import {
     School as SchoolIcon
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Qualification {
     id: string;
@@ -51,6 +53,7 @@ export default function QualificationsPage() {
         title: ''
     });
     const [saving, setSaving] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -167,6 +170,16 @@ export default function QualificationsPage() {
         }
     };
 
+    const filteredQualifications = useMemo(() => {
+        if (!searchTerm.trim()) return qualifications;
+        const term = searchTerm.trim().toLowerCase();
+        return qualifications.filter((qualification) =>
+            [qualification.code, qualification.title].some((value) =>
+                value?.toLowerCase().includes(term)
+            )
+        );
+    }, [qualifications, searchTerm]);
+
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -180,7 +193,13 @@ export default function QualificationsPage() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <SchoolIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
                     <Typography variant="h4" component="h1">
@@ -194,6 +213,14 @@ export default function QualificationsPage() {
                 >
                     Thêm bằng cấp
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo mã hoặc tên bằng cấp"
+                />
             </Box>
 
             {error && (
@@ -213,40 +240,52 @@ export default function QualificationsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {qualifications.map((qualification) => (
-                                <TableRow key={qualification.id} hover>
-                                    <TableCell>
-                                        <Chip
-                                            label={qualification.code}
-                                            color="primary"
-                                            variant="outlined"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Typography variant="body1" fontWeight="medium">
-                                            {qualification.title}
+                            {filteredQualifications.length > 0 ? (
+                                filteredQualifications.map((qualification) => (
+                                    <TableRow key={qualification.id} hover>
+                                        <TableCell>
+                                            <Chip
+                                                label={qualification.code}
+                                                color="primary"
+                                                variant="outlined"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body1" fontWeight="medium">
+                                                {qualification.title}
+                                            </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Box sx={{ display: 'flex', gap: 1 }}>
+                                                <IconButton
+                                                    size="small"
+                                                    color="primary"
+                                                    onClick={() => handleOpenDialog(qualification)}
+                                                >
+                                                    <EditIcon />
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={() => handleDelete(qualification.id)}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </Box>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {searchTerm.trim()
+                                                ? 'Không tìm thấy bằng cấp phù hợp'
+                                                : 'Chưa có bằng cấp nào'}
                                         </Typography>
                                     </TableCell>
-                                    <TableCell>
-                                        <Box sx={{ display: 'flex', gap: 1 }}>
-                                            <IconButton
-                                                size="small"
-                                                color="primary"
-                                                onClick={() => handleOpenDialog(qualification)}
-                                            >
-                                                <EditIcon />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={() => handleDelete(qualification.id)}
-                                            >
-                                                <DeleteIcon />
-                                            </IconButton>
-                                        </Box>
-                                    </TableCell>
                                 </TableRow>
-                            ))}
+                            )}
                         </TableBody>
                     </Table>
                 </TableContainer>

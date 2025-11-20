@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -32,6 +32,7 @@ import {
     CardContent,
     Rating,
     Avatar,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -43,6 +44,7 @@ import {
     Star as StarIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface User {
     id: string;
@@ -93,6 +95,7 @@ function PerformanceReviewsPageContent() {
         score: '',
         comments: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -263,6 +266,21 @@ function PerformanceReviewsPageContent() {
         return 'Không đạt';
     };
 
+    const filteredPerformanceReviews = useMemo(() => {
+        if (!searchTerm.trim()) return performanceReviews;
+        const term = searchTerm.trim().toLowerCase();
+        return performanceReviews.filter((review) => {
+            const values = [
+                review.Employee?.User?.full_name,
+                review.Employee?.employee_no,
+                review.review_period,
+                review.score,
+                review.comments,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [performanceReviews, searchTerm]);
+
     if (status === 'loading' || loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -290,7 +308,13 @@ function PerformanceReviewsPageContent() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <AssessmentIcon sx={{ mr: 2, fontSize: 32, color: 'primary.main' }} />
                     <Box>
@@ -311,13 +335,14 @@ function PerformanceReviewsPageContent() {
                         })()}
                     </Box>
                 </Box>
-                {/* <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => setOpenDialog(true)}
-                >
-                    Thêm đánh giá
-                </Button> */}
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, kỳ đánh giá hoặc nhận xét"
+                />
             </Box>
 
             <TableContainer component={Paper}>
@@ -333,113 +358,78 @@ function PerformanceReviewsPageContent() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {performanceReviews.map((review) => (
-                            <TableRow key={review.id}>
-                                <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
-                                            {review.Employee?.User?.full_name?.charAt(0) || 'N/A'}
-                                        </Avatar>
-                                        <Box>
-                                            <Typography variant="body2" fontWeight="medium">
-                                                {review.Employee?.User?.full_name || 'N/A'}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary">
-                                                {review.Employee?.employee_no || 'N/A'}
-                                            </Typography>
+                        {filteredPerformanceReviews.length > 0 ? (
+                            filteredPerformanceReviews.map((review) => (
+                                <TableRow key={review.id}>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Avatar sx={{ mr: 2, bgcolor: 'primary.main' }}>
+                                                {review.Employee?.User?.full_name?.charAt(0) || 'N/A'}
+                                            </Avatar>
+                                            <Box>
+                                                <Typography variant="body2" fontWeight="medium">
+                                                    {review.Employee?.User?.full_name || 'N/A'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {review.Employee?.employee_no || 'N/A'}
+                                                </Typography>
+                                            </Box>
                                         </Box>
-                                    </Box>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={review.review_period || 'N/A'}
-                                        color="primary"
-                                        variant="outlined"
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                        <Rating
-                                            value={review.score ? parseFloat(review.score) : 0}
-                                            precision={0.1}
-                                            readOnly
-                                            size="small"
-                                            sx={{ mr: 1 }}
-                                        />
+                                    </TableCell>
+                                    <TableCell>
                                         <Chip
-                                            label={`${review.score || 'N/A'} - ${getScoreLabel(review.score)}`}
-                                            color={getScoreColor(review.score)}
-                                            variant="filled"
+                                            label={review.review_period || 'N/A'}
+                                            color="primary"
+                                            variant="outlined"
                                             size="small"
                                         />
-                                    </Box>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2" sx={{
-                                        maxWidth: 200,
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap'
-                                    }}>
-                                        {review.comments || 'Không có nhận xét'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                            <Rating
+                                                value={review.score ? parseFloat(review.score) : 0}
+                                                precision={0.1}
+                                                readOnly
+                                                size="small"
+                                                sx={{ mr: 1 }}
+                                            />
+                                            <Chip
+                                                label={`${review.score || 'N/A'} - ${getScoreLabel(review.score)}`}
+                                                color={getScoreColor(review.score)}
+                                                variant="filled"
+                                                size="small"
+                                            />
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" sx={{
+                                            maxWidth: 200,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
+                                        }}>
+                                            {review.comments || 'Không có nhận xét'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        {new Date(review.created_at).toLocaleDateString('vi-VN')}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy đánh giá phù hợp'
+                                            : 'Chưa có đánh giá nào'}
                                     </Typography>
                                 </TableCell>
-                                <TableCell>
-                                    {new Date(review.created_at).toLocaleDateString('vi-VN')}
-                                </TableCell>
-                                {/* <TableCell>
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleEdit(review)}
-                                        disabled={actionLoading === `edit-${review.id}`}
-                                        title="Chỉnh sửa đánh giá"
-                                    >
-                                        {actionLoading === `edit-${review.id}` ? (
-                                            <CircularProgress size={16} />
-                                        ) : (
-                                            <EditIcon />
-                                        )}
-                                    </IconButton>
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDelete(review.id, review.Employee?.User?.full_name || 'N/A')}
-                                        disabled={actionLoading === `delete-${review.id}`}
-                                        title="Xóa đánh giá"
-                                    >
-                                        {actionLoading === `delete-${review.id}` ? (
-                                            <CircularProgress size={16} />
-                                        ) : (
-                                            <DeleteIcon />
-                                        )}
-                                    </IconButton>
-                                </TableCell> */}
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
-
-            {performanceReviews.length === 0 && (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                    <AssessmentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                    <Typography variant="h6" color="text.secondary">
-                        Chưa có đánh giá nào
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        Hãy thêm đánh giá đầu tiên cho nhân viên
-                    </Typography>
-                    {/* <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setOpenDialog(true)}
-                    >
-                        Thêm đánh giá
-                    </Button> */}
-                </Box>
-            )}
 
             {/* Add/Edit Dialog */}
             <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>

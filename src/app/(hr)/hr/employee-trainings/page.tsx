@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -29,6 +29,7 @@ import {
     MenuItem,
     Breadcrumbs,
     Link,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -39,6 +40,7 @@ import {
     Link as LinkIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Employee {
     id: string;
@@ -113,6 +115,7 @@ function EmployeeTrainingsPageContent() {
         completion_date: '',
         certificate_url: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         const employeeId = searchParams.get('employee_id');
@@ -281,6 +284,20 @@ function EmployeeTrainingsPageContent() {
         ? employees.find(emp => emp.id === searchParams.get('employee_id'))
         : null;
 
+    const filteredEmployeeTrainings = useMemo(() => {
+        if (!searchTerm.trim()) return employeeTrainings;
+        const term = searchTerm.trim().toLowerCase();
+        return employeeTrainings.filter((training) => {
+            const values = [
+                getEmployeeName(training.employee_id),
+                getTrainingName(training.training_id),
+                TRAINING_STATUS_LABELS[training.status as keyof typeof TRAINING_STATUS_LABELS] || training.status,
+                training.certificate_url,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [employeeTrainings, searchTerm]);
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -303,7 +320,13 @@ function EmployeeTrainingsPageContent() {
                 <Typography color="text.primary">Đào tạo</Typography>
             </Breadcrumbs>
 
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box display="flex" alignItems="center" gap={2}>
                     <SchoolIcon color="primary" sx={{ fontSize: 32 }} />
                     <Box>
@@ -324,6 +347,14 @@ function EmployeeTrainingsPageContent() {
                 >
                     Thêm đào tạo
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, khóa đào tạo hoặc trạng thái"
+                />
             </Box>
 
             {error && (
@@ -345,73 +376,85 @@ function EmployeeTrainingsPageContent() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {employeeTrainings.map((training) => (
-                            <TableRow key={training.id}>
-                                <TableCell>
-                                    <Box display="flex" alignItems="center" gap={1}>
-                                        <PersonIcon color="action" />
-                                        <Typography variant="body2">
-                                            {getEmployeeName(training.employee_id)}
+                        {filteredEmployeeTrainings.length > 0 ? (
+                            filteredEmployeeTrainings.map((training) => (
+                                <TableRow key={training.id}>
+                                    <TableCell>
+                                        <Box display="flex" alignItems="center" gap={1}>
+                                            <PersonIcon color="action" />
+                                            <Typography variant="body2">
+                                                {getEmployeeName(training.employee_id)}
+                                            </Typography>
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2" fontWeight="medium">
+                                            {getTrainingName(training.training_id)}
                                         </Typography>
-                                    </Box>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2" fontWeight="medium">
-                                        {getTrainingName(training.training_id)}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={TRAINING_STATUS_LABELS[training.status as keyof typeof TRAINING_STATUS_LABELS] || training.status}
-                                        color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] as string}
-                                        variant="outlined"
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {training.completion_date
-                                            ? new Date(training.completion_date).toLocaleDateString('vi-VN')
-                                            : '-'
-                                        }
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    {training.certificate_url ? (
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={TRAINING_STATUS_LABELS[training.status as keyof typeof TRAINING_STATUS_LABELS] || training.status}
+                                            color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] as string}
+                                            variant="outlined"
+                                            size="small"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {training.completion_date
+                                                ? new Date(training.completion_date).toLocaleDateString('vi-VN')
+                                                : '-'
+                                            }
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        {training.certificate_url ? (
+                                            <IconButton
+                                                size="small"
+                                                color="primary"
+                                                onClick={() => window.open(training.certificate_url, '_blank')}
+                                                title="Xem chứng chỉ"
+                                            >
+                                                <LinkIcon />
+                                            </IconButton>
+                                        ) : (
+                                            <Typography variant="body2" color="text.secondary">
+                                                -
+                                            </Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell align="center">
                                         <IconButton
                                             size="small"
                                             color="primary"
-                                            onClick={() => window.open(training.certificate_url, '_blank')}
-                                            title="Xem chứng chỉ"
+                                            onClick={() => handleOpenDialog(training)}
+                                            title="Chỉnh sửa"
                                         >
-                                            <LinkIcon />
+                                            <EditIcon />
                                         </IconButton>
-                                    ) : (
-                                        <Typography variant="body2" color="text.secondary">
-                                            -
-                                        </Typography>
-                                    )}
-                                </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleOpenDialog(training)}
-                                        title="Chỉnh sửa"
-                                    >
-                                        <EditIcon />
-                                    </IconButton>
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDelete(training.id)}
-                                        title="Xóa"
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDelete(training.id)}
+                                            title="Xóa"
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy đào tạo nhân viên phù hợp'
+                                            : 'Chưa có đào tạo nhân viên nào'}
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>

@@ -5,6 +5,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { getToken } from 'next-auth/jwt';
+import {
+  formatEmploymentTypeForClient,
+  normalizeEmploymentType,
+} from '@/lib/hr/employment-type';
 
 export async function GET() {
   try {
@@ -96,6 +100,7 @@ export async function GET() {
       user_id: employee.user_id?.toString() || null,
       created_at: employee.created_at?.toString() || null,
       updated_at: employee.updated_at?.toString() || null,
+      employment_type: formatEmploymentTypeForClient(employee.employment_type),
       User: employee.User ? {
         ...employee.User,
         id: employee.User.id.toString(),
@@ -168,7 +173,7 @@ export async function POST(request: NextRequest) {
       data: {
         User: user_id ? { connect: { id: BigInt(user_id) } } : undefined,
         employee_no,
-        employment_type,
+        employment_type: normalizeEmploymentType(employment_type) || null,
         status,
         hired_at: hired_at ? new Date(hired_at) : null,
       },
@@ -179,6 +184,7 @@ export async function POST(request: NextRequest) {
       ...employee,
       id: employee.id.toString(),
       user_id: employee.User_id?.toString() || null,
+      employment_type: formatEmploymentTypeForClient(employee.employment_type),
     };
 
     // Log the creation activity

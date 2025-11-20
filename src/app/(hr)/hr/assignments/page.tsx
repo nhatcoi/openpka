@@ -18,6 +18,7 @@ import {
     IconButton,
     Alert,
     CircularProgress,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -26,6 +27,7 @@ import {
     Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 // Types
 interface Assignment {
@@ -123,6 +125,7 @@ export default function AssignmentsPage() {
     const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>('');
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Fetch data on mount
     useEffect(() => {
@@ -260,6 +263,24 @@ export default function AssignmentsPage() {
     }, [orgUnits]);
 
     // Computed values
+    const filteredAssignments = useMemo(() => {
+        if (!searchTerm.trim()) {
+            return assignments;
+        }
+        const term = searchTerm.trim().toLowerCase();
+        return assignments.filter((assignment) => {
+            const values = [
+                getEmployeeName(assignment),
+                getOrgUnitName(assignment),
+                assignment.assignment_type,
+                formatAllocation(assignment.allocation),
+                formatDate(assignment.start_date),
+                assignment.end_date ? formatDate(assignment.end_date) : '',
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [assignments, searchTerm, getEmployeeName, getOrgUnitName]);
+
     const hasAssignments = useMemo(() => assignments.length > 0, [assignments]);
 
     // Loading state
@@ -279,7 +300,7 @@ export default function AssignmentsPage() {
     return (
         <Box>
             {/* Header */}
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" gap={2} mb={2}>
                 <Typography variant="h4" component="h1">
                     Quản lý phân công
                 </Typography>
@@ -290,6 +311,14 @@ export default function AssignmentsPage() {
                 >
                     Thêm phân công
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo nhân viên, đơn vị, loại phân công..."
+                />
             </Box>
 
             {/* Error message */}
@@ -316,8 +345,8 @@ export default function AssignmentsPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {hasAssignments ? (
-                                assignments.map((assignment) => (
+                            {filteredAssignments.length > 0 ? (
+                                filteredAssignments.map((assignment) => (
                                     <TableRow key={assignment.id} hover>
                                         <TableCell>{getEmployeeName(assignment)}</TableCell>
                                         <TableCell>{getOrgUnitName(assignment)}</TableCell>
@@ -370,7 +399,7 @@ export default function AssignmentsPage() {
                                 <TableRow>
                                     <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                                         <Typography variant="body2" color="text.secondary">
-                                            Chưa có phân công nào
+                                            {searchTerm.trim() ? 'Không tìm thấy phân công phù hợp' : 'Chưa có phân công nào'}
                                         </Typography>
                                     </TableCell>
                                 </TableRow>

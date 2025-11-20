@@ -39,8 +39,9 @@ interface OrgUnit {
     name: string;
     code: string | null;
     parent_id: string | null;
-    level: number;
-    is_active: boolean;
+    level?: number | null;
+    type?: string | null;
+    status?: string | null;
 }
 
 interface Employee {
@@ -66,8 +67,8 @@ interface Assignment {
     allocation: string;
     start_date: string;
     end_date: string | null;
-    employee: Employee;
-    org_unit: OrgUnit;
+    employee?: Employee | null;
+    org_unit?: OrgUnit | null;
 }
 
 interface ReportData {
@@ -102,6 +103,81 @@ export default function ReportsPage() {
         void fetchData();
     }, [session, status]);
 
+    const extractItems = <T = unknown>(payload: any): T[] => {
+        if (!payload) return [];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload?.data)) return payload.data;
+        if (Array.isArray(payload?.items)) return payload.items;
+        if (Array.isArray(payload?.data?.items)) return payload.data.items;
+        return [];
+    };
+
+    const normalizeOrgUnit = (unitData: any): OrgUnit => ({
+        id: unitData?.id?.toString() ?? '',
+        name: unitData?.name ?? '',
+        code: unitData?.code ?? null,
+        parent_id: unitData?.parent_id?.toString() ?? null,
+        level: typeof unitData?.level === 'number'
+            ? unitData.level
+            : unitData?.level
+            ? Number(unitData.level) || null
+            : unitData?.hierarchy_level ?? null,
+        type: unitData?.type ?? null,
+        status: unitData?.status ?? null,
+    });
+
+    const normalizeEmploymentTypeValue = (type?: string | null) => {
+        if (!type) return '';
+        return type.toLowerCase().replace(/[_\s]/g, '-');
+    };
+
+    const normalizeEmployee = (employeeData: any): Employee | null => {
+        if (!employeeData) return null;
+        return {
+            id: employeeData?.id?.toString() ?? '',
+            employee_no: employeeData?.employee_no ?? null,
+            employment_type: normalizeEmploymentTypeValue(employeeData?.employment_type),
+            status: employeeData?.status ?? null,
+            user: employeeData?.user || employeeData?.User
+                ? {
+                      id: (employeeData?.user || employeeData?.User)?.id?.toString() ?? '',
+                      username: (employeeData?.user || employeeData?.User)?.username ?? '',
+                      full_name: (employeeData?.user || employeeData?.User)?.full_name ?? '',
+                      email: (employeeData?.user || employeeData?.User)?.email ?? null,
+                  }
+                : null,
+        };
+    };
+
+    const normalizeAssignment = (assignmentData: any): Assignment => {
+        const employee = normalizeEmployee(assignmentData?.employee || assignmentData?.Employee);
+        const orgUnitRaw = assignmentData?.org_unit || assignmentData?.OrgUnit;
+        return {
+            id: assignmentData?.id?.toString() ?? '',
+            employee_id: assignmentData?.employee_id?.toString() ?? employee?.id ?? '',
+            org_unit_id: assignmentData?.org_unit_id?.toString() ?? orgUnitRaw?.id?.toString() ?? '',
+            position_id: assignmentData?.position_id
+                ? assignmentData.position_id.toString()
+                : assignmentData?.JobPosition?.id?.toString() ?? null,
+            is_primary: Boolean(assignmentData?.is_primary),
+            assignment_type: assignmentData?.assignment_type ?? '',
+            allocation:
+                typeof assignmentData?.allocation === 'number'
+                    ? assignmentData.allocation.toString()
+                    : assignmentData?.allocation ?? '0',
+            start_date: assignmentData?.start_date ?? '',
+            end_date: assignmentData?.end_date ?? null,
+            employee,
+            org_unit: orgUnitRaw ? normalizeOrgUnit(orgUnitRaw) : null,
+        };
+    };
+
+    const getUnitLevelLabel = (unit: OrgUnit) => {
+        if (unit.level) return `Cấp ${unit.level}`;
+        if (unit.type) return unit.type;
+        return 'Chưa xác định';
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
@@ -116,11 +192,14 @@ export default function ReportsPage() {
                 assignmentsResponse.json()
             ]);
 
-            if (orgUnitsResult.success && assignmentsResult.success) {
-                setOrgUnits(orgUnitsResult.data);
-                setAssignments(assignmentsResult.data);
+            const orgDataRaw = extractItems<any>(orgUnitsResult).map(normalizeOrgUnit);
+            const assignmentsDataRaw = extractItems<any>(assignmentsResult).map(normalizeAssignment);
 
-                const reports = buildReportData(orgUnitsResult.data, assignmentsResult.data);
+            if (orgDataRaw.length && assignmentsDataRaw.length) {
+                setOrgUnits(orgDataRaw);
+                setAssignments(assignmentsDataRaw);
+
+                const reports = buildReportData(orgDataRaw, assignmentsDataRaw);
                 setReportData(reports);
             } else {
                 setError('Không thể tải dữ liệu báo cáo');
@@ -196,7 +275,7 @@ export default function ReportsPage() {
             ...filtered.map(data => [
                 data.orgUnit.name,
                 data.orgUnit.code || '',
-                data.orgUnit.level,
+                getUnitLevelLabel(data.orgUnit),
                 data.totalEmployees,
                 data.activeEmployees,
                 data.inactiveEmployees,
@@ -382,7 +461,7 @@ export default function ReportsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <Chip
-                                            label={`Cấp ${data.orgUnit.level}`}
+                                            label={getUnitLevelLabel(data.orgUnit)}
                                             color={data.orgUnit.level === 1 ? 'primary' : 'secondary'}
                                             size="small"
                                         />

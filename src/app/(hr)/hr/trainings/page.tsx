@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -27,6 +27,7 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Stack,
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -35,6 +36,7 @@ import {
     School as SchoolIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import HrSearchBar from '@/components/hr/HrSearchBar';
 
 interface Training {
     id: string;
@@ -81,6 +83,7 @@ export default function TrainingsPage() {
         training_type: '',
         description: '',
     });
+    const [searchTerm, setSearchTerm] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
@@ -207,6 +210,20 @@ export default function TrainingsPage() {
         }
     };
 
+    const filteredTrainings = useMemo(() => {
+        if (!searchTerm.trim()) return trainings;
+        const term = searchTerm.trim().toLowerCase();
+        return trainings.filter((training) => {
+            const values = [
+                training.title,
+                training.provider,
+                TRAINING_TYPE_LABELS[training.training_type as keyof typeof TRAINING_TYPE_LABELS] || training.training_type,
+                training.description,
+            ];
+            return values.some((value) => value?.toLowerCase().includes(term));
+        });
+    }, [trainings, searchTerm]);
+
     if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -217,7 +234,13 @@ export default function TrainingsPage() {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+                gap={2}
+                mb={2}
+            >
                 <Box display="flex" alignItems="center" gap={2}>
                     <SchoolIcon color="primary" sx={{ fontSize: 32 }} />
                     <Typography variant="h4" component="h1">
@@ -231,6 +254,14 @@ export default function TrainingsPage() {
                 >
                     Thêm khóa đào tạo
                 </Button>
+            </Stack>
+
+            <Box sx={{ maxWidth: 420, mb: 3 }}>
+                <HrSearchBar
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Tìm kiếm theo tên khóa, nhà cung cấp hoặc loại đào tạo"
+                />
             </Box>
 
             {error && (
@@ -252,64 +283,76 @@ export default function TrainingsPage() {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {trainings.map((training) => (
-                            <TableRow key={training.id}>
-                                <TableCell>
-                                    <Typography variant="body1" fontWeight="medium">
-                                        {training.title}
-                                    </Typography>
-                                    {training.description && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                                            {training.description.length > 100
-                                                ? `${training.description.substring(0, 100)}...`
-                                                : training.description
-                                            }
+                        {filteredTrainings.length > 0 ? (
+                            filteredTrainings.map((training) => (
+                                <TableRow key={training.id}>
+                                    <TableCell>
+                                        <Typography variant="body1" fontWeight="medium">
+                                            {training.title}
                                         </Typography>
-                                    )}
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {training.provider}
+                                        {training.description && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                {training.description.length > 100
+                                                    ? `${training.description.substring(0, 100)}...`
+                                                    : training.description
+                                                }
+                                            </Typography>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {training.provider}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={TRAINING_TYPE_LABELS[training.training_type as keyof typeof TRAINING_TYPE_LABELS] || training.training_type}
+                                            color="primary"
+                                            variant="outlined"
+                                            size="small"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {new Date(training.start_date).toLocaleDateString('vi-VN')}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="body2">
+                                            {new Date(training.end_date).toLocaleDateString('vi-VN')}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="center">
+                                        <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={() => handleOpenDialog(training)}
+                                            title="Chỉnh sửa"
+                                        >
+                                            <EditIcon />
+                                        </IconButton>
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => handleDelete(training.id)}
+                                            title="Xóa"
+                                        >
+                                            <DeleteIcon />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        {searchTerm.trim()
+                                            ? 'Không tìm thấy khóa đào tạo phù hợp'
+                                            : 'Chưa có khóa đào tạo nào'}
                                     </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={TRAINING_TYPE_LABELS[training.training_type as keyof typeof TRAINING_TYPE_LABELS] || training.training_type}
-                                        color="primary"
-                                        variant="outlined"
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {new Date(training.start_date).toLocaleDateString('vi-VN')}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell>
-                                    <Typography variant="body2">
-                                        {new Date(training.end_date).toLocaleDateString('vi-VN')}
-                                    </Typography>
-                                </TableCell>
-                                <TableCell align="center">
-                                    <IconButton
-                                        size="small"
-                                        color="primary"
-                                        onClick={() => handleOpenDialog(training)}
-                                        title="Chỉnh sửa"
-                                    >
-                                        <EditIcon />
-                                    </IconButton>
-                                    <IconButton
-                                        size="small"
-                                        color="error"
-                                        onClick={() => handleDelete(training.id)}
-                                        title="Xóa"
-                                    >
-                                        <DeleteIcon />
-                                    </IconButton>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )}
                     </TableBody>
                 </Table>
             </TableContainer>
