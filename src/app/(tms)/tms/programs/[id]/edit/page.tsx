@@ -33,6 +33,7 @@ import {
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 import {
   OrgUnitApiItem,
   OrgUnitOption,
@@ -102,7 +103,7 @@ export default function EditProgramPage(): JSX.Element {
 
   const fetchOrgUnits = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/faculties?limit=200');
+      const response = await fetch(`${API_ROUTES.TMS.FACULTIES}?limit=200`);
       const result = (await response.json()) as {
         data?: { items?: OrgUnitApiItem[] };
       };
@@ -119,7 +120,7 @@ export default function EditProgramPage(): JSX.Element {
     try {
       const qs = new URLSearchParams();
       if (orgUnitId) qs.set('org_unit_id', orgUnitId);
-      const response = await fetch(`/api/tms/majors?${qs.toString()}`);
+      const response = await fetch(`${API_ROUTES.TMS.MAJORS}?${qs.toString()}`);
       const result = await response.json();
 
       if (response.ok && result?.success && Array.isArray(result.data?.items)) {
@@ -137,7 +138,7 @@ export default function EditProgramPage(): JSX.Element {
 
   const fetchProgramOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/programs?page=1&limit=100');
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAMS}?page=1&limit=100`);
       const result = await response.json();
 
       if (response.ok && result?.success && Array.isArray(result.data?.items)) {
@@ -163,7 +164,7 @@ export default function EditProgramPage(): JSX.Element {
       setLoading(true);
       setLoadError(null);
 
-      const response = await fetch(`/api/tms/programs/${programId}`);
+      const response = await fetch(API_ROUTES.TMS.PROGRAMS_BY_ID(programId));
       const result = (await response.json()) as ProgramDetailFetchResponse;
 
       if (!response.ok || !result?.success || !result.data) {

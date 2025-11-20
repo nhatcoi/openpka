@@ -11,10 +11,6 @@ interface CopyStructureInput {
   target_program_id: string | number;
 }
 
-/**
- * POST /api/tms/programs/copy-structure
- * Sao chép toàn bộ cấu trúc ProgramCourseMap từ chương trình nguồn sang chương trình đích
- */
 export const POST = withBody(async (body: unknown) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
@@ -30,7 +26,6 @@ export const POST = withBody(async (body: unknown) => {
   const sourceProgramId = BigInt(input.source_program_id as any);
   const targetProgramId = BigInt(input.target_program_id as any);
 
-  // Kiểm tra cả hai program tồn tại
   const [sourceProgram, targetProgram] = await Promise.all([
     db.program.findUnique({
       where: { id: sourceProgramId },
@@ -49,52 +44,36 @@ export const POST = withBody(async (body: unknown) => {
     throw new Error(`Không tìm thấy chương trình đích với ID: ${input.target_program_id}`);
   }
 
-  // Lấy tất cả ProgramCourseMap từ chương trình nguồn
-  const sourceMappings = await db.programCourseMap.findMany({
+  const sourceCount = await db.programCourseMap.count({
     where: { program_id: sourceProgramId },
-    include: {
-      Course: {
-        select: { id: true, code: true, name_vi: true },
-      },
-      ProgramBlock: {
-        select: { id: true, code: true, title: true },
-      },
-      ProgramBlockGroup: {
-        select: { id: true, code: true, title: true },
-      },
-    },
-    orderBy: [
-      { block_id: 'asc' },
-      { display_order: 'asc' },
-    ],
   });
 
-  if (sourceMappings.length === 0) {
+  if (sourceCount === 0) {
     throw new Error('Chương trình nguồn không có cấu trúc học phần nào để sao chép');
   }
 
-  // Xóa các mapping cũ của program đích (nếu có)
   await db.programCourseMap.deleteMany({
     where: { program_id: targetProgramId },
   });
 
-  // Sao chép các mapping sang program đích
-  const newMappings = sourceMappings.map((mapping) => ({
-    program_id: targetProgramId,
-    course_id: mapping.course_id,
-    block_id: mapping.block_id,
-    group_id: mapping.group_id,
-    is_required: mapping.is_required,
-    display_order: mapping.display_order,
-  }));
+  await (db as any).$executeRawUnsafe(
+    `INSERT INTO academic.program_course_map (program_id, course_id, block_id, group_id, is_required, display_order, constraints)
+     SELECT $1::bigint, course_id, block_id, group_id, is_required, display_order, constraints
+     FROM academic.program_course_map
+     WHERE program_id = $2::bigint
+     ON CONFLICT (program_id, course_id) DO NOTHING`,
+    targetProgramId,
+    sourceProgramId,
+  );
 
-  // Tạo tất cả mappings mới
-  const result = await db.programCourseMap.createMany({
-    data: newMappings,
-    skipDuplicates: true, // Tránh lỗi nếu có duplicate
+  const copiedCount = await db.programCourseMap.count({
+    where: { program_id: targetProgramId },
   });
 
-  // Lấy danh sách đã tạo để trả về
+  if (copiedCount === 0 && sourceCount > 0) {
+    throw new Error('Không thể sao chép cấu trúc. Có thể tất cả records đã tồn tại hoặc có lỗi xảy ra.');
+  }
+
   const createdMappings = await db.programCourseMap.findMany({
     where: { program_id: targetProgramId },
     include: {
@@ -116,7 +95,7 @@ export const POST = withBody(async (body: unknown) => {
 
   return {
     success: true,
-    message: `Đã sao chép ${result.count} học phần từ chương trình "${sourceProgram.code}" sang "${targetProgram.code}"`,
+    message: `Đã sao chép ${copiedCount} học phần từ chương trình "${sourceProgram.code}" sang "${targetProgram.code}"`,
     source_program: {
       id: sourceProgram.id.toString(),
       code: sourceProgram.code,
@@ -127,7 +106,7 @@ export const POST = withBody(async (body: unknown) => {
       code: targetProgram.code,
       name_vi: targetProgram.name_vi,
     },
-    copied_count: result.count,
+    copied_count: copiedCount,
     mappings: createdMappings.map((m) => ({
       id: m.id.toString(),
       courseId: m.course_id.toString(),

@@ -90,6 +90,7 @@ import {
   normalizeCoursePriority,
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 
 // Helper function to format decimal values
 const formatCredit = (value: any): string => {
@@ -282,7 +283,7 @@ export default function CourseDetailPage() {
     const fetchCourses = async () => {
       try {
         setCoursesLoading(true);
-        const response = await fetch('/api/tms/courses/list?limit=100');
+        const response = await fetch(`${API_ROUTES.TMS.COURSES_LIST}?limit=100`);
         const result = await response.json();
         if (result.success && result.data?.items) {
           const filtered = result.data.items.filter((c: any) => c.id !== routeId);
@@ -302,7 +303,7 @@ export default function CourseDetailPage() {
   useEffect(() => {
     const fetchRoles = async () => {
       try {
-        const rolesRes = await fetch('/api/hr/user-roles/current');
+        const rolesRes = await fetch(API_ROUTES.HR.USER_ROLES_BY_ID('current'));
         const rolesJson: { success: boolean; data?: Array<{ role?: { name?: string; description?: string } }> } = await rolesRes.json();
         if (rolesJson?.success && Array.isArray(rolesJson.data)) {
           const roles: Array<{ name: string; description?: string }> = rolesJson.data
@@ -346,7 +347,7 @@ export default function CourseDetailPage() {
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/tms/courses/${routeId}`);
+        const response = await fetch(API_ROUTES.TMS.COURSES_BY_ID(routeId));
         const result = await response.json();
         
         if (result.success && result.data) {
@@ -481,7 +482,7 @@ export default function CourseDetailPage() {
   // Fetch org units for dropdown
   const fetchOrgUnits = async () => {
     try {
-      const response = await fetch('/api/org/units?limit=100');
+      const response = await fetch(`${API_ROUTES.ORG.UNITS}?limit=100`);
       const result = await response.json();
       if (result.success) {
         setOrgUnits(result.data.items || []);
@@ -750,7 +751,7 @@ export default function CourseDetailPage() {
 
     try {
       setSaving(true);
-      const response = await fetch(`/api/tms/courses/${routeId}/prerequisites/${prereqId}`, {
+      const response = await fetch(API_ROUTES.TMS.COURSES_PREREQUISITES(routeId, prereqId), {
         method: 'DELETE'
       });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db as prisma } from '@/lib/db';
+import { db } from '@/lib/db';
 import { z } from 'zod';
 import { withErrorHandling, withIdParam, withIdAndBody, validateSchema, createErrorResponse } from '@/lib/api/api-handler';
 import { getServerSession } from 'next-auth';
@@ -7,6 +7,7 @@ import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { MAJOR_PERMISSIONS } from '@/constants/majors';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // Simplified update schema aligned with current DB columns
 const updateMajorSchema = z.object({
@@ -200,7 +201,7 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
         if (normalized.includes('APPROVED')) return 'APPROVE';
         if (normalized.includes('REJECTED')) return 'REJECT';
         if (normalized.includes('PUBLISHED')) return 'PUBLISH';
-        return 'RETURN';
+            return 'RETURN';
       };
 
       await tx.approvalRecord.create({
@@ -236,11 +237,14 @@ export const DELETE = withIdParam(async (id: string) => {
     throw new Error('Invalid major ID');
   }
 
-  // Check if major exists
-  const existingMajor = await prisma.major.findUnique({
-    where: { id: majorId },
+  const majorBigInt = BigInt(majorId);
+
+  // Check if major exists and get status
+  const existingMajor = await db.major.findUnique({
+    where: { id: majorBigInt },
     select: {
       id: true,
+      status: true,
     }
   });
 
@@ -248,9 +252,17 @@ export const DELETE = withIdParam(async (id: string) => {
     throw new Error('Major not found');
   }
 
+  if (existingMajor.status === WorkflowStatus.PUBLISHED) {
+    await db.major.update({
+      where: { id: majorBigInt },
+      data: { status: WorkflowStatus.ARCHIVED },
+    });
+    return { message: 'Major đã được chuyển sang trạng thái Lưu trữ' };
+  }
+
   // Delete major
-  await prisma.major.delete({
-    where: { id: majorId }
+  await db.major.delete({
+    where: { id: majorBigInt }
   });
 
   return { message: 'Major deleted successfully' };

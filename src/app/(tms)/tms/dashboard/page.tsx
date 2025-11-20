@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Typography,
@@ -52,7 +53,7 @@ export default function TmsDashboard() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/tms/dashboard/stats');
+      const response = await fetch(API_ROUTES.TMS.DASHBOARD_STATS);
       const result = await response.json();
 
       if (!result.success) {

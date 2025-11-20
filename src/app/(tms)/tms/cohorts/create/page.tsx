@@ -41,6 +41,7 @@ import {
   COHORT_DEFAULTS,
   COHORT_WORKFLOW_STATUS_OPTIONS
 } from '@/constants/cohorts';
+import { API_ROUTES } from '@/constants/routes';
 
 interface Major {
   id: string;
@@ -125,8 +126,8 @@ export default function CreateCohortPage() {
       try {
         setLoading(true);
         const [majorsRes, orgUnitsRes] = await Promise.all([
-          fetch('/api/tms/majors'),
-          fetch('/api/org/units?status=ACTIVE'),
+          fetch(API_ROUTES.TMS.MAJORS),
+          fetch(`${API_ROUTES.ORG.UNITS}?status=ACTIVE`),
         ]);
 
         // Process majors data
@@ -161,7 +162,7 @@ export default function CreateCohortPage() {
   useEffect(() => {
     const fetchPrograms = async () => {
       try {
-        const response = await fetch('/api/tms/programs/list?limit=100');
+        const response = await fetch(`${API_ROUTES.TMS.PROGRAMS_LIST}?limit=100`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data?.items) {
@@ -219,7 +220,7 @@ export default function CreateCohortPage() {
         org_unit_id: formData.org_unit_id || null,
       };
 
-      const response = await fetch('/api/cohorts', {
+      const response = await fetch(API_ROUTES.TMS.COHORTS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(submitData),

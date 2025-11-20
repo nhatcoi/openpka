@@ -32,6 +32,7 @@ import {
   getStatusLabel,
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 
 interface Course {
   id: number;
@@ -63,7 +64,7 @@ export default function BuildSyllabusPage() {
   // Fetch faculties from API
   const fetchFaculties = async () => {
     try {
-      const response = await fetch('/api/tms/faculties');
+      const response = await fetch(API_ROUTES.TMS.FACULTIES);
       const result = await response.json();
 
       if (response.ok) {
@@ -88,7 +89,7 @@ export default function BuildSyllabusPage() {
         ...(debouncedSearchTerm && { search: debouncedSearchTerm })
       });
 
-      const response = await fetch(`/api/tms/courses?${params}`);
+      const response = await fetch(`${API_ROUTES.TMS.COURSES}?${params}`);
       const result = await response.json();
 
       if (!response.ok) {

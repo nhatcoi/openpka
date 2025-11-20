@@ -39,6 +39,7 @@ import {
   getCohortStatusLabel,
   getCohortStatusColor,
 } from '@/constants/cohorts';
+import { API_ROUTES } from '@/constants/routes';
 
 interface Cohort {
   id: string;
@@ -107,7 +108,7 @@ export default function CohortDetailPage() {
 
       try {
         setLoading(true);
-        const response = await fetch(`/api/cohorts/${cohortId}`);
+        const response = await fetch(API_ROUTES.TMS.COHORTS_BY_ID(cohortId));
         
         if (!response.ok) {
           throw new Error('Không thể tải thông tin khóa học');

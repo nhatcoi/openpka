@@ -343,8 +343,12 @@ export async function DELETE(
     // Check if cohort exists
     const existingCohort = await (db as any).cohort.findUnique({
       where: { id: cohortId },
-      include: {
-        StudentAcademicProgress: true
+      select: {
+        id: true,
+        status: true,
+        StudentAcademicProgress: {
+          select: { id: true }
+        }
       }
     });
 
@@ -355,7 +359,16 @@ export async function DELETE(
       );
     }
 
-    // Check if cohort has students
+    // If status is PUBLISHED, change to ARCHIVED instead of deleting
+    if (existingCohort.status === WorkflowStatus.PUBLISHED) {
+      await (db as any).cohort.update({
+        where: { id: cohortId },
+        data: { status: WorkflowStatus.ARCHIVED },
+      });
+      return NextResponse.json({ message: 'Cohort đã được chuyển sang trạng thái Lưu trữ' });
+    }
+
+    // Check if cohort has students (only for non-PUBLISHED cohorts)
     if (existingCohort.StudentAcademicProgress.length > 0) {
       return NextResponse.json(
         { error: 'Cannot delete cohort with existing students' },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../../lib/auth/auth';
-import { db } from '../../../../../lib/db';
+import { authOptions } from '@/lib/auth/auth';
+import { db } from '@/lib/db';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 export async function GET(request: NextRequest) {
@@ -12,47 +12,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get course statistics by status
-    const statsByStatus = await db.course.groupBy({
+    // Get major statistics by status
+    const statsByStatus = await db.major.groupBy({
       by: ['status'],
       _count: {
         id: true
       }
     });
 
-    // Get course statistics by type
-    const statsByType = await db.course.groupBy({
-      by: ['type'],
+    // Get major statistics by degree level
+    const statsByDegreeLevel = await db.major.groupBy({
+      by: ['degree_level'],
       _count: {
         id: true
       }
     });
 
-    // Get total courses count
-    const totalCount = await db.course.count();
+    // Get total majors count
+    const totalCount = await db.major.count();
 
-    // Get courses with prerequisites
-    const coursesWithPrereqs = await db.course.count({
-      where: {
-        prerequisites: {
-          some: {}
-        }
-      }
-    });
-
-    // Get published courses
-    const publishedCount = await db.course.count({
+    // Get published majors
+    const publishedCount = await db.major.count({
       where: {
         status: WorkflowStatus.PUBLISHED
       }
     });
 
-    // Get courses created this month
+    // Get majors created this month
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
     
-    const newThisMonth = await db.course.count({
+    const newThisMonth = await db.major.count({
       where: {
         created_at: {
           gte: startOfMonth
@@ -60,10 +51,40 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Get total credits
-    const totalCreditsResult = await db.course.aggregate({
+    // Get active majors (is_active = true)
+    const activeCount = await db.major.count({
+      where: {
+        is_active: true
+      }
+    });
+
+    // Get majors with programs
+    const withProgramsCount = await db.major.count({
+      where: {
+        Program: {
+          some: {}
+        }
+      }
+    });
+
+    // Get total credits range
+    const creditsStats = await db.major.aggregate({
+      _avg: {
+        total_credits_min: true,
+        total_credits_max: true
+      },
       _sum: {
-        credits: true
+        total_credits_min: true,
+        total_credits_max: true
+      }
+    });
+
+    // Get closed majors
+    const closedCount = await db.major.count({
+      where: {
+        closed_at: {
+          not: null
+        }
       }
     });
 
@@ -105,10 +126,10 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Transform type results
-    const typeStats: Record<string, number> = {};
-    statsByType.forEach(stat => {
-      typeStats[stat.type || 'unknown'] = stat._count.id;
+    // Transform degree level results
+    const degreeLevelStats: Record<string, number> = {};
+    statsByDegreeLevel.forEach(stat => {
+      degreeLevelStats[stat.degree_level || 'unknown'] = stat._count.id;
     });
 
     const result = {
@@ -116,9 +137,14 @@ export async function GET(request: NextRequest) {
       ...statusStats,
       published: publishedCount,
       newThisMonth,
-      withPrerequisites: coursesWithPrereqs,
-      totalCredits: totalCreditsResult._sum.credits ? Number(totalCreditsResult._sum.credits) : 0,
-      byType: typeStats
+      active: activeCount,
+      withPrograms: withProgramsCount,
+      closed: closedCount,
+      avgCreditsMin: creditsStats._avg.total_credits_min ? Number(creditsStats._avg.total_credits_min) : 0,
+      avgCreditsMax: creditsStats._avg.total_credits_max ? Number(creditsStats._avg.total_credits_max) : 0,
+      totalCreditsMin: creditsStats._sum.total_credits_min || 0,
+      totalCreditsMax: creditsStats._sum.total_credits_max || 0,
+      byDegreeLevel: degreeLevelStats
     };
 
     return NextResponse.json({
@@ -127,10 +153,11 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching course stats:', error);
+    console.error('Error fetching major stats:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch course statistics', details: error.message },
+      { success: false, error: 'Failed to fetch major statistics', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
+

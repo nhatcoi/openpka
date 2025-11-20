@@ -30,6 +30,9 @@ import {
   Typography,
   Breadcrumbs,
   Link,
+  Card,
+  CardContent,
+  Skeleton,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,6 +41,17 @@ import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Visibility as VisibilityIcon,
+  MenuBook as MenuBookIcon,
+  Note as DraftIcon,
+  Pending as PendingIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Publish as PublishIcon,
+  Archive as ArchiveIcon,
+  NewReleases as NewReleasesIcon,
+  Link as LinkIcon,
+  CreditCard as CreditCardIcon,
+  Category as CategoryIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import {
@@ -46,8 +60,10 @@ import {
   getStatusColor,
   getStatusLabel,
   getRawCourseStatuses,
+  CourseType,
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 import {
   OrgUnitApiItem,
   OrgUnitOption,
@@ -86,10 +102,24 @@ export default function CoursesPage(): JSX.Element {
     message: '',
     severity: 'success',
   });
+  const [stats, setStats] = useState<{
+    total: number;
+    pending: number;
+    reviewing: number;
+    approved: number;
+    rejected: number;
+    published: number;
+    archived: number;
+    newThisMonth: number;
+    withPrerequisites: number;
+    totalCredits: number;
+    byType: Record<string, number>;
+  } | null>(null);
+  const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
   const fetchOrgUnits = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/faculties?limit=200');
+      const response = await fetch(`${API_ROUTES.TMS.FACULTIES}?limit=200`);
       const result = (await response.json()) as {
         data?: { items?: OrgUnitApiItem[] };
       };
@@ -99,6 +129,22 @@ export default function CoursesPage(): JSX.Element {
       }
     } catch (err) {
       console.error('Failed to fetch faculties', err);
+    }
+  }, []);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setStatsLoading(true);
+      const response = await fetch(API_ROUTES.TMS.COURSES_STATS);
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setStats(result.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch course stats', err);
+    } finally {
+      setStatsLoading(false);
     }
   }, []);
 
@@ -127,7 +173,7 @@ export default function CoursesPage(): JSX.Element {
         params.set('search', searchTerm);
       }
 
-      const response = await fetch(`/api/tms/courses?${params.toString()}`);
+      const response = await fetch(`${API_ROUTES.TMS.COURSES}?${params.toString()}`);
       const result = (await response.json()) as CourseListApiResponse;
 
       if (!response.ok || !result.success) {
@@ -153,7 +199,8 @@ export default function CoursesPage(): JSX.Element {
 
   useEffect(() => {
     fetchOrgUnits();
-  }, [fetchOrgUnits]);
+    fetchStats();
+  }, [fetchOrgUnits, fetchStats]);
 
   useEffect(() => {
     fetchCourses();
@@ -191,7 +238,7 @@ export default function CoursesPage(): JSX.Element {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/tms/courses/${courseId}`, {
+      const response = await fetch(API_ROUTES.TMS.COURSES_BY_ID(courseId), {
         method: 'DELETE',
       });
       const result = await response.json();
@@ -269,6 +316,226 @@ export default function CoursesPage(): JSX.Element {
             </Stack>
           </Stack>
         </Paper>
+
+        {/* stats */}
+        {stats && (
+          <>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 2, mb: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <MenuBookIcon color="primary" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.total || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Tổng số
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <DraftIcon color="action" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.pending || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Bản nháp
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <PendingIcon color="warning" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.reviewing || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Đang xem xét
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <CheckCircleIcon color="success" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.approved || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Đã phê duyệt
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <CancelIcon color="error" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.rejected || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Từ chối
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 2, mb: 3 }}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <PublishIcon color="info" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.published || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Đã xuất bản
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <NewReleasesIcon color="primary" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.newThisMonth || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Mới trong tháng
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <LinkIcon color="secondary" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.withPrerequisites || 0}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Có điều kiện tiên quyết
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <CreditCardIcon color="success" sx={{ fontSize: 32 }} />
+                  <Box>
+                    {statsLoading ? (
+                      <Skeleton variant="text" width={60} height={32} />
+                    ) : (
+                      <Typography variant="h5" component="div">
+                        {stats.totalCredits?.toFixed(1) || '0.0'}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      Tổng số tín chỉ
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+          {stats.byType && Object.keys(stats.byType).length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+                Thống kê theo loại học phần
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+                {Object.entries(stats.byType).map(([type, count]) => (
+                  <Card key={type}>
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <CategoryIcon color="action" sx={{ fontSize: 28 }} />
+                        <Box>
+                          {statsLoading ? (
+                            <Skeleton variant="text" width={60} height={28} />
+                          ) : (
+                            <Typography variant="h6" component="div">
+                              {count || 0}
+                            </Typography>
+                          )}
+                          <Typography variant="body2" color="text.secondary">
+                            {getCourseTypeLabel(type as CourseType) || type}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+          )}
+          </>
+        )}
 
         <Paper sx={{ p: 3, mb: 3 }}>
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }}>

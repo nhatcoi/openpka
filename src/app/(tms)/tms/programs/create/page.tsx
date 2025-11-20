@@ -49,6 +49,7 @@ import {
   getProgramBlockTypeLabel,
   getProgramBlockGroupTypeLabel,
 } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 import {
   OrgUnitApiItem,
   OrgUnitOption,
@@ -139,7 +140,7 @@ export default function CreateProgramPage(): JSX.Element {
 
   const fetchOrgUnits = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/faculties');
+      const response = await fetch(API_ROUTES.TMS.FACULTIES);
       const result = (await response.json()) as {
         data?: { items?: OrgUnitApiItem[] };
       };
@@ -156,7 +157,7 @@ export default function CreateProgramPage(): JSX.Element {
     try {
       const qs = new URLSearchParams();
       if (orgUnitId) qs.set('org_unit_id', orgUnitId);
-      const response = await fetch(`/api/tms/majors?${qs.toString()}`);
+      const response = await fetch(`${API_ROUTES.TMS.MAJORS}?${qs.toString()}`);
       const result = await response.json();
       
       if (response.ok && result?.success && Array.isArray(result.data?.items)) {
@@ -174,7 +175,7 @@ export default function CreateProgramPage(): JSX.Element {
 
   const fetchCourseOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/courses?list=true');
+      const response = await fetch(`${API_ROUTES.TMS.COURSES}?list=true`);
       const result = (await response.json()) as {
         success: boolean;
         data?: { items?: Array<{ id: string | number; code: string; name_vi?: string | null; credits?: number | string | null }> };
@@ -202,7 +203,7 @@ export default function CreateProgramPage(): JSX.Element {
 
   const fetchProgramOptions = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/programs?page=1&limit=100');
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAMS}?page=1&limit=100`);
       const result = await response.json();
 
       if (response.ok && result?.success && Array.isArray(result.data?.items)) {
@@ -684,13 +685,19 @@ export default function CreateProgramPage(): JSX.Element {
       return;
     }
 
+    // Validate copy structure option
+    if (enableCopyStructure && !form.copyFromProgramId) {
+      setError('Vui lòng chọn chương trình đào tạo để sao chép cấu trúc.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const payload = buildProgramPayloadFromForm(form, false);
 
-      const response = await fetch('/api/tms/programs', {
+      const response = await fetch(API_ROUTES.TMS.PROGRAMS, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -703,13 +710,41 @@ export default function CreateProgramPage(): JSX.Element {
         throw new Error(msg);
       }
 
+      const programId = result?.data?.id;
+      
+      if (!programId) {
+        throw new Error('Không nhận được ID chương trình sau khi tạo');
+      }
+
       // Apply default framework if requested
-      if (form.applyDefaultFramework && result?.data?.id) {
-        await fetch('/api/tms/programs/apply-default-framework', {
+      if (form.applyDefaultFramework) {
+        const frameworkResponse = await fetch(API_ROUTES.TMS.PROGRAMS_APPLY_FRAMEWORK, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ program_id: Number(result.data.id) }),
+          body: JSON.stringify({ program_id: Number(programId) }),
         });
+        
+        if (!frameworkResponse.ok) {
+          const frameworkResult = await frameworkResponse.json();
+          throw new Error(frameworkResult.error || 'Không thể áp dụng khung chuẩn');
+        }
+      }
+
+      // Copy structure from another program if requested
+      if (enableCopyStructure && form.copyFromProgramId) {
+        const copyResponse = await fetch(API_ROUTES.TMS.PROGRAMS_COPY_STRUCTURE, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            source_program_id: Number(form.copyFromProgramId),
+            target_program_id: Number(programId),
+          }),
+        });
+        
+        if (!copyResponse.ok) {
+          const copyResult = await copyResponse.json();
+          throw new Error(copyResult.error || 'Không thể sao chép cấu trúc CTĐT');
+        }
       }
 
       setSuccessMessage('Đã tạo chương trình đào tạo thành công.');

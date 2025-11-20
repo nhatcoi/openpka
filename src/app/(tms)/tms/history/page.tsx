@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { API_ROUTES } from '@/constants/routes';
 import {
   Box,
   Button,
@@ -89,7 +90,7 @@ export default function AcademicHistoryPage() {
       });
       
       
-      const response = await fetch(`/api/academic/history?${params}`);
+      const response = await fetch(`${API_ROUTES.ACADEMIC.HISTORY}?${params}`);
       const result = await response.json();
       
       if (result.success) {

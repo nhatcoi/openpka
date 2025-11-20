@@ -30,6 +30,7 @@ import {
   getWorkflowStatusLabel,
   normalizeWorkflowStatusFromResource,
 } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 
 type IdLike = number | string;
 
@@ -72,7 +73,7 @@ export default function MajorDetailPage() {
     const fetchMajor = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/tms/majors/${majorId}`);
+        const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(majorId));
         const data = await response.json();
 
         if (data.success) {
@@ -170,7 +171,7 @@ export default function MajorDetailPage() {
     if (!major) return;
 
     try {
-      const response = await fetch(`/api/tms/majors/${major.id}`, {
+      const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(major.id), {
         method: 'DELETE',
       });
       

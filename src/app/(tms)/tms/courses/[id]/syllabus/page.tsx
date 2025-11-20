@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import { API_ROUTES } from '@/constants/routes';
 
 interface SyllabusWeek {
   id?: string;
@@ -98,7 +99,7 @@ export default function CourseSyllabusPage() {
     const fetchCourseData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/tms/courses/${courseId}`);
+        const response = await fetch(API_ROUTES.TMS.COURSES_BY_ID(courseId));
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -220,7 +221,7 @@ export default function CourseSyllabusPage() {
       setSaving(true);
       const syllabusToSave = data || syllabusData;
 
-      const response = await fetch(`/api/tms/courses/${courseId}/syllabus`, {
+      const response = await fetch(API_ROUTES.TMS.COURSES_SYLLABUS(courseId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -337,7 +338,7 @@ export default function CourseSyllabusPage() {
       setSaving(true);
       setError(null);
 
-      const response = await fetch(`/api/tms/courses/${courseId}/versions`, {
+      const response = await fetch(API_ROUTES.TMS.COURSES_VERSIONS(courseId), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

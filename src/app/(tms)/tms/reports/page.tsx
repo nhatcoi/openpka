@@ -40,6 +40,7 @@ import {
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 import type { ReportsOverviewResponse } from '@/lib/api/schemas/reports';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
@@ -78,7 +79,7 @@ export default function TmsReportsPage(): JSX.Element {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/tms/reports/overview');
+        const response = await fetch(API_ROUTES.TMS.REPORTS_OVERVIEW);
         const result = await response.json();
 
         if (!response.ok || !result.success) {
@@ -402,8 +403,16 @@ export default function TmsReportsPage(): JSX.Element {
                               </Avatar>
                             </ListItemAvatar>
                             <ListItemText
-                              primary={item.orgUnitName}
-                              secondary={item.orgUnitCode ? `Mã đơn vị: ${item.orgUnitCode}` : 'Chưa phân bổ'}
+                              secondary={
+                                <React.Fragment>
+                                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                    {item.orgUnitName}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {item.orgUnitCode ? `Mã đơn vị: ${item.orgUnitCode}` : 'Chưa phân bổ'}
+                                  </Typography>
+                                </React.Fragment>
+                              }
                             />
                             <Typography variant="body2" color="text.secondary">
                               {numberFormatter.format(item.programCount)} CTĐT

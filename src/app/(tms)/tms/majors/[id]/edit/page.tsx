@@ -42,6 +42,7 @@ import {
   getMajorStatusColor
 } from '@/constants/majors';
 import { WORKFLOW_STATUS_OPTIONS } from '@/constants/workflow-statuses';
+import { API_ROUTES } from '@/constants/routes';
 
 interface OrgUnit {
   id: number;
@@ -137,7 +138,7 @@ export default function EditMajorPage(): JSX.Element {
         setError(null);
 
         // Fetch major data
-        const majorResponse = await fetch(`/api/tms/majors/${majorId}`);
+        const majorResponse = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(majorId));
         const majorResult = await majorResponse.json();
 
         if (!majorResult.success) {
@@ -176,7 +177,7 @@ export default function EditMajorPage(): JSX.Element {
         });
 
         // Fetch org units
-        const orgResponse = await fetch('/api/tms/majors/org-units');
+        const orgResponse = await fetch(API_ROUTES.TMS.MAJORS_ORG_UNITS);
         const orgResult = await orgResponse.json();
 
         if (orgResult.success) {
@@ -267,7 +268,7 @@ export default function EditMajorPage(): JSX.Element {
       };
 
       // Submit update request
-      const response = await fetch(`/api/tms/majors/${majorId}`, {
+      const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(majorId), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

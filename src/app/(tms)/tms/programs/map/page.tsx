@@ -45,6 +45,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material';
 import { ProgramBlockType, getProgramBlockTypeLabel } from '@/constants/programs';
+import { API_ROUTES } from '@/constants/routes';
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -251,7 +252,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     try {
       // Use templates mode to fetch available block templates
       const paramsBlk = new URLSearchParams({ templates: 'true', limit: '200' });
-      const resBlk = await fetch(`/api/tms/program-blocks?${paramsBlk.toString()}`);
+      const resBlk = await fetch(`${API_ROUTES.TMS.PROGRAM_BLOCK_TEMPLATES}?${paramsBlk.toString()}`);
       const jsonBlk = await resBlk.json();
       if (resBlk.ok && jsonBlk?.success) {
         const itemsBlk = Array.isArray(jsonBlk.data?.items) ? jsonBlk.data.items : Array.isArray(jsonBlk.data) ? jsonBlk.data : [];
@@ -273,7 +274,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
   // Load course prerequisites and initialize constraints
   const loadCoursePrerequisites = useCallback(async (courseId: string) => {
     try {
-      const response = await fetch(`/api/tms/courses/${courseId}`);
+      const response = await fetch(API_ROUTES.TMS.COURSES_BY_ID(courseId));
       const result = await response.json();
       if (response.ok && result?.success && result.data) {
         const course = result.data;
@@ -305,7 +306,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     try {
       const params = new URLSearchParams({ limit: '200' });
       if (programId) params.set('programId', programId);
-      const res = await fetch(`/api/tms/program-groups?${params.toString()}`);
+      const res = await fetch(`${API_ROUTES.TMS.PROGRAM_GROUPS}?${params.toString()}`);
       const json = await res.json();
       if (res.ok && json?.success) {
         const items = Array.isArray(json.data?.items) ? json.data.items : [];
@@ -321,7 +322,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
   const loadExistingCourseIds = useCallback(async (programId: string, updateState = true): Promise<Set<string>> => {
     try {
       const params = new URLSearchParams({ programId, limit: '10000' });
-      const res = await fetch(`/api/tms/program-course-map?${params.toString()}`);
+      const res = await fetch(`${API_ROUTES.TMS.PROGRAM_COURSE_MAP}?${params.toString()}`);
       const json = await res.json();
       if (res.ok && json?.success) {
         const items = Array.isArray(json.data?.items) ? json.data.items : [];
@@ -356,7 +357,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
   const fetchPrograms = useCallback(async () => {
     try {
-      const response = await fetch('/api/tms/programs/list?limit=200');
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAMS_LIST}?limit=200`);
       const result: ProgramListApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -388,7 +389,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
 
     try {
       const params = new URLSearchParams({ programId, limit: '200' });
-      const response = await fetch(`/api/tms/program-blocks?${params.toString()}`);
+      const response = await fetch(`${API_ROUTES.TMS.PROGRAM_BLOCK_TEMPLATES}?${params.toString()}`);
       const result: ProgramBlockListResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -492,7 +493,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
   const fetchCourses = useCallback(async () => {
     try {
       setLoadingCourses(true);
-      const response = await fetch('/api/tms/courses?limit=200&list=true&status=APPROVED,PUBLISHED');
+      const response = await fetch(`${API_ROUTES.TMS.COURSES}?limit=200&list=true&status=PUBLISHED`);
       const result: CourseListApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
@@ -617,7 +618,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
           constraints: courseConstraints[cid] || null,
         })),
       };
-      const response = await fetch('/api/tms/program-course-map/bulk', {
+      const response = await fetch(API_ROUTES.TMS.PROGRAM_COURSE_MAP_BULK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -725,7 +726,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/tms/program-course-map/${mapping.id}`, { method: 'DELETE' });
+      const response = await fetch(API_ROUTES.TMS.PROGRAM_COURSE_MAP_BY_ID(mapping.id), { method: 'DELETE' });
       const result = await response.json();
 
       if (!response.ok || !result.success) {

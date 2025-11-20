@@ -387,7 +387,7 @@ export const PATCH = withIdAndBody(async (id: string, body: unknown, request: Re
   };
 }, CONTEXT_UPDATE);
 
-export const DELETE = withIdParam(async (id: string) => {
+export const DELETE = withIdParam(async (id: string, request?: Request) => {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return createErrorResponse('Unauthorized', 'Authentication required', 401);
@@ -398,9 +398,47 @@ export const DELETE = withIdParam(async (id: string) => {
     throw new Error('Invalid program id');
   }
 
-  await db.program.delete({
-    where: { id: BigInt(programId) },
+  const programBigInt = BigInt(programId);
+
+  const existingProgram = await db.program.findUnique({
+    where: { id: programBigInt },
+    select: { id: true, status: true },
   });
 
-  return { success: true };
+  if (!existingProgram) {
+    throw new Error('Program not found');
+  }
+
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
+
+  await db.$transaction(async (tx) => {
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        program_id: programId,
+        action: existingProgram.status === WorkflowStatus.PUBLISHED ? 'ARCHIVE' : 'DELETE',
+      },
+    });
+
+    if (existingProgram.status === WorkflowStatus.PUBLISHED) {
+      await tx.program.update({
+        where: { id: programBigInt },
+        data: { status: WorkflowStatus.ARCHIVED },
+      });
+    } else {
+      await tx.program.delete({
+        where: { id: programBigInt },
+      });
+    }
+  });
+
+  return { 
+    success: true,
+    message: existingProgram.status === WorkflowStatus.PUBLISHED 
+      ? 'Program đã được chuyển sang trạng thái Lưu trữ' 
+      : 'Program đã được xóa',
+  };
 }, CONTEXT_DELETE);

@@ -34,6 +34,7 @@ import {
   getCohortStatusLabel, 
   getCohortStatusColor 
 } from '@/constants/cohorts';
+import { API_ROUTES } from '@/constants/routes';
 
 interface CohortStats {
   total_cohorts: number;
@@ -68,7 +69,7 @@ export default function CohortStatisticsPage() {
     const fetchStatistics = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/cohorts/statistics');
+        const response = await fetch(API_ROUTES.TMS.COHORTS_STATISTICS);
         
         if (!response.ok) {
           throw new Error('Không thể tải thống kê khóa học');

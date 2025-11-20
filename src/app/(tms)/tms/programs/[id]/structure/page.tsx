@@ -24,6 +24,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { PictureAsPdf, TableChart } from '@mui/icons-material';
+import { API_ROUTES } from '@/constants/routes';
 
 const ProgramStructurePage: React.FC = () => {
   const params = useParams();
@@ -191,7 +192,7 @@ const ProgramStructurePage: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/tms/programs/${programId}`);
+        const response = await fetch(API_ROUTES.TMS.PROGRAMS_BY_ID(programId));
         const result = await response.json();
         
         if (!response.ok) {

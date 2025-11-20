@@ -478,21 +478,46 @@ const deleteCourse = async (id: string, request: Request) => {
     throw new Error('Invalid course ID');
   }
 
-  // Check if course exists
-  const course = await db.course.findUnique({
-    where: { id: BigInt(courseId) }
+  const courseBigInt = BigInt(courseId);
+
+  const existingCourse = await db.course.findUnique({
+    where: { id: courseBigInt },
+    select: { id: true, status: true },
   });
 
-  if (!course) {
+  if (!existingCourse) {
     throw new Error('Course not found');
   }
 
-  // Delete course (cascade will handle related records in course_contents, etc.)
-  await db.course.delete({
-    where: { id: BigInt(courseId) }
+  const requestContext = getRequestContext(request);
+  const actorInfo = await getActorInfo(session.user.id, db);
+
+  await db.$transaction(async (tx) => {
+    await setHistoryContext(tx, {
+      actorId: actorInfo.actorId,
+      actorName: actorInfo.actorName,
+      userAgent: requestContext.userAgent || undefined,
+      metadata: {
+        course_id: courseId,
+        action: existingCourse.status === WorkflowStatus.PUBLISHED ? 'ARCHIVE' : 'DELETE',
+      },
+    });
+
+    if (existingCourse.status === WorkflowStatus.PUBLISHED) {
+      await tx.course.update({
+        where: { id: courseBigInt },
+        data: { status: WorkflowStatus.ARCHIVED },
+      });
+    } else {
+      await tx.course.delete({
+        where: { id: courseBigInt },
+      });
+    }
   });
 
-  return 'Course deleted successfully';
+  return existingCourse.status === WorkflowStatus.PUBLISHED
+    ? 'Course đã được chuyển sang trạng thái Lưu trữ'
+    : 'Course deleted successfully';
 };
 
 // Export handlers with error handling (inline)
