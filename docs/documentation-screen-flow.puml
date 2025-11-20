@@ -1,0 +1,45 @@
+@startuml Documentation_Screen_Flow
+title Screen Flow - Trang Documentation
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Inter
+skinparam Shadowing false
+skinparam ArrowThickness 1
+skinparam activity {
+  Padding 8
+  FontSize 12
+  BackgroundColor #F4F6FB
+  BorderColor #1C3870
+}
+skinparam wrapWidth 220
+skinparam maxMessageSize 170
+
+start
+:User mở /documentation;
+:Render AppBar + Drawer layout;
+:call loadDocuments() → GET /api/documentation;
+if (Success?) then (Có)
+  :Lưu danh sách docs;
+  if (Có dữ liệu && chưa auto-select?) then (Có)
+    :Chọn document đầu tiên;
+  endif
+else (Lỗi)
+  :Hiển thị Alert lỗi;
+  stop
+endif
+
+split
+  :Sidebar (Drawer) liệt kê file\n(icon theo loại, chip type/size);
+split again
+  :Main content hiển thị DocumentViewer;
+end split
+
+if (User chọn file khác?) then (Có)
+  :setSelectedDocument(doc);
+  :Đóng drawer mobile;
+endif
+
+:Nếu documents rỗng → hiển thị trạng thái “Không có tài liệu”;
+:Nếu chưa chọn doc → hiển thị lời nhắc “Chọn tài liệu”;
+stop
+@enduml
+
