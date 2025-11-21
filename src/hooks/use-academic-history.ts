@@ -17,7 +17,7 @@ export interface AcademicHistoryEntry {
   metadata?: any;
   created_at: string;
 }
-
+ 
 export interface AcademicHistoryFilters {
   entity_type?: string;
   entity_id?: string;

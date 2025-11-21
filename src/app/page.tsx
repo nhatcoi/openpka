@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   AccountTree as AccountTreeIcon,
   People as PeopleIcon,
@@ -67,12 +68,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-                style={{ backgroundColor: '#2e4c92' }}
-              >
-                OA
-              </div>
+              <Image
+                src="/logo.png"
+                alt="OpenAcademix Logo"
+                width={40}
+                height={40}
+                className="rounded-lg"
+              />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">OpenAcademix</h1>
                 <p className="text-xs text-gray-500">Hệ thống quản lý đào tạo</p>

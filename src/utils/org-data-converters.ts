@@ -56,26 +56,6 @@ export const convertStatusesToOptions = (statuses: OrgUnitStatus[]): DropdownOpt
 };
 
 /**
- * Get type color from API data
- */
-export const getTypeColorFromApi = (typeCode: string | null, types: OrgUnitType[]): string => {
-  if (!typeCode) return '#666666';
-  
-  const type = types.find(t => t.code === typeCode);
-  return type?.color || '#666666';
-};
-
-/**
- * Get status color from API data
- */
-export const getStatusColorFromApi = (statusCode: string | null, statuses: OrgUnitStatus[]): string => {
-  if (!statusCode) return '#666666';
-  
-  const status = statuses.find(s => s.code === statusCode);
-  return status?.color || '#666666';
-};
-
-/**
  * Get type name from API data
  */
 export const getTypeNameFromApi = (typeCode: string | null, types: OrgUnitType[]): string => {
@@ -95,12 +75,3 @@ export const getStatusNameFromApi = (statusCode: string | null, statuses: OrgUni
   return status?.name || statusCode;
 };
 
-/**
- * Check if status is deletable based on API data
- */
-export const isStatusDeletableFromApi = (statusCode: string | null, statuses: OrgUnitStatus[]): boolean => {
-  if (!statusCode) return false;
-  
-  const status = statuses.find(s => s.code === statusCode);
-  return status ? ['DRAFT', 'REJECTED', 'INACTIVE'].includes(status.code) : false;
-};

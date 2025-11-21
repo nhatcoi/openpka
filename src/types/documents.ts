@@ -79,23 +79,4 @@ export const ENTITY_TYPES = {
   OTHER: 'other'
 } as const;
 
-// MIME types mapping
-export const MIME_TYPES = {
-  PDF: 'application/pdf',
-  DOC: 'application/msword',
-  DOCX: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  XLS: 'application/vnd.ms-excel',
-  XLSX: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  PPT: 'application/vnd.ms-powerpoint',
-  PPTX: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-  JPEG: 'image/jpeg',
-  JPG: 'image/jpeg',
-  PNG: 'image/png',
-  GIF: 'image/gif',
-  MP4: 'video/mp4',
-  MP3: 'audio/mpeg',
-  ZIP: 'application/zip',
-  RAR: 'application/x-rar-compressed'
-} as const;
-
 // Utility functions - moved to cloudinary-client.ts for better separation

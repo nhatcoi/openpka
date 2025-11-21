@@ -67,20 +67,6 @@ export async function setHistoryContext(
 }
 
 /**
- * Clear history context (set to empty) within a transaction
- */
-export async function clearHistoryContext(tx: any): Promise<void> {
-  try {
-    await tx.$executeRawUnsafe(`SELECT set_config('app.actor_id', '', false)`);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.actor_name', '', false)`);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.user_agent', '', false)`);
-    await tx.$executeRawUnsafe(`SELECT set_config('app.metadata', '', false)`);
-  } catch (error) {
-    console.warn('Failed to clear history context:', error);
-  }
-}
-
-/**
  * Helper to extract request context from Next.js Request object
  */
 export function getRequestContext(request?: Request): {

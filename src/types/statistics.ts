@@ -85,16 +85,6 @@ export interface StatisticsFilters {
   status?: string;
 }
 
-export interface ChartData {
-  labels: string[];
-  datasets: {
-    label: string;
-    data: number[];
-    backgroundColor?: string[];
-    borderColor?: string[];
-  }[];
-}
-
 export interface StatisticsResponse<T> {
   data: T[];
   metadata: {
