@@ -27,6 +27,8 @@ import {
   Code as CodeIcon,
   Close as CloseIcon,
   Download as DownloadIcon,
+  ChevronRight as ChevronRightIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import DocumentViewer from '@/components/documentation/DocumentViewer';
@@ -41,7 +43,7 @@ const DRAWER_WIDTH = 320;
 export default function DocumentationPage() {
   const theme = useTheme();
   const [sections, setSections] = useState<DocumentationSection[]>([]);
-  const [documents, setDocuments] = useState<DocumentationFile[]>([]);
+  const [rootDocuments, setRootDocuments] = useState<DocumentationFile[]>([]);
   const [rootReadme, setRootReadme] = useState<DocumentationFile | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentationFile | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
@@ -68,11 +70,14 @@ export default function DocumentationPage() {
         throw new Error(errorData.error || 'Không thể tải danh sách tài liệu');
       }
       const data = await response.json();
+      // Sections are already sorted by API according to SECTION_DISPLAY_NAMES order
       setSections(data.sections || []);
       const files = (data.files || []).filter(
         (file: DocumentationFile) => !file.name.toLowerCase().includes('readme')
+      ).sort((a: DocumentationFile, b: DocumentationFile) => 
+        (a.displayName || a.name).localeCompare(b.displayName || b.name)
       );
-      setDocuments(files);
+      setRootDocuments(files);
       setRootReadme(data.rootReadme || null);
       
       // Auto-select root README on first load if no document selected
@@ -95,8 +100,14 @@ export default function DocumentationPage() {
   const handleSectionSelect = (section: DocumentationSection) => {
     setSelectedSection(section.name);
     setSelectedDocument(null);
-    setDocuments(section.files.filter((file) => !file.name.toLowerCase().includes('readme')));
     setMobileOpen(false);
+    // Auto-expand section when selected
+    setExpandedSections((prev) => {
+      if (!prev.has(section.name)) {
+        return new Set([...prev, section.name]);
+      }
+      return prev;
+    });
   };
 
   const handleSectionToggle = (sectionName: string) => {
@@ -117,10 +128,8 @@ export default function DocumentationPage() {
     setSelectedSection(null);
     if (rootReadme) {
       setSelectedDocument(rootReadme);
-      setDocuments([]);
     } else {
       setSelectedDocument(null);
-      loadDocuments();
     }
     setMobileOpen(false);
   };
@@ -176,13 +185,31 @@ export default function DocumentationPage() {
             <ListItem disablePadding>
               <ListItemButton
                 selected={selectedSection === section.name}
-                onClick={() => {
-                  handleSectionSelect(section);
-                  handleSectionToggle(section.name);
-                }}
+                onClick={() => handleSectionSelect(section)}
                 sx={{ pl: 2 }}
               >
                 <ListItemText primary={section.displayName} />
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSectionToggle(section.name);
+                  }}
+                  sx={{ 
+                    ml: 'auto',
+                    color: 'rgba(0, 0, 0, 0.54)',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      color: 'rgba(0, 0, 0, 0.87)',
+                    },
+                  }}
+                >
+                  {expandedSections.has(section.name) ? (
+                    <ExpandMoreIcon />
+                  ) : (
+                    <ChevronRightIcon />
+                  )}
+                </IconButton>
               </ListItemButton>
             </ListItem>
             <Collapse in={expandedSections.has(section.name)} timeout="auto" unmountOnExit>
@@ -209,10 +236,9 @@ export default function DocumentationPage() {
             </Collapse>
           </React.Fragment>
         ))}
-        {!selectedSection && documents.length > 0 && (
+        {rootDocuments.length > 0 && (
           <>
-            <Divider sx={{ my: 1 }} />
-        {documents.map((doc) => (
+        {rootDocuments.map((doc) => (
           <ListItem key={doc.name} disablePadding>
             <ListItemButton
                   selected={selectedDocument?.path === doc.path}
@@ -333,9 +359,12 @@ export default function DocumentationPage() {
             <Typography variant="body1" color="text.secondary" paragraph>
               Chọn một tài liệu từ sidebar để xem nội dung.
             </Typography>
-            {documents.length > 0 && (
+            {sections.find((s) => s.name === selectedSection)?.files && 
+             sections.find((s) => s.name === selectedSection)!.files.filter((file) => !file.name.toLowerCase().includes('readme')).length > 0 && (
               <List>
-                {documents.map((doc) => (
+                {sections.find((s) => s.name === selectedSection)!.files
+                  .filter((file) => !file.name.toLowerCase().includes('readme'))
+                  .map((doc: DocumentationFile) => (
                   <ListItem key={doc.name}>
                     <ListItemButton onClick={() => handleDocumentSelect(doc)}>
                       <ListItemIcon>{getDocumentIcon(doc.type)}</ListItemIcon>
@@ -346,7 +375,7 @@ export default function DocumentationPage() {
               </List>
             )}
           </Paper>
-        ) : documents.length === 0 && sections.length === 0 ? (
+        ) : rootDocuments.length === 0 && sections.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <DocumentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>

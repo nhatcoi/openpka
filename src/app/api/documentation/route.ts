@@ -175,6 +175,9 @@ export async function GET(request: Request) {
       sectionsMap.get(sectionName)!.push(doc);
     }
 
+    // Define order based on SECTION_DISPLAY_NAMES
+    const sectionOrder = Object.keys(SECTION_DISPLAY_NAMES);
+    
     const sections: DocumentationSection[] = Array.from(sectionsMap.entries())
       .filter(([name]) => name !== 'root')
       .map(([name, files]) => ({
@@ -183,7 +186,25 @@ export async function GET(request: Request) {
         path: `/documentation/${name}`,
         files: files.sort((a, b) => a.name.localeCompare(b.name)),
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => {
+        const indexA = sectionOrder.indexOf(a.name);
+        const indexB = sectionOrder.indexOf(b.name);
+        
+        // If both are in the order list, sort by their position
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+        // If only A is in the list, A comes first
+        if (indexA !== -1) {
+          return -1;
+        }
+        // If only B is in the list, B comes first
+        if (indexB !== -1) {
+          return 1;
+        }
+        // If neither is in the list, sort alphabetically
+        return a.name.localeCompare(b.name);
+      });
     
     const rootFiles = (sectionsMap.get('root') || []).filter(
       (file) => file.name.toLowerCase() !== 'readme.md'
