@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: openpka_app
+    container_name: openacademix_app
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://postgres:nhatdev@103.252.136.113:5434/training_system
@@ -14,24 +14,24 @@ services:
 # services:
 #   # db:
 #   #   image: postgres:15-alpine
-#   #   container_name: openpka_db
+#   #   container_name: openacademix_db
 #   #   environment:
-#   #     POSTGRES_USER: openpka
-#   #     POSTGRES_PASSWORD: openpka
-#   #     POSTGRES_DB: openpka
+#   #     POSTGRES_USER: openacademix
+#   #     POSTGRES_PASSWORD: openacademix
+#   #     POSTGRES_DB: openacademix
 #   #   volumes:
 #   #     - pg_data:/var/lib/postgresql/data
 #   #   ports:
 #   #     - "5432:5432"
 #   #   healthcheck:
-#   #     test: ["CMD-SHELL", "pg_isready -U openpka"]
+#   #     test: ["CMD-SHELL", "pg_isready -U openacademix"]
 #   #     interval: 5s
 #   #     timeout: 3s
 #   #     retries: 10
 
 #   app:
 #     build: .
-#     container_name: openpka_app
+#     container_name: openacademix_app
 #     depends_on:
 #       db:
 #         condition: service_healthy

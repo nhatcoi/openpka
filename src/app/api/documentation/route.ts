@@ -1,54 +1,72 @@
 import { NextResponse } from 'next/server';
 import { readdir, stat } from 'fs/promises';
-import { join } from 'path';
+import { join, relative } from 'path';
 
 export interface DocumentationFile {
   name: string;
   displayName: string;
   path: string;
+  section?: string;
   type: 'markdown' | 'pdf' | 'other';
   size: number;
   lastModified: Date;
 }
 
-// Mapping tên file với tên hiển thị (có thể mở rộng sau)
-const DISPLAY_NAME_MAP: Record<string, string> = {
-  'CAIDAT.md': 'Tài liệu hướng dẫn cài đặt',
-  'N01_G02_TLCaidat.md': 'Tài liệu hướng dẫn cài đặt',
+export interface DocumentationSection {
+  name: string;
+  displayName: string;
+  path: string;
+  files: DocumentationFile[];
+}
 
+const DISPLAY_NAME_MAP: Record<string, string> = {
+  'installation.md': 'Cài đặt hệ thống',
+  'task-assignment.md': 'Phân công công việc',
+  'finalSRS.pdf': 'Tài liệu yêu cầu phần mềm (SRS)',
+  'overview.md': 'Tổng quan kiến trúc',
+  'terminology.md': 'Thuật ngữ & Ký hiệu chính',
+  'syllabus-api-spec.md': 'Syllabus API Specification',
+  'syllabus-business-rules.md': 'Quy tắc nghiệp vụ Syllabus',
+  'syllabus-use-cases.md': 'Use Cases Syllabus',
+  'syllabus-detailed-spec.md': 'Syllabus Detailed Spec',
 };
 
-// Hàm format tên file thành tên hiển thị đẹp
+const SECTION_DISPLAY_NAMES: Record<string, string> = {
+  'getting-started': 'Getting Started',
+  'architecture': 'Architecture',
+  'api': 'API',
+  'modules': 'Modules',
+  'use-cases': 'Use Cases',
+  'business-rules': 'Business Rules',
+  'database': 'Database',
+  'devops': 'DevOps',
+  'ui-ux': 'UI/UX',
+};
+
 function formatDisplayName(fileName: string): string {
-  // Kiểm tra mapping trước
   if (DISPLAY_NAME_MAP[fileName]) {
     return DISPLAY_NAME_MAP[fileName];
   }
 
-  // Bỏ extension
   let displayName = fileName;
   const lastDotIndex = displayName.lastIndexOf('.');
   if (lastDotIndex > 0) {
     displayName = displayName.substring(0, lastDotIndex);
   }
 
-  // Thay thế các ký tự đặc biệt
   displayName = displayName
-    .replace(/[_\-]/g, ' ') // Thay underscore và dash bằng space
-    .replace(/([A-Z])/g, ' $1') // Thêm space trước chữ hoa
+    .replace(/[_\-]/g, ' ')
+    .replace(/([A-Z])/g, ' $1')
     .trim()
-    .replace(/\s+/g, ' '); // Chuẩn hóa khoảng trắng
+    .replace(/\s+/g, ' ');
 
-  // Title case
   displayName = displayName
     .split(' ')
     .map((word) => {
       if (word.length === 0) return word;
-      // Giữ nguyên các từ viết tắt (toàn chữ hoa)
       if (word === word.toUpperCase() && word.length <= 5) {
         return word;
       }
-      // Title case cho từ thường
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
     })
     .join(' ');
@@ -56,69 +74,134 @@ function formatDisplayName(fileName: string): string {
   return displayName || fileName;
 }
 
-export async function GET() {
-  try {
-    const docsDir = join(process.cwd(), 'public', 'documentation');
-    
-    // Kiểm tra thư mục có tồn tại không
-    try {
-      await stat(docsDir);
-    } catch {
-      // Thư mục không tồn tại, trả về mảng rỗng
-      return NextResponse.json([]);
-    }
-    
-    // Đọc danh sách files trong thư mục documentation
-    const files = await readdir(docsDir, { withFileTypes: true });
-    
+async function scanDirectory(
+  dirPath: string,
+  baseDir: string,
+  section?: string,
+  includeRootReadme: boolean = false
+): Promise<DocumentationFile[]> {
     const documents: DocumentationFile[] = [];
+  const entries = await readdir(dirPath, { withFileTypes: true });
     
-    for (const file of files) {
-      // Bỏ qua hidden files và README
-      if (file.name.startsWith('.') || file.name.toLowerCase() === 'readme.md') {
+  for (const entry of entries) {
+    const isRootReadme = entry.name.toLowerCase() === 'readme.md' && !section && dirPath === baseDir;
+    if (entry.name.startsWith('.') || (entry.name.toLowerCase() === 'readme.md' && !includeRootReadme && !isRootReadme)) {
         continue;
       }
       
-      if (file.isFile()) {
-        try {
-          const filePath = join(docsDir, file.name);
-          const fileStat = await stat(filePath);
-          
-          // Xác định loại file
+    const fullPath = join(dirPath, entry.name);
+    const relativePath = relative(baseDir, fullPath);
+
+    if (entry.isDirectory()) {
+      const subSection = entry.name;
+      const subDocs = await scanDirectory(fullPath, baseDir, subSection, false);
+      documents.push(...subDocs);
+    } else if (entry.isFile()) {
+      try {
+        const fileStat = await stat(fullPath);
           let type: 'markdown' | 'pdf' | 'other' = 'other';
-          const lowerName = file.name.toLowerCase();
+        const lowerName = entry.name.toLowerCase();
+
           if (lowerName.endsWith('.md') || lowerName.endsWith('.markdown')) {
             type = 'markdown';
           } else if (lowerName.endsWith('.pdf')) {
             type = 'pdf';
           }
           
-          // Chỉ thêm markdown và PDF files
           if (type !== 'other') {
+          const sectionName = section || 'root';
             documents.push({
-              name: file.name,
-              displayName: formatDisplayName(file.name),
-              path: `/documentation/${file.name}`,
+            name: entry.name,
+            displayName: formatDisplayName(entry.name),
+            path: `/documentation/${relativePath.replace(/\\/g, '/')}`,
+            section: sectionName === 'root' ? undefined : sectionName,
               type,
               size: fileStat.size,
               lastModified: fileStat.mtime,
             });
           }
         } catch (err) {
-          // Bỏ qua file nếu không đọc được
-          console.warn(`Failed to read file ${file.name}:`, err);
-        }
+        // Silently skip files that can't be read
+      }
+    }
+  }
+
+  return documents;
+}
+
+export async function GET(request: Request) {
+  try {
+    const docsDir = join(process.cwd(), 'public', 'documentation');
+    const { searchParams } = new URL(request.url);
+    const section = searchParams.get('section');
+
+    try {
+      await stat(docsDir);
+    } catch {
+      return NextResponse.json({ sections: [], files: [] });
+    }
+
+    const allDocuments = await scanDirectory(docsDir, docsDir, undefined, true);
+    const filteredDocuments = section
+      ? allDocuments.filter((doc) => doc.section === section)
+      : allDocuments;
+    
+    // Get root README.md
+    let rootReadme: DocumentationFile | null = null;
+    if (!section) {
+      try {
+        const readmePath = join(docsDir, 'README.md');
+        const readmeStat = await stat(readmePath);
+        rootReadme = {
+          name: 'README.md',
+          displayName: 'Tổng quan',
+          path: '/documentation/README.md',
+          section: undefined,
+          type: 'markdown',
+          size: readmeStat.size,
+          lastModified: readmeStat.mtime,
+        };
+      } catch {
+        // README.md doesn't exist, ignore
       }
     }
     
-    // Sắp xếp theo tên
-    documents.sort((a, b) => a.name.localeCompare(b.name));
+    const sectionsMap = new Map<string, DocumentationFile[]>();
+    for (const doc of allDocuments) {
+      const sectionName = doc.section || 'root';
+      if (!sectionsMap.has(sectionName)) {
+        sectionsMap.set(sectionName, []);
+      }
+      sectionsMap.get(sectionName)!.push(doc);
+    }
+
+    const sections: DocumentationSection[] = Array.from(sectionsMap.entries())
+      .filter(([name]) => name !== 'root')
+      .map(([name, files]) => ({
+        name,
+        displayName: SECTION_DISPLAY_NAMES[name] || formatDisplayName(name),
+        path: `/documentation/${name}`,
+        files: files.sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
     
-    return NextResponse.json(documents);
+    const rootFiles = (sectionsMap.get('root') || []).filter(
+      (file) => file.name.toLowerCase() !== 'readme.md'
+    );
+
+    return NextResponse.json({
+      sections,
+      files: section
+        ? filteredDocuments.sort((a, b) => a.name.localeCompare(b.name))
+        : rootFiles.sort((a, b) => a.name.localeCompare(b.name)),
+      rootReadme: rootReadme,
+    });
   } catch (error) {
-    console.error('Error reading documentation directory:', error);
     return NextResponse.json(
-      { error: 'Failed to read documentation files', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Failed to read documentation files',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

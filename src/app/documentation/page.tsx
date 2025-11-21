@@ -16,13 +16,8 @@ import {
   AppBar,
   Toolbar,
   Divider,
-  Chip,
   CircularProgress,
   Alert,
-  Grid,
-  Card,
-  CardContent,
-  Stack,
   Tooltip,
 } from '@mui/material';
 import {
@@ -35,44 +30,57 @@ import {
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import DocumentViewer from '@/components/documentation/DocumentViewer';
-import { DocumentationFile } from '@/app/api/documentation/route';
+import {
+  DocumentationFile,
+  DocumentationSection,
+} from '@/app/api/documentation/route';
+import Collapse from '@mui/material/Collapse';
 
-const DRAWER_WIDTH = 300;
+const DRAWER_WIDTH = 320;
 
 export default function DocumentationPage() {
   const theme = useTheme();
+  const [sections, setSections] = useState<DocumentationSection[]>([]);
   const [documents, setDocuments] = useState<DocumentationFile[]>([]);
+  const [rootReadme, setRootReadme] = useState<DocumentationFile | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<DocumentationFile | null>(null);
+  const [selectedSection, setSelectedSection] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [hasAutoSelected, setHasAutoSelected] = useState(false);
 
   useEffect(() => {
     loadDocuments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (section?: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/documentation');
+      const url = section
+        ? `/api/documentation?section=${encodeURIComponent(section)}`
+        : '/api/documentation';
+      const response = await fetch(url);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Không thể tải danh sách tài liệu');
       }
       const data = await response.json();
-      setDocuments(data);
+      setSections(data.sections || []);
+      const files = (data.files || []).filter(
+        (file: DocumentationFile) => !file.name.toLowerCase().includes('readme')
+      );
+      setDocuments(files);
+      setRootReadme(data.rootReadme || null);
       
-      // Tự động chọn document đầu tiên nếu có và chưa chọn
-      if (data.length > 0 && !hasAutoSelected) {
-        setSelectedDocument(data[0]);
-        setHasAutoSelected(true);
+      // Auto-select root README on first load if no document selected
+      if (!section && data.rootReadme && !selectedDocument && !selectedSection) {
+        setSelectedDocument(data.rootReadme);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
-      console.error('Error loading documents:', err);
     } finally {
       setLoading(false);
     }
@@ -80,11 +88,41 @@ export default function DocumentationPage() {
 
   const handleDocumentSelect = (document: DocumentationFile) => {
     setSelectedDocument(document);
+    setSelectedSection(null);
     setMobileOpen(false);
+  };
+
+  const handleSectionSelect = (section: DocumentationSection) => {
+    setSelectedSection(section.name);
+    setSelectedDocument(null);
+    setDocuments(section.files.filter((file) => !file.name.toLowerCase().includes('readme')));
+    setMobileOpen(false);
+  };
+
+  const handleSectionToggle = (sectionName: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(sectionName)) {
+      newExpanded.delete(sectionName);
+    } else {
+      newExpanded.add(sectionName);
+    }
+    setExpandedSections(newExpanded);
   };
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleRootClick = () => {
+    setSelectedSection(null);
+    if (rootReadme) {
+      setSelectedDocument(rootReadme);
+      setDocuments([]);
+    } else {
+      setSelectedDocument(null);
+      loadDocuments();
+    }
+    setMobileOpen(false);
   };
 
   const getDocumentIcon = (type: string) => {
@@ -98,24 +136,7 @@ export default function DocumentationPage() {
     }
   };
 
-  const getDocumentColor = (type: string) => {
-    switch (type) {
-      case 'pdf':
-        return 'error';
-      case 'markdown':
-        return 'primary';
-      default:
-        return 'default';
-    }
-  };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-  };
 
   const drawer = (
     <Box>
@@ -139,10 +160,62 @@ export default function DocumentationPage() {
       </Toolbar>
       <Divider />
       <List>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={!selectedSection && !selectedDocument}
+            onClick={handleRootClick}
+          >
+            <ListItemIcon>
+              <DocumentIcon />
+            </ListItemIcon>
+            <ListItemText primary="Tổng quan" />
+          </ListItemButton>
+        </ListItem>
+        {sections.map((section) => (
+          <React.Fragment key={section.name}>
+            <ListItem disablePadding>
+              <ListItemButton
+                selected={selectedSection === section.name}
+                onClick={() => {
+                  handleSectionSelect(section);
+                  handleSectionToggle(section.name);
+                }}
+                sx={{ pl: 2 }}
+              >
+                <ListItemText primary={section.displayName} />
+              </ListItemButton>
+            </ListItem>
+            <Collapse in={expandedSections.has(section.name)} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {section.files.map((doc) => (
+                  <ListItem key={doc.name} disablePadding>
+                    <ListItemButton
+                      selected={selectedDocument?.path === doc.path}
+                      onClick={() => handleDocumentSelect(doc)}
+                      sx={{ pl: 6 }}
+                    >
+                      <ListItemIcon>{getDocumentIcon(doc.type)}</ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Tooltip title={doc.name} arrow>
+                            <span>{doc.displayName || doc.name}</span>
+                          </Tooltip>
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            </Collapse>
+          </React.Fragment>
+        ))}
+        {!selectedSection && documents.length > 0 && (
+          <>
+            <Divider sx={{ my: 1 }} />
         {documents.map((doc) => (
           <ListItem key={doc.name} disablePadding>
             <ListItemButton
-              selected={selectedDocument?.name === doc.name}
+                  selected={selectedDocument?.path === doc.path}
               onClick={() => handleDocumentSelect(doc)}
             >
               <ListItemIcon>{getDocumentIcon(doc.type)}</ListItemIcon>
@@ -152,26 +225,12 @@ export default function DocumentationPage() {
                     <span>{doc.displayName || doc.name}</span>
                   </Tooltip>
                 }
-                secondary={
-                  <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                    <Chip
-                      label={doc.type.toUpperCase()}
-                      size="small"
-                      color={getDocumentColor(doc.type) as any}
-                      variant="outlined"
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      {formatFileSize(doc.size)}
-                    </Typography>
-                  </Stack>
-                }
-                secondaryTypographyProps={{
-                  component: 'div',
-                }}
               />
             </ListItemButton>
           </ListItem>
         ))}
+          </>
+        )}
       </List>
     </Box>
   );
@@ -264,7 +323,30 @@ export default function DocumentationPage() {
           mt: '64px',
         }}
       >
-        {documents.length === 0 ? (
+        {selectedDocument ? (
+          <DocumentViewer document={selectedDocument} />
+        ) : selectedSection ? (
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h4" gutterBottom>
+              {sections.find((s) => s.name === selectedSection)?.displayName || selectedSection}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Chọn một tài liệu từ sidebar để xem nội dung.
+            </Typography>
+            {documents.length > 0 && (
+              <List>
+                {documents.map((doc) => (
+                  <ListItem key={doc.name}>
+                    <ListItemButton onClick={() => handleDocumentSelect(doc)}>
+                      <ListItemIcon>{getDocumentIcon(doc.type)}</ListItemIcon>
+                      <ListItemText primary={doc.displayName} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Paper>
+        ) : documents.length === 0 && sections.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <DocumentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -274,13 +356,13 @@ export default function DocumentationPage() {
               Vui lòng thêm tài liệu vào thư mục <code>public/documentation</code>
             </Typography>
           </Paper>
-        ) : selectedDocument ? (
-          <DocumentViewer document={selectedDocument} />
         ) : (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <DocumentIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
-              Chọn một tài liệu để xem
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h4" gutterBottom>
+              Tài liệu hệ thống
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
+              Chọn một section hoặc tài liệu từ sidebar để bắt đầu.
             </Typography>
           </Paper>
         )}

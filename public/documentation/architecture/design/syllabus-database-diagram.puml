@@ -1,0 +1,140 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam linetype ortho
+
+title Database Schema - Đề cương Chi tiết Học phần
+
+package "academic" {
+  entity "Course" as Course {
+    * id : BigInt <<PK>>
+    --
+    * code : String
+    * name_vi : String
+    name_en : String
+    * credits : Decimal
+    * org_unit_id : BigInt <<FK>>
+    * type : String
+    description : String
+    status : String
+    theory_credit : Decimal
+    practical_credit : Decimal
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "CourseVersion" as CourseVersion {
+    * id : BigInt <<PK>>
+    --
+    * course_id : BigInt <<FK>>
+    * version : String
+    status : String
+    effective_from : Date
+    effective_to : Date
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "CourseSyllabus" as CourseSyllabus {
+    * id : BigInt <<PK>>
+    --
+    course_version_id : BigInt <<FK>>
+    --
+    * total_weeks : Int
+    total_hours : Decimal
+    has_exam_week : Boolean
+    exam_week_number : Int
+    --
+    * syllabus_data : JsonB
+    --
+    template_used : String
+    is_auto_generated : Boolean
+    generation_metadata : JsonB
+    --
+    created_by : BigInt <<FK>>
+    updated_by : BigInt <<FK>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "SyllabusTemplate" as SyllabusTemplate {
+    * id : BigInt <<PK>>
+    --
+    * name : String
+    description : String
+    course_type : String
+    keywords : String[]
+    * template_data : JsonB
+    is_active : Boolean
+    usage_count : Int
+    created_by : BigInt <<FK>>
+    created_at : DateTime
+    updated_at : DateTime
+  }
+
+  entity "SyllabusAttachment" as SyllabusAttachment {
+    * id : BigInt <<PK>>
+    --
+    * course_syllabus_id : BigInt <<FK>>
+    week_number : Int
+    * file_name : String
+    * file_type : String
+    file_size : BigInt
+    * file_path : String
+    file_url : String
+    uploaded_by : BigInt <<FK>>
+    uploaded_at : DateTime
+  }
+
+  entity "CourseContent" as CourseContent {
+    * id : BigInt <<PK>>
+    --
+    * course_id : BigInt <<FK>>
+    prerequisites : String
+    learning_objectives : Json
+    assessment_methods : Json
+    passing_grade : Decimal
+    created_at : DateTime
+    updated_at : DateTime
+  }
+}
+
+Course ||--o{ CourseVersion : "has versions"
+CourseVersion ||--o| CourseSyllabus : "has syllabus"
+CourseSyllabus ||--o{ SyllabusAttachment : "has attachments"
+Course ||--o| CourseContent : "has content"
+SyllabusTemplate ..> CourseSyllabus : "used to generate"
+
+note right of CourseSyllabus
+  **syllabus_data JSONB Structure:**
+  {
+    "version": "1.0",
+    "weeks": [
+      {
+        "week_number": 1,
+        "topic": "...",
+        "objectives": "...",
+        "teaching_methods": "...",
+        "materials": "...",
+        "assignments": "...",
+        "duration_hours": 3,
+        "is_exam_week": false,
+        "attachments": [...]
+      }
+    ],
+    "metadata": {...}
+  }
+end note
+
+note right of SyllabusTemplate
+  **template_data JSONB Structure:**
+  {
+    "course_type": "programming",
+    "keywords": ["lập trình", "programming"],
+    "default_weeks": 12,
+    "week_templates": [...]
+  }
+end note
+
+@enduml
+

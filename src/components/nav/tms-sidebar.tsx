@@ -121,7 +121,7 @@ const menuItems: MenuItem[] = [
             },
             {
                 key: 'courses-syllabus',
-                label: 'Xây dựng giáo trình',
+                label: 'Xây dựng đề cương chi tiết',
                 icon: <BookOnlineIcon />,
                 href: '/tms/courses/build-syllabus',
                 permission: 'tms.course.update',

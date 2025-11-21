@@ -1,0 +1,37 @@
+@startuml
+title Sơ đồ tuần tự – Cập nhật đơn giá học phí (Finance)
+
+actor "Chuyên viên tài chính" as FinanceUser
+participant "Next.js UI\n(/finance)" as FinanceUI
+participant "API Route\nPOST /api/finance/tuition-rates" as FinanceAPI
+participant "TuitionService" as TuitionService
+participant "ConflictPolicy" as ConflictPolicy
+database "PostgreSQL\n(Prisma)" as FinanceDB
+
+FinanceUser -> FinanceUI: Chọn CTĐT + năm học\nNhập đơn giá tín chỉ
+FinanceUI -> FinanceUI: Validate phía client\n(không âm, định dạng số)
+FinanceUI -> FinanceAPI: POST TuitionRateRequest\n(force = false)
+FinanceAPI -> TuitionService: handleTuitionRate(request)
+TuitionService -> FinanceDB: SELECT tuition_rates\nWHERE curriculum_id = ? AND academic_year = ?
+FinanceDB --> TuitionService: Trả về bản ghi (nếu có)
+TuitionService -> ConflictPolicy: checkConflict(existing, request)
+ConflictPolicy --> TuitionService: CONFLICT (409) nếu đã tồn tại
+TuitionService --> FinanceAPI: HTTP 409 + requireForce=true
+FinanceAPI --> FinanceUI: Hiển thị modal xác nhận ghi đè
+FinanceUser -> FinanceUI: Chọn "Ghi đè"\n(force = true)
+FinanceUI -> FinanceAPI: POST TuitionRateRequest\n(force = true)
+FinanceAPI -> TuitionService: handleTuitionRate(request, force)
+TuitionService -> FinanceDB: UPSERT tuition_rates\n(INSERT hoặc UPDATE)\nTrong transaction
+TuitionService -> FinanceDB: INSERT vào tuition_rate_history
+FinanceDB --> TuitionService: ACK
+TuitionService --> FinanceAPI: 200 OK + dữ liệu hiện hành
+FinanceAPI --> FinanceUI: Refresh bảng đơn giá + lịch sử 5 năm
+FinanceUI --> FinanceUser: Hiển thị thông báo thành công
+
+== Ngoại lệ ==
+FinanceDB --> TuitionService: Lỗi kết nối
+TuitionService --> FinanceAPI: 503 Service Unavailable
+FinanceAPI --> FinanceUI: Banner cảnh báo\n"Không thể cập nhật, thử lại sau"
+
+@enduml
+

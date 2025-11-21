@@ -1,0 +1,77 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+
+title Activity Diagram - Quy trình Gợi ý Đề cương Tự động
+
+start
+
+:Giảng viên mở học phần;
+:Chọn "Gợi ý đề cương";
+
+if (Đã có thông tin cơ bản?) then (Có)
+  :Hiển thị dialog gợi ý;
+  :Hiển thị thông tin học phần;
+else (Chưa)
+  :Hiển thị cảnh báo;
+  :Yêu cầu điền thông tin cơ bản;
+  stop
+endif
+
+:Giảng viên chọn số tuần học;
+:Giảng viên nhấn "Tạo đề cương gợi ý";
+
+:Phân tích thông tin học phần;
+note right
+  - Tên môn học (tiếng Việt, tiếng Anh)
+  - Số tín chỉ
+  - Loại môn học
+  - Mục tiêu học tập
+  - Mô tả môn học
+end note
+
+:Phân loại môn học dựa trên từ khóa;
+
+if (Tìm thấy template phù hợp?) then (Có)
+  :Sử dụng template;
+else (Không)
+  :Sử dụng template chung;
+endif
+
+:Tính số tuần dựa trên số tín chỉ;
+:Phân bổ mục tiêu học tập theo tuần;
+:Tạo danh sách chủ đề;
+:Tạo mục tiêu cho từng tuần;
+:Tạo tài liệu và bài tập gợi ý;
+
+:Hiển thị đề cương gợi ý;
+
+:Giảng viên xem xét;
+
+if (Có chỉnh sửa?) then (Có)
+  :Giảng viên chỉnh sửa;
+  :Cập nhật đề cương;
+endif
+
+:Giảng viên chọn cách áp dụng;
+
+if (Áp dụng thế nào?) then (Thêm mới)
+  :Thêm vào đề cương hiện có;
+elseif (Bổ sung) then
+  :Bổ sung vào đề cương hiện có;
+elseif (Thay thế) then
+  if (Xác nhận thay thế?) then (Có)
+    :Thay thế toàn bộ;
+  else (Không)
+    :Hủy;
+    stop
+  endif
+endif
+
+:Lưu đề cương;
+:Hiển thị thông báo thành công;
+
+stop
+
+@enduml
+

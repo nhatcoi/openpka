@@ -1,0 +1,49 @@
+@startuml Main_Screen_Flow
+title Trang chính (/)
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Inter
+skinparam Shadowing false
+skinparam ArrowThickness 1
+skinparam activity {
+  Padding 8
+  FontSize 12
+  BackgroundColor #F5F8FF
+  BorderColor #1E3A8A
+}
+skinparam wrapWidth 220
+skinparam maxMessageSize 170
+
+start
+:Người dùng truy cập trang chủ '/';
+:Render header (logo, mô tả);
+
+if (Đã đăng nhập?) then (Có)
+  :Hiển thị nút Dashboard → /hr/dashboard;
+else (Không)
+  :Hiển thị nút Đăng nhập → /auth/signin;
+endif
+
+:Render hero (banner);
+:Hiển thị "Các module chính";
+
+split
+  group Hàng 1
+    :Card cơ cấu tổ chức → /org/tree;
+    :Card nhân sự → /hr/employees;
+  end group
+split again
+  group Hàng 2
+    :Card đào tạo → /tms;
+    :Card tài chính → /finance;
+  end group
+end split
+
+group Hàng 3
+  :Card tài liệu → /documentation;
+end group
+
+:Card hover: nâng, đổi màu icon; click → router.push(path);
+:Render footer (OpenAcademix + liên hệ);
+stop
+@enduml
+

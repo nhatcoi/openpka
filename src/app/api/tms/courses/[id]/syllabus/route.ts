@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { withErrorHandling, withIdAndBody, createSuccessResponse, createErrorResponse } from '@/lib/api/api-handler';
 import { requirePermission } from '@/lib/auth/api-permissions';
+import { toBigIntUserId, serializeSyllabus, validateCourseId } from './utils';
 
 // GET /api/tms/courses/[id]/syllabus
 export const GET = withErrorHandling(
@@ -15,44 +16,216 @@ export const GET = withErrorHandling(
 
     requirePermission(session, 'tms.course.view');
 
-    const courseId = parseInt(params.id);
-    if (isNaN(courseId)) {
-      throw new Error('Invalid course ID');
-    }
+    const courseId = validateCourseId(params.id);
 
     const { searchParams } = new URL(request.url);
     const versionId = searchParams.get('version_id');
+    const versionNo = searchParams.get('version_no');
+    const isCurrent = searchParams.get('is_current') === 'true';
 
-    const course = await db.course.findUnique({
-      where: { id: BigInt(courseId) },
-      select: {
-        id: true,
-        code: true,
-        name_vi: true,
-          CourseVersion: {
-            where: versionId ? { id: BigInt(versionId) } : undefined,
-            include: {
-              CourseSyllabus: {
-                select: {
-                  id: true,
-                  syllabus_data: true,
-                  created_by: true,
-                  created_at: true,
-                },
-              },
-            },
-            orderBy: { created_at: 'desc' },
-          },
-      },
-    });
+    // Build where clause
+    const where: any = {};
 
-    if (!course) {
-      throw new Error('Course not found');
+    if (versionId) {
+      // Verify version belongs to this course
+      const courseVersion = await db.courseVersion.findUnique({
+        where: { id: BigInt(versionId) },
+        select: { id: true, course_id: true },
+      });
+
+      if (!courseVersion) {
+        return { syllabus: [] };
+      }
+
+      if (courseVersion.course_id.toString() !== courseId.toString()) {
+        return { syllabus: [] };
+      }
+
+      where.course_version_id = BigInt(versionId);
+    } else {
+      // Get all course versions if no specific version requested
+      const courseVersions = await db.courseVersion.findMany({
+        where: { course_id: BigInt(courseId) },
+        select: { id: true },
+      });
+
+      const versionIds = courseVersions.map(v => v.id);
+      if (versionIds.length > 0) {
+        where.course_version_id = { in: versionIds };
+      } else {
+        // No versions exist, return empty
+        return { syllabus: [] };
+      }
     }
 
-    return createSuccessResponse(course);
+    if (versionNo) {
+      where.version_no = parseInt(versionNo);
+    }
+    if (isCurrent) {
+      where.is_current = true;
+    }
+
+    const syllabus = await db.courseSyllabus.findMany({
+      where,
+      orderBy: [
+        { version_no: 'desc' },
+        { created_at: 'desc' },
+      ],
+    });
+
+    return { syllabus: syllabus.map(serializeSyllabus) };
   },
   'fetch syllabus'
+);
+
+// POST /api/tms/courses/[id]/syllabus - Create or update syllabus (upsert)
+export const POST = withIdAndBody(
+  async (id: string, body: unknown, request: Request) => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return createErrorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    requirePermission(session, 'tms.course.update');
+
+    const courseId = validateCourseId(id);
+
+    const syllabusData = body as {
+      course_version_id: string;
+      status?: 'draft' | 'approved' | 'archived';
+      language?: 'vi' | 'en' | 'vi-en';
+      effective_from?: string;
+      effective_to?: string;
+      is_current?: boolean;
+      basic_info?: any;
+      learning_outcomes?: any;
+      weekly_plan?: any;
+      assessment_plan?: any;
+      teaching_methods?: any;
+      materials?: any;
+      policies?: any;
+      rubrics?: any;
+    };
+
+    if (!syllabusData.course_version_id) {
+      throw new Error('course_version_id is required');
+    }
+
+    // Verify course version exists and belongs to this course
+    const courseVersion = await db.courseVersion.findUnique({
+      where: { id: BigInt(syllabusData.course_version_id) },
+      select: { id: true, course_id: true },
+    });
+
+    if (!courseVersion) {
+      throw new Error('Course version not found');
+    }
+
+    if (courseVersion.course_id.toString() !== courseId.toString()) {
+      throw new Error('Course version does not belong to this course');
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      // Try to find existing syllabus (prefer is_current, otherwise latest)
+      const existingSyllabus = await tx.courseSyllabus.findFirst({
+        where: {
+          course_version_id: BigInt(syllabusData.course_version_id),
+        },
+        orderBy: [
+          { is_current: 'desc' },
+          { version_no: 'desc' },
+          { created_at: 'desc' },
+        ],
+      });
+
+      const updatedBy = toBigIntUserId(session.user.id);
+
+      if (existingSyllabus) {
+        // Update existing syllabus
+        if (syllabusData.is_current) {
+          await tx.courseSyllabus.updateMany({
+            where: {
+              course_version_id: BigInt(syllabusData.course_version_id),
+              id: { not: existingSyllabus.id },
+            },
+            data: {
+              is_current: false,
+            },
+          });
+        }
+
+        const updateData: any = {
+          ...(syllabusData.status !== undefined && { status: syllabusData.status }),
+          ...(syllabusData.language !== undefined && { language: syllabusData.language }),
+          ...(syllabusData.effective_from !== undefined && {
+            effective_from: syllabusData.effective_from ? new Date(syllabusData.effective_from) : null,
+          }),
+          ...(syllabusData.effective_to !== undefined && {
+            effective_to: syllabusData.effective_to ? new Date(syllabusData.effective_to) : null,
+          }),
+          ...(syllabusData.is_current !== undefined && { is_current: syllabusData.is_current }),
+          ...(syllabusData.basic_info !== undefined && { basic_info: syllabusData.basic_info }),
+          ...(syllabusData.learning_outcomes !== undefined && { learning_outcomes: syllabusData.learning_outcomes }),
+          ...(syllabusData.weekly_plan !== undefined && { weekly_plan: syllabusData.weekly_plan }),
+          ...(syllabusData.assessment_plan !== undefined && { assessment_plan: syllabusData.assessment_plan }),
+          ...(syllabusData.teaching_methods !== undefined && { teaching_methods: syllabusData.teaching_methods }),
+          ...(syllabusData.materials !== undefined && { materials: syllabusData.materials }),
+          ...(syllabusData.policies !== undefined && { policies: syllabusData.policies }),
+          ...(syllabusData.rubrics !== undefined && { rubrics: syllabusData.rubrics }),
+          updated_by: updatedBy,
+          updated_at: new Date(),
+        };
+
+        const updatedSyllabus = await tx.courseSyllabus.update({
+          where: { id: existingSyllabus.id },
+          data: updateData,
+        });
+
+        return serializeSyllabus(updatedSyllabus);
+      } else {
+        // Create new syllabus (first time)
+        if (syllabusData.is_current) {
+          await tx.courseSyllabus.updateMany({
+            where: {
+              course_version_id: BigInt(syllabusData.course_version_id),
+            },
+            data: {
+              is_current: false,
+            },
+          });
+        }
+
+        const createdBy = toBigIntUserId(session.user.id);
+
+        const newSyllabus = await tx.courseSyllabus.create({
+          data: {
+            course_version_id: BigInt(syllabusData.course_version_id),
+            version_no: 1,
+            status: syllabusData.status || 'draft',
+            language: syllabusData.language || 'vi',
+            effective_from: syllabusData.effective_from ? new Date(syllabusData.effective_from) : null,
+            effective_to: syllabusData.effective_to ? new Date(syllabusData.effective_to) : null,
+            is_current: syllabusData.is_current ?? false,
+            basic_info: syllabusData.basic_info || null,
+            learning_outcomes: syllabusData.learning_outcomes || null,
+            weekly_plan: syllabusData.weekly_plan || null,
+            assessment_plan: syllabusData.assessment_plan || null,
+            teaching_methods: syllabusData.teaching_methods || null,
+            materials: syllabusData.materials || null,
+            policies: syllabusData.policies || null,
+            rubrics: syllabusData.rubrics || null,
+            created_by: createdBy,
+            updated_by: updatedBy,
+          },
+        });
+
+        return serializeSyllabus(newSyllabus);
+      }
+    });
+
+    return createSuccessResponse({ syllabus: result });
+  },
+  'save syllabus'
 );
 
 // PUT /api/tms/courses/[id]/syllabus
@@ -65,93 +238,91 @@ export const PUT = withIdAndBody(
 
     requirePermission(session, 'tms.course.update');
 
-    const courseId = parseInt(id);
-    if (isNaN(courseId)) {
-      throw new Error('Invalid course ID');
-    }
+    const courseId = validateCourseId(id);
 
-    const { version_id, syllabus } = body as {
-      version_id: string;
-      syllabus: Array<{
-        week_number: number;
-        topic: string;
-        teaching_methods?: string;
-        materials?: string;
-        assignments?: string;
-        duration_hours?: number;
-        is_exam_week?: boolean;
-      }>;
+    const { syllabus_id, ...syllabusData } = body as {
+      syllabus_id: string | number;
+      version_no?: number;
+      status?: 'draft' | 'approved' | 'archived';
+      language?: 'vi' | 'en' | 'vi-en';
+      effective_from?: string;
+      effective_to?: string;
+      is_current?: boolean;
+      basic_info?: any;
+      learning_outcomes?: any;
+      weekly_plan?: any;
+      assessment_plan?: any;
+      teaching_methods?: any;
+      materials?: any;
+      policies?: any;
+      rubrics?: any;
     };
 
-    if (!version_id) {
-      throw new Error('Version ID is required');
+    if (!syllabus_id) {
+      throw new Error('Syllabus ID is required');
     }
 
     const result = await db.$transaction(async (tx) => {
-      // Verify course version exists
-      const courseVersion = await tx.courseVersion.findUnique({
-        where: { id: BigInt(version_id) },
-        select: { id: true, course_id: true },
-      });
-
-      if (!courseVersion) {
-        throw new Error('Course version not found');
-      }
-
-      if (courseVersion.course_id.toString() !== courseId.toString()) {
-        throw new Error('Version does not belong to this course');
-      }
-
-      // Delete existing syllabus for this version
-      await tx.courseSyllabus.deleteMany({
-        where: { course_version_id: courseVersion.id },
-      });
-
-      // Create new syllabus entry with all weeks in JSONB format
-      if (syllabus && Array.isArray(syllabus) && syllabus.length > 0) {
-        const syllabusWeeks = syllabus
-          .map((week) => ({
-            week_number: week.week_number,
-            topic: week.topic || '',
-            teaching_methods: week.teaching_methods || null,
-            materials: week.materials || null,
-            assignments: week.assignments || null,
-            duration_hours: String(week.duration_hours || 3),
-            is_exam_week: week.is_exam_week || false,
-          }))
-          .filter((week) => week.week_number > 0)
-          .sort((a, b) => a.week_number - b.week_number);
-
-        if (syllabusWeeks.length > 0) {
-          await tx.courseSyllabus.create({
-            data: {
-              course_version_id: courseVersion.id,
-              syllabus_data: syllabusWeeks,
-              created_by: BigInt(session.user.id),
-              created_at: new Date(),
-            },
-          });
-        }
-      }
-
-      // Fetch updated syllabus
-      const updatedSyllabus = await tx.courseSyllabus.findFirst({
-        where: { course_version_id: courseVersion.id },
-        select: {
-          id: true,
-          syllabus_data: true,
-          created_by: true,
-          created_at: true,
+      // Verify syllabus exists and belongs to this course
+      const existingSyllabus = await tx.courseSyllabus.findUnique({
+        where: { id: BigInt(syllabus_id) },
+        include: {
+          course_versions: {
+            select: { course_id: true },
+          },
         },
       });
 
-      // Convert BigInt to string for JSON serialization
-      return updatedSyllabus ? {
-        id: updatedSyllabus.id.toString(),
-        syllabus_data: updatedSyllabus.syllabus_data,
-        created_by: updatedSyllabus.created_by.toString(),
-        created_at: updatedSyllabus.created_at,
-      } : null;
+      if (!existingSyllabus) {
+        throw new Error('Syllabus not found');
+      }
+
+      if (existingSyllabus.course_versions.course_id.toString() !== courseId.toString()) {
+        throw new Error('Syllabus does not belong to this course');
+      }
+
+      // If is_current is true, set all other versions to false
+      if (syllabusData.is_current) {
+        await tx.courseSyllabus.updateMany({
+          where: {
+            course_version_id: existingSyllabus.course_version_id,
+            id: { not: BigInt(syllabus_id) },
+          },
+          data: {
+            is_current: false,
+          },
+        });
+      }
+
+      // Build update data object
+      const updateData: any = {
+        ...(syllabusData.status !== undefined && { status: syllabusData.status }),
+        ...(syllabusData.language !== undefined && { language: syllabusData.language }),
+        ...(syllabusData.effective_from !== undefined && {
+          effective_from: syllabusData.effective_from ? new Date(syllabusData.effective_from) : null,
+        }),
+        ...(syllabusData.effective_to !== undefined && {
+          effective_to: syllabusData.effective_to ? new Date(syllabusData.effective_to) : null,
+        }),
+        ...(syllabusData.is_current !== undefined && { is_current: syllabusData.is_current }),
+        ...(syllabusData.basic_info !== undefined && { basic_info: syllabusData.basic_info }),
+        ...(syllabusData.learning_outcomes !== undefined && { learning_outcomes: syllabusData.learning_outcomes }),
+        ...(syllabusData.weekly_plan !== undefined && { weekly_plan: syllabusData.weekly_plan }),
+        ...(syllabusData.assessment_plan !== undefined && { assessment_plan: syllabusData.assessment_plan }),
+        ...(syllabusData.teaching_methods !== undefined && { teaching_methods: syllabusData.teaching_methods }),
+        ...(syllabusData.materials !== undefined && { materials: syllabusData.materials }),
+        ...(syllabusData.policies !== undefined && { policies: syllabusData.policies }),
+        ...(syllabusData.rubrics !== undefined && { rubrics: syllabusData.rubrics }),
+        updated_by: toBigIntUserId(session.user.id),
+        updated_at: new Date(),
+      };
+
+      const updatedSyllabus = await tx.courseSyllabus.update({
+        where: { id: BigInt(syllabus_id) },
+        data: updateData,
+      });
+
+      return serializeSyllabus(updatedSyllabus);
     });
 
     return createSuccessResponse({ syllabus: result });
@@ -159,3 +330,51 @@ export const PUT = withIdAndBody(
   'update syllabus'
 );
 
+// DELETE /api/tms/courses/[id]/syllabus
+export const DELETE = withIdAndBody(
+  async (id: string, body: unknown, request: Request) => {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return createErrorResponse('Unauthorized', 'Authentication required', 401);
+    }
+
+    requirePermission(session, 'tms.course.delete');
+
+    const courseId = validateCourseId(id);
+
+    const { syllabus_id } = body as { syllabus_id: string | number };
+
+    if (!syllabus_id) {
+      throw new Error('Syllabus ID is required');
+    }
+
+    await db.$transaction(async (tx) => {
+      // Verify syllabus exists and belongs to this course
+      const existingSyllabus = await tx.courseSyllabus.findUnique({
+        where: { id: BigInt(syllabus_id) },
+        select: { course_version_id: true },
+      });
+
+      if (!existingSyllabus) {
+        throw new Error('Syllabus not found');
+      }
+
+      // Verify course version belongs to this course
+      const courseVersion = await tx.courseVersion.findUnique({
+        where: { id: existingSyllabus.course_version_id },
+        select: { course_id: true },
+      });
+
+      if (!courseVersion || courseVersion.course_id.toString() !== courseId.toString()) {
+        throw new Error('Syllabus does not belong to this course');
+      }
+
+      await tx.courseSyllabus.delete({
+        where: { id: BigInt(syllabus_id) },
+      });
+    });
+
+    return createSuccessResponse({ message: 'Syllabus deleted successfully' });
+  },
+  'delete syllabus'
+);

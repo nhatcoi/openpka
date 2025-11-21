@@ -36,22 +36,28 @@ export default function TmsLayout({
   children: React.ReactNode;
 }) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { data: session, status } = useSession();
 
+  // Track if component is mounted to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Check authentication and permissions
   useEffect(() => {
-    if (status === 'loading') return;
+    if (!mounted || status === 'loading') return;
     
     if (!session) {
       router.push(`/auth/signin?callbackUrl=${encodeURIComponent(pathname)}`);
       return;
     }
-  }, [session, status, pathname, router]);
+  }, [session, status, pathname, router, mounted]);
 
-  // Show loading state while checking authentication
-  if (status === 'loading') {
+  // Show loading state while checking authentication (only after mount to prevent hydration mismatch)
+  if (!mounted || status === 'loading') {
     return (
       <Box
         sx={{
@@ -62,6 +68,7 @@ export default function TmsLayout({
           flexDirection: 'column',
           gap: 2,
         }}
+        suppressHydrationWarning
       >
         <CircularProgress size={60} />
         <Typography variant="h6" color="text.secondary">

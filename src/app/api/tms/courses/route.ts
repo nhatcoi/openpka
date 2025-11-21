@@ -4,14 +4,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { withErrorHandling, withBody, createSuccessResponse, createErrorResponse } from '@/lib/api/api-handler';
 import { requirePermission } from '@/lib/auth/api-permissions';
-import { CreateCourseInput, CourseQueryInput } from '@/lib/api/schemas/course';
-import {
-  CourseWorkflowStage,
-} from '@/constants/workflow-statuses';
+import { CreateCourseInput } from '@/lib/api/schemas/course';
 import {
   CoursePrerequisiteType,
   CourseType,
-  normalizeCoursePriority,
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 
@@ -34,8 +30,6 @@ export const GET = withErrorHandling(
     const normalizedStatus = statusParam?.toUpperCase();
     const search = searchParams.get('search') || undefined;
     const orgUnitId = searchParams.get('orgUnitId');
-    const workflowStageParam = searchParams.get('workflowStage');
-    const normalizedWorkflowStage = workflowStageParam?.toUpperCase();
     const listMode = searchParams.get('list') === 'true';
 
     const skip = (page - 1) * limit;
@@ -54,12 +48,6 @@ export const GET = withErrorHandling(
     if (normalizedStatus) {
         where.status = normalizedStatus;
     }
-    // Note: Legacy workflow filtering removed - use unified workflow system instead
-    // if (normalizedWorkflowStage && (Object.values(WorkflowStage) as string[]).includes(normalizedWorkflowStage)) {
-    //     where.workflows = {
-    //         some: { workflow_stage: normalizedWorkflowStage as WorkflowStage }
-    //     };
-    // }
 
     // Get total count and courses
     const [total, courses] = await Promise.all([
@@ -69,10 +57,6 @@ export const GET = withErrorHandling(
         include: {
             OrgUnit: {
             select: { name: true }
-            },
-            // Legacy workflow data removed - using unified workflow system
-            contents: listMode ? undefined : {
-            select: { prerequisites: true, passing_grade: true }
             }
         },
         orderBy: { created_at: 'desc' },
@@ -81,10 +65,8 @@ export const GET = withErrorHandling(
         })
     ]);
 
-    
-
     // Transform Decimal fields to numbers for JSON serialization
-    const transformedCourses = courses.map(course => ({
+    const transformedCourses = courses.map((course: any) => ({
         ...course,
         theory_credit: course.theory_credit ? Number(course.theory_credit) : null,
         practical_credit: course.practical_credit ? Number(course.practical_credit) : null,
@@ -114,8 +96,6 @@ export const POST = withBody(
     
     // Check permission
     requirePermission(session, 'tms.course.create');
-    
-    const userId = BigInt(session.user.id);
 
     const courseData = body as CreateCourseInput;
 
@@ -123,10 +103,6 @@ export const POST = withBody(
     if (!courseData.code || !courseData.name_vi || !courseData.credits || !courseData.org_unit_id || !courseData.type) {
       throw new Error('Missing required fields: code, name_vi, credits, org_unit_id, type');
     }
-
-    const prerequisitesName = courseData.prerequisites?.map(p => 
-      typeof p === 'string' ? p : p.name_vi || p.label
-    ).join(', ') || null;
 
     // Get next available ID
     const lastCourse = await db.course.findFirst({
@@ -139,7 +115,7 @@ export const POST = withBody(
       ? (courseData.type as CourseType)
       : CourseType.THEORY;
 
-    const result = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx: any) => {
       // 1. Create main course record
       const course = await tx.course.create({
         data: {
@@ -154,33 +130,13 @@ export const POST = withBody(
           type: courseTypeValue,
           description: courseData.description || null,
           status: WorkflowStatus.DRAFT,
+          is_active: true,
           created_at: new Date(),
           updated_at: new Date(),
         }
       });
 
-      // 2. Legacy workflow creation removed - using unified workflow system
-
-      // 3. Create CourseContent record
-      const lastContent = await tx.courseContent.findFirst({
-        orderBy: { id: 'desc' }
-      });
-      const nextContentId = lastContent ? lastContent.id + BigInt(1) : BigInt(1);
-      
-      const content = await tx.courseContent.create({
-        data: {
-          id: nextContentId,
-          course_id: course.id,
-          prerequisites: prerequisitesName,
-          learning_objectives: courseData.learning_objectives || null,
-          assessment_methods: courseData.assessment_methods || null,
-          passing_grade: courseData.passing_grade || 5.0,
-          created_at: new Date(),
-          updated_at: new Date(),
-        }
-      });
-
-      // 4. Create CourseVersion record (Version 1)
+      // 2. Create CourseVersion record (Version 1)
       const courseVersion = await tx.courseVersion.create({
         data: {
           course_id: course.id,
@@ -191,13 +147,12 @@ export const POST = withBody(
         }
       });
 
-      // 6. Create CoursePrerequisites records if provided
-      let prerequisites = [];
+      // 3. Create CoursePrerequisites records if provided
+      const prerequisites = [];
       if (courseData.prerequisites && Array.isArray(courseData.prerequisites) && courseData.prerequisites.length > 0) {
         for (const prereq of courseData.prerequisites) {
-          const prereqId = typeof prereq === 'string' ? prereq : (prereq.value || prereq.id);
+          const prereqId = typeof prereq === 'string' ? prereq : ((prereq as any).value || (prereq as any).id);
           if (!prereqId) {
-            console.error('Invalid prerequisite ID:', prereq);
             continue;
           }
           const prerequisite = await tx.coursePrerequisites.create({
@@ -213,42 +168,12 @@ export const POST = withBody(
         }
       }
 
-      // 7. Create CourseSyllabus record with all weeks in JSONB format if provided
-      let syllabusEntry = null;
-      if (courseData.syllabus && Array.isArray(courseData.syllabus) && courseData.syllabus.length > 0) {
-        const syllabusWeeks = courseData.syllabus
-          .map((week: any) => ({
-            week_number: week.week || week.week_number || 0,
-            topic: week.topic || '',
-            teaching_methods: week.teaching_methods || null,
-            materials: week.materials || null,
-            assignments: week.assignments || null,
-            duration_hours: String(week.duration_hours || week.duration || 3),
-            is_exam_week: week.is_exam_week || false
-          }))
-          .filter((week: any) => week.week_number > 0)
-          .sort((a: any, b: any) => a.week_number - b.week_number);
-
-        if (syllabusWeeks.length > 0) {
-          syllabusEntry = await tx.courseSyllabus.create({
-            data: {
-              course_version_id: courseVersion.id,
-              syllabus_data: syllabusWeeks,
-              created_by: BigInt(1), // Default admin user
-              created_at: new Date(),
-            }
-          });
-        }
-      }
-
       return { 
         course, 
-        content, 
         courseVersion, 
-        prerequisites, 
-        syllabusEntry 
+        prerequisites
       };
-    }).catch((error) => {
+    }).catch((error: any) => {
       if (error.code === 'P2002') {
         // Unique constraint violation
         if (error.meta?.target?.includes('org_unit_id') && error.meta?.target?.includes('code')) {

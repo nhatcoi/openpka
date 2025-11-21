@@ -17,7 +17,8 @@ export const GET = withErrorHandling(async (req: NextRequest, context?: { params
   const { id } = await context.params;
   
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get('type') || 'block'; // 'block' or 'group'
+  const typeParam = searchParams.get('type') || 'block';
+  const type = typeParam === 'groups' ? 'group' : typeParam; // Support both 'group' and 'groups'
   const blockId = BigInt(id);
 
   if (type === 'group') {
@@ -245,7 +246,8 @@ export const DELETE = withErrorHandling(async (req: NextRequest, context?: { par
   const { id } = await context.params;
   
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get('type') || 'block'; // 'block' or 'group'
+  const typeParam = searchParams.get('type') || 'block';
+  const type = typeParam === 'groups' ? 'group' : typeParam; // Support both 'group' and 'groups'
   const blockId = BigInt(id);
 
   if (type === 'group') {

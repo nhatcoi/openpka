@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, CircularProgress, Alert } from '@mui/material';
+import { Alert } from '@mui/material';
 import MarkdownViewer from './MarkdownViewer';
 import PDFViewerWrapper from './PDFViewerWrapper';
 import { DocumentationFile } from '@/app/api/documentation/route';
@@ -22,24 +22,24 @@ export default function DocumentViewer({ document }: DocumentViewerProps) {
 
       try {
         if (document.type === 'markdown') {
-          // Fetch markdown content
-          const response = await fetch(document.path);
+          const url =
+            typeof window !== 'undefined'
+              ? `${window.location.origin}${document.path}`
+              : document.path;
+          const response = await fetch(url);
           if (!response.ok) {
-            throw new Error('Không thể tải file markdown');
+            throw new Error(`Không thể tải file markdown: ${response.status} ${response.statusText}`);
           }
           const text = await response.text();
           setContent(text);
-          setLoading(false);
         } else if (document.type === 'pdf') {
-          // PDF will be handled by PDFViewer component
-          // No need to fetch, just set loading to false
           setContent('');
-          setLoading(false);
         } else {
           throw new Error('Định dạng file không được hỗ trợ');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
+      } finally {
         setLoading(false);
       }
     };

@@ -1,16 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
-import { withErrorHandling, withIdParam, withIdAndBody, createErrorResponse, createSuccessResponse } from '@/lib/api/api-handler';
-import { UpdateCourseInput } from '@/lib/api/schemas/course';
+import { withErrorHandling, withIdParam, withIdAndBody, createErrorResponse } from '@/lib/api/api-handler';
 import {
   CourseWorkflowStage,
 } from '@/constants/workflow-statuses';
-import {
-  CourseType,
-  normalizeCoursePriority,
-} from '@/constants/courses';
+import { CourseType } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
@@ -40,17 +36,6 @@ const getCourseById = async (id: string, request: Request) => {
       OrgUnit: {
         select: { name: true, code: true }
       },
-      contents: {
-        select: {
-          id: true,
-          prerequisites: true,
-          learning_objectives: true,
-          assessment_methods: true,
-          passing_grade: true,
-          created_at: true,
-          updated_at: true
-        }
-      },
       instructor_qualifications: {
         select: {
           id: true,
@@ -67,9 +52,25 @@ const getCourseById = async (id: string, request: Request) => {
           CourseSyllabus: {
             select: {
               id: true,
-              syllabus_data: true,
+              course_version_id: true,
+              version_no: true,
+              status: true,
+              language: true,
+              effective_from: true,
+              effective_to: true,
+              is_current: true,
+              basic_info: true,
+              learning_outcomes: true,
+              weekly_plan: true,
+              assessment_plan: true,
+              teaching_methods: true,
+              materials: true,
+              policies: true,
+              rubrics: true,
+              created_at: true,
               created_by: true,
-              created_at: true
+              updated_at: true,
+              updated_by: true
             }
           }
         }
@@ -88,8 +89,6 @@ const getCourseById = async (id: string, request: Request) => {
     throw new Error('Course not found');
   }
 
-
-
   let workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
   if (!workflowInstance) {
     try {
@@ -105,7 +104,8 @@ const getCourseById = async (id: string, request: Request) => {
         });
         workflowInstance = await academicWorkflowEngine.getWorkflowByEntity('COURSE', BigInt(courseId));
       }
-    } catch (e) {
+    } catch {
+      // Silently fail if workflow initialization fails
     }
   }
 
@@ -119,7 +119,7 @@ const getCourseById = async (id: string, request: Request) => {
         where: { id: { in: approverIds.map(id => BigInt(id)) } },
         select: { id: true, full_name: true, email: true }
       });
-      const idToUser = new Map(users.map(u => [String(u.id), u]));
+      const idToUser = new Map(users.map((u: any) => [String(u.id), u]));
       enrichedApprovalRecords = records.map(r => ({
         ...r,
         approver: idToUser.get(String(r.approver_id)) || { id: r.approver_id, full_name: '—', email: null },
@@ -180,7 +180,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
 
   const resolvedStatus = toCourseStatus(courseData.status);
   const resolvedWorkflowStage = toWorkflowStage(courseData.workflow_stage);
-  const resolvedPriority = normalizeCoursePriority(courseData.workflow_priority).toLowerCase();
   const resolvedType = toCourseType(courseData.type);
 
   let currentUserRoleName: string | null = null;
@@ -203,7 +202,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
   const requestContext = getRequestContext(request);
   const actorInfo = await getActorInfo(session.user.id, db);
 
-  const result = await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx: any) => {
     await setHistoryContext(tx, {
       actorId: actorInfo.actorId ?? undefined,
       actorName: actorInfo.actorName ?? undefined,
@@ -231,28 +230,6 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         updated_at: new Date(),
       }
     });
-
-    const contentUpdateData: any = {};
-    if (Object.prototype.hasOwnProperty.call(courseData, 'prerequisites')) {
-      contentUpdateData.prerequisites = prerequisitesString;
-    }
-    if (Object.prototype.hasOwnProperty.call(courseData, 'learning_objectives')) {
-      contentUpdateData.learning_objectives = courseData.learning_objectives as any;
-    }
-    if (Object.prototype.hasOwnProperty.call(courseData, 'assessment_methods')) {
-      contentUpdateData.assessment_methods = courseData.assessment_methods as any;
-    }
-    if (Object.prototype.hasOwnProperty.call(courseData, 'passing_grade')) {
-      contentUpdateData.passing_grade = courseData.passing_grade as any;
-    }
-    let updatedContent: any = null;
-    if (Object.keys(contentUpdateData).length > 0) {
-      contentUpdateData.updated_at = new Date();
-      updatedContent = await tx.courseContent.updateMany({
-        where: { course_id: BigInt(courseId) },
-        data: contentUpdateData
-      });
-    }
 
     const courseBigInt = BigInt(courseId);
     const actorId = BigInt(session.user.id);
@@ -288,49 +265,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       });
     }
 
-    if (courseData.syllabus && Array.isArray(courseData.syllabus)) {
-      let courseVersion = await tx.courseVersion.findFirst({
-        where: { course_id: BigInt(courseId) },
-        orderBy: { created_at: 'desc' }
-      });
-      if (!courseVersion) {
-        courseVersion = await tx.courseVersion.create({
-          data: {
-            course_id: BigInt(courseId),
-            version: '1',
-            status: WorkflowStatus.DRAFT,
-          }
-        });
-      }
-
-      await tx.courseSyllabus.deleteMany({
-        where: { course_version_id: courseVersion.id }
-      });
-
-      if (courseData.syllabus.length > 0) {
-        const syllabusWeeks = courseData.syllabus
-          .map((week: any, index: number) => ({
-            week_number: week.week ?? week.week_number ?? (index + 1),
-            topic: week.topic ?? '',
-            teaching_methods: week.teaching_methods ?? null,
-            materials: week.materials ?? null,
-            assignments: week.assignments ?? null,
-            duration_hours: String(week.duration ?? week.duration_hours ?? 3),
-            is_exam_week: week.isExamWeek ?? week.is_exam_week ?? false
-          }))
-          .filter((week: any) => week.week_number != null && week.week_number > 0)
-          .sort((a: any, b: any) => a.week_number - b.week_number);
-
-        await tx.courseSyllabus.create({
-          data: {
-            course_version_id: courseVersion.id,
-            syllabus_data: syllabusWeeks,
-            created_by: BigInt(session.user.id),
-            created_at: new Date(),
-          }
-        });
-      }
-    }
+    // Syllabus management moved to separate endpoint /api/tms/courses/[id]/syllabus
 
     if (Array.isArray((courseData as any).instructors)) {
       await tx.instructorQualifications.deleteMany({
@@ -389,13 +324,7 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
         workflowInstance.status === 'COMPLETED' ||
         workflowInstance.status === 'REJECTED'
       ) {
-        if (!workflowInstance) {
-          console.warn(`No workflow instance found for course ${courseId}, skipping workflow action.`);
-        } else if (!engineAction) {
-          console.warn(`Unsupported course workflow action "${workflowAction}", skipping engine update.`);
-        } else {
-          console.log(`Workflow instance ${workflowInstance.id} is already ${workflowInstance.status}, skipping action`);
-        }
+        // Skip workflow action if instance not found, action unsupported, or already completed/rejected
       } else {
         const updatedInstance = await academicWorkflowEngine.processAction(workflowInstance.id, {
           action: engineAction,
@@ -429,8 +358,8 @@ const updateCourse = async (id: string, body: unknown, request: Request) => {
       }
     }
 
-    return { updatedCourse, updatedContent };
-  }).catch((error) => {
+    return { updatedCourse };
+  }).catch((error: any) => {
     if (error.code === 'P2002') {
       if (error.meta?.target?.includes('org_unit_id') && error.meta?.target?.includes('code')) {
         throw new Error(`Mã môn học '${courseData.code}' đã tồn tại trong đơn vị tổ chức này.`);
@@ -472,7 +401,7 @@ const deleteCourse = async (id: string, request: Request) => {
   const requestContext = getRequestContext(request);
   const actorInfo = await getActorInfo(session.user.id, db);
 
-  await db.$transaction(async (tx) => {
+  await db.$transaction(async (tx: any) => {
     await setHistoryContext(tx, {
       actorId: actorInfo.actorId ?? undefined,
       actorName: actorInfo.actorName ?? undefined,

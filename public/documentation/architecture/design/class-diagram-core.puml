@@ -1,0 +1,122 @@
+@startuml
+title Biểu đồ lớp lõi – OpenAcademix
+
+class User {
+  +uuid id
+  +string email
+  +string fullName
+  +boolean active
+  +Date createdAt
+  +Date updatedAt
+}
+
+class Role {
+  +uuid id
+  +string code
+  +string name
+  +string module
+}
+
+class Permission {
+  +uuid id
+  +string action
+  +string description
+}
+
+class UserRole {
+  +uuid id
+  +uuid userId
+  +uuid roleId
+}
+
+class RolePermission {
+  +uuid id
+  +uuid roleId
+  +uuid permissionId
+}
+
+class OrgUnit {
+  +uuid id
+  +string code
+  +string name
+  +OrgUnitType type
+  +OrgUnitStatus status
+  +Date effectiveFrom
+  +Date effectiveTo
+}
+
+class OrgUnitRelation {
+  +uuid id
+  +uuid parentId
+  +uuid childId
+  +RelationType relationType
+  +Date effectiveFrom
+  +Date effectiveTo
+}
+
+class Course {
+  +uuid id
+  +string code
+  +string name
+  +int credits
+  +CourseStatus status
+}
+
+class CourseSyllabus {
+  +uuid id
+  +uuid courseId
+  +string version
+  +boolean published
+  +text outline
+}
+
+class Curriculum {
+  +uuid id
+  +string code
+  +string name
+  +CurriculumStatus status
+}
+
+class TuitionRate {
+  +uuid id
+  +uuid curriculumId
+  +string academicYear
+  +decimal creditPrice
+  +boolean active
+}
+
+class WorkflowInstance {
+  +uuid id
+  +WorkflowType type
+  +uuid resourceId
+  +WorkflowStatus status
+  +Date createdAt
+}
+
+class ApprovalRecord {
+  +uuid id
+  +uuid workflowInstanceId
+  +uuid actorId
+  +ApprovalAction action
+  +string note
+  +Date actedAt
+}
+
+User "1" -- "0..*" UserRole
+Role "1" -- "0..*" UserRole
+Role "1" -- "0..*" RolePermission
+Permission "1" -- "0..*" RolePermission
+
+OrgUnit "1" -- "0..*" OrgUnitRelation : parent
+OrgUnit "1" -- "0..*" OrgUnitRelation : child
+OrgUnit "1" -- "0..*" WorkflowInstance : subject
+
+Course "1" -- "1" CourseSyllabus
+Curriculum "1" -- "0..*" Course
+Curriculum "1" -- "0..*" TuitionRate
+
+WorkflowInstance "1" -- "0..*" ApprovalRecord
+User "1" -- "0..*" ApprovalRecord : thi hành
+
+@enduml
+

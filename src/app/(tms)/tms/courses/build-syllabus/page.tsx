@@ -153,10 +153,10 @@ export default function BuildSyllabusPage() {
           <BookOnlineIcon sx={{ fontSize: 40, color: 'primary.main' }} />
           <Box>
             <Typography variant="h4" gutterBottom>
-              Xây dựng giáo trình
+              Xây dựng đề cương chi tiết
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Chọn học phần để xây dựng giáo trình
+              Chọn học phần để đề cương
             </Typography>
           </Box>
         </Box>

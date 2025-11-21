@@ -250,6 +250,10 @@ export function withErrorHandling<T>(
   return async (request: NextRequest, handlerContext?: { params?: Promise<{ id: string }> }) => {
     try {
       const result = await handler(request, handlerContext);
+      // If result is already a NextResponse, return it directly
+      if (result instanceof NextResponse) {
+        return result as NextResponse<ApiResponse<T>>;
+      }
       // Handle arrays separately to avoid converting to objects
       if (Array.isArray(result)) {
         const serializedResult = serializeIdsOnlyArray(result) as unknown as T;

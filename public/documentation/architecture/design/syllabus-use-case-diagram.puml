@@ -1,0 +1,66 @@
+@startuml
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+
+title Use Case Diagram - Quản lý Đề cương Chi tiết Học phần
+
+left to right direction
+
+actor "Giảng viên" as Instructor
+actor "Trưởng Bộ môn" as Head
+actor "Phòng Đào tạo" as Admin
+actor "Sinh viên" as Student
+
+rectangle "Quản lý Đề cương" {
+  usecase "UC-1: Tạo đề cương\nchi tiết thủ công" as UC1
+  usecase "UC-2: Gợi ý đề cương\ntự động" as UC2
+  usecase "UC-3: Chỉnh sửa đề cương" as UC3
+  usecase "UC-4: Xem đề cương" as UC4
+  usecase "UC-5: Quản lý phiên bản\nđề cương" as UC5
+  usecase "UC-6: Xuất đề cương" as UC6
+  usecase "UC-7: Tải lên file\nđính kèm" as UC7
+  usecase "UC-8: Duyệt đề cương" as UC8
+}
+
+Instructor --> UC1
+Instructor --> UC2
+Instructor --> UC3
+Instructor --> UC4
+Instructor --> UC5
+Instructor --> UC6
+Instructor --> UC7
+
+Head --> UC1
+Head --> UC2
+Head --> UC3
+Head --> UC4
+Head --> UC5
+Head --> UC6
+Head --> UC7
+Head --> UC8
+
+Admin --> UC4
+Admin --> UC5
+Admin --> UC6
+Admin --> UC8
+
+Student --> UC4
+
+UC2 ..> UC1 : extends
+UC7 ..> UC1 : extends
+UC7 ..> UC3 : extends
+
+note right of UC2
+  Hệ thống phân tích thông tin
+  học phần và tự động tạo
+  đề cương gợi ý
+end note
+
+note right of UC5
+  Xem lịch sử, so sánh,
+  khôi phục phiên bản
+end note
+
+@enduml
+

@@ -35,8 +35,8 @@ export const GET = withIdParam(async (id: string) => {
     throw new Error('Invalid major ID');
   }
 
-  const major = await prisma.major.findUnique({
-    where: { id: majorId },
+  const major = await db.major.findUnique({
+    where: { id: BigInt(majorId) },
     select: {
       id: true,
       code: true,
@@ -63,7 +63,12 @@ export const GET = withIdParam(async (id: string) => {
     throw new Error('Major not found');
   }
 
-  return { data: major };
+  // Serialize BigInt values
+  const serializedMajor = JSON.parse(JSON.stringify(major, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+
+  return { data: serializedMajor };
 }, 'fetch major');
 
 // PUT /api/tms/majors/[id]
@@ -88,8 +93,8 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
   const majorBigInt = BigInt(majorId);
 
   // Check if major exists
-  const existingMajor = await prisma.major.findUnique({
-    where: { id: majorId },
+  const existingMajor = await db.major.findUnique({
+    where: { id: majorBigInt },
     select: {
       id: true,
       status: true,
@@ -102,11 +107,11 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
 
   // Check for duplicate code if code is being updated
   if (validatedData.code && validatedData.org_unit_id) {
-    const duplicateMajor = await prisma.major.findFirst({
+    const duplicateMajor = await db.major.findFirst({
       where: {
-        org_unit_id: validatedData.org_unit_id,
+        org_unit_id: BigInt(validatedData.org_unit_id),
         code: validatedData.code,
-        id: { not: majorId }
+        id: { not: majorBigInt }
       }
     });
 
@@ -118,10 +123,10 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
   // Get request context and actor info for history tracking
   const { getRequestContext, getActorInfo, setHistoryContext } = await import('@/lib/db-history-context');
   const requestContext = getRequestContext(request as any);
-  const actorInfo = await getActorInfo(session.user.id, prisma);
+  const actorInfo = await getActorInfo(session.user.id, db);
 
   // Use transaction to update major and create approval history
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     // IMPORTANT: Set history context FIRST before any other queries
     // This ensures session variables are available when triggers fire
     await setHistoryContext(tx, {
@@ -157,7 +162,7 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
     }
 
     const updated = await tx.major.update({
-      where: { id: majorId },
+      where: { id: majorBigInt },
       data: updateData,
       select: {
         id: true,
@@ -218,7 +223,12 @@ export const PUT = withIdAndBody(async (id: string, body: unknown, request: Requ
     return updated;
   });
 
-  return { data: result, message: 'Major updated successfully' };
+  // Serialize BigInt values
+  const serializedResult = JSON.parse(JSON.stringify(result, (key, value) =>
+    typeof value === 'bigint' ? value.toString() : value
+  ));
+
+  return { data: serializedResult, message: 'Major updated successfully' };
 }, 'update major');
 
 // DELETE /api/tms/majors/[id]

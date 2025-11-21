@@ -16,8 +16,8 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "OpenPKA",
-  description: "Ứng dụng OpenPKA",
+  title: "OpenAcademix",
+  description: "Ứng dụng OpenAcademix",
 };
 
 export default function RootLayout({

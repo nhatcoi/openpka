@@ -28,7 +28,6 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const iframeRef = React.useRef<HTMLIFrameElement>(null);
   
-
   const handleDownload = () => {
     const link = document.createElement('a');
     link.href = url;
@@ -66,7 +65,6 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
     }
   };
 
-  // Listen for fullscreen changes
   React.useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement);
@@ -99,9 +97,11 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
     );
   }
 
-  // Construct full URL for PDF
-  const pdfUrl = typeof window !== 'undefined' 
-    ? (url.startsWith('http') ? url : `${window.location.origin}${url}`)
+  const pdfUrl =
+    typeof window !== 'undefined'
+      ? url.startsWith('http') || url.startsWith('//')
+        ? url
+        : `${window.location.origin}${url.startsWith('/') ? url : `/${url}`}`
     : url;
 
   return (
@@ -160,7 +160,6 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
           },
         }}
       >
-        {/* PDF Viewer using iframe - works in Chrome, Firefox, Safari, Edge */}
         <iframe
           ref={iframeRef}
           src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1`}
@@ -174,7 +173,6 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
         />
       </Box>
 
-      {/* Help message */}
       <Box
         sx={{
           mt: 2,
@@ -184,12 +182,7 @@ export default function PDFViewer({ url, loading, error }: PDFViewerProps) {
           textAlign: 'center',
         }}
       >
-        <Button
-          size="small"
-          variant="text"
-          onClick={handleOpenInNewTab}
-          startIcon={<OpenInNewIcon />}
-        >
+        <Button size="small" variant="text" onClick={handleOpenInNewTab} startIcon={<OpenInNewIcon />}>
           Mở PDF trong tab mới
         </Button>
       </Box>

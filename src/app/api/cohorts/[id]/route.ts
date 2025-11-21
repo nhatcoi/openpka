@@ -359,16 +359,44 @@ export async function DELETE(
       );
     }
 
-    // If status is PUBLISHED, change to ARCHIVED instead of deleting
-    if (existingCohort.status === WorkflowStatus.PUBLISHED) {
-      await (db as any).cohort.update({
-        where: { id: cohortId },
-        data: { status: WorkflowStatus.ARCHIVED },
+    
+    if (existingCohort.status === WorkflowStatus.PUBLISHED || existingCohort.status === 'PUBLISHED' || existingCohort.status === 'GRADUATED') {
+      const actorId = BigInt(session.user.id);
+      const requestContext = getRequestContext(request);
+      const actorInfo = await getActorInfo(session.user.id, db);
+
+      await (db as any).$transaction(async (tx: any) => {
+        await setHistoryContext(tx, {
+          ...(actorInfo.actorId && { actorId: actorInfo.actorId }),
+          ...(actorInfo.actorName && { actorName: actorInfo.actorName }),
+          ...(requestContext.userAgent && { userAgent: requestContext.userAgent }),
+          metadata: {
+            cohort_id: cohortId.toString(),
+            status: WorkflowStatus.ARCHIVED,
+            action: 'soft_delete',
+          },
+        });
+
+        await tx.cohort.update({
+          where: { id: cohortId },
+          data: { 
+            status: WorkflowStatus.ARCHIVED,
+            updated_at: new Date(),
+            updated_by: actorId,
+          },
+        });
       });
-      return NextResponse.json({ message: 'Cohort đã được chuyển sang trạng thái Lưu trữ' });
+
+      return NextResponse.json({ 
+        success: true,
+        message: 'Cohort đã được chuyển sang trạng thái Lưu trữ (xóa mềm)',
+        data: {
+          id: id,
+          status: WorkflowStatus.ARCHIVED
+        }
+      });
     }
 
-    // Check if cohort has students (only for non-PUBLISHED cohorts)
     if (existingCohort.StudentAcademicProgress.length > 0) {
       return NextResponse.json(
         { error: 'Cannot delete cohort with existing students' },

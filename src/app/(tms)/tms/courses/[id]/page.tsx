@@ -69,7 +69,9 @@ import {
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Add as AddIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  MenuBook as MenuBookIcon,
+  NewReleases as NewReleasesIcon,
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -862,7 +864,7 @@ export default function CourseDetailPage() {
             </Box>
           )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
             <Chip
               label={getStatusLabel(courseDetail.status || WorkflowStatus.DRAFT)}
               color={getStatusColor(courseDetail.status || WorkflowStatus.DRAFT) as any}
@@ -876,6 +878,30 @@ export default function CourseDetailPage() {
               variant="outlined"
               sx={{ mr: 1 }}
             />
+            <Button
+              variant="outlined"
+              startIcon={<MenuBookIcon />}
+              onClick={() => router.push(`/tms/courses/${routeId}/syllabus`)}
+              sx={{ mr: 1 }}
+            >
+              Đề cương
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<MenuBookIcon />}
+              onClick={() => router.push(`/tms/courses/${routeId}/syllabus/view`)}
+              sx={{ mr: 1 }}
+            >
+              Xem đề cương
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<NewReleasesIcon />}
+              onClick={() => router.push(`/tms/courses/${routeId}/versions`)}
+              sx={{ mr: 1 }}
+            >
+              Versions
+            </Button>
             {(courseDetail.status === WorkflowStatus.DRAFT || courseDetail.status === WorkflowStatus.REJECTED) && (
               <Button
                 variant="contained"

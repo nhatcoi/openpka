@@ -1,0 +1,36 @@
+@startuml
+title Sơ đồ tuần tự – Tạo mới học phần (TMS)
+
+actor "Chuyên viên đào tạo" as User
+participant "Next.js UI\n(tms/courses/create)" as UI
+participant "API Route\nPOST /api/tms/courses" as API
+participant "CourseService" as Service
+participant "WorkflowService" as Workflow
+database "PostgreSQL\n(Prisma)" as DB
+
+User -> UI: Nhập dữ liệu học phần\nvà nhấn "Lưu học phần"
+UI -> UI: Kiểm tra ràng buộc phía client\n(bắt buộc mã, số tín chỉ, khối kiến thức)
+UI -> API: Gửi payload JSON\nCreateCourseRequest
+API -> Service: validateCoursePayload(request)
+Service -> DB: SELECT course WHERE code = ?
+DB --> Service: Kết quả tồn tại / không
+Service -> Service: assembleCourseEntity()\nchuẩn hóa dữ liệu
+Service -> DB: BEGIN TRANSACTION
+Service -> DB: INSERT INTO courses
+Service -> DB: INSERT INTO course_syllabi (draft)
+Service -> Workflow: createWorkflowInstance(courseId, "COURSE")
+Workflow -> DB: INSERT INTO workflow_instances
+Workflow -> DB: INSERT INTO approval_records (PENDING)
+DB --> Workflow: ACK
+Workflow --> Service: workflowInstanceId
+Service -> DB: COMMIT
+Service --> API: CourseDTO + workflow status
+API --> UI: 201 Created
+UI --> User: Hiển thị toast "Tạo học phần thành công"\nĐính kèm trạng thái phê duyệt
+
+== Luồng lỗi ==
+API <-- Service: Error Validation (400) <<error>>
+UI --> User: Hiển thị lỗi chi tiết\n(yêu cầu nhập đủ thông tin)
+
+@enduml
+

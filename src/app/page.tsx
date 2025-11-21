@@ -11,6 +11,7 @@ import {
   MenuBook as MenuBookIcon,
   ArrowForward as ArrowForwardIcon,
   Login as LoginIcon,
+  AccountCircle as AccountCircleIcon,
 } from '@mui/icons-material';
 
 const moduleCards = [
@@ -19,21 +20,21 @@ const moduleCards = [
     title: 'Quản lý cơ cấu tổ chức',
     description: 'Tạo/sửa đơn vị (khoa, viện, bộ môn), thiết lập cây tổ chức, bổ nhiệm vai trò, báo cáo sơ đồ.',
     icon: AccountTreeIcon,
-    path: '/org/tree',
+    path: '/org/dashboard',
   },
   {
     id: 'hr-management',
     title: 'Quản lý nhân sự',
     description: 'Hồ sơ giảng viên/nhân viên, bổ nhiệm – luân chuyển, học vị, hợp đồng, báo cáo chuẩn giảng viên.',
     icon: PeopleIcon,
-    path: '/hr/employees',
+    path: '/hr/dashboard',
   },
   {
     id: 'education-management',
     title: 'Quản lý đào tạo',
     description: 'Ngành, chương trình đào tạo, học phần, kế hoạch giảng dạy.',
     icon: SchoolIcon,
-    path: '/tms',
+    path: '/tms/dashboard',
   },
   {
     id: 'financial-management',
@@ -70,10 +71,10 @@ export default function Home() {
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg"
                 style={{ backgroundColor: '#2e4c92' }}
               >
-                OP
+                OA
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">OpenPKA</h1>
+                <h1 className="text-xl font-bold text-gray-900">OpenAcademix</h1>
                 <p className="text-xs text-gray-500">Hệ thống quản lý đào tạo</p>
               </div>
             </div>
@@ -81,8 +82,8 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               {session ? (
                 <Link
-                  href="/hr/dashboard"
-                  className="px-4 py-2 rounded-md text-sm font-medium text-white transition-colors"
+                  href="/me"
+                  className="flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium text-white transition-colors"
                   style={{ backgroundColor: '#2e4c92' }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#1e3561';
@@ -91,11 +92,12 @@ export default function Home() {
                     e.currentTarget.style.backgroundColor = '#2e4c92';
                   }}
                 >
-                  Dashboard
+                  <AccountCircleIcon className="w-4 h-4" />
+                  <span>Tài khoản</span>
                 </Link>
               ) : (
                 <Link
-                  href="/auth/signin"
+                  href="/auth/signin?callbackUrl=/"
                   className="flex items-center space-x-2 px-4 py-2 rounded-md text-sm font-medium text-white transition-colors"
                   style={{ backgroundColor: '#2e4c92' }}
                   onMouseEnter={(e) => {
@@ -232,7 +234,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
             <div className="mb-4">
-              <h4 className="text-lg font-bold text-gray-900 mb-2">OpenPKA</h4>
+              <h4 className="text-lg font-bold text-gray-900 mb-2">OpenAcademix</h4>
               <p className="text-sm text-gray-600">
                 Hệ thống quản lý đào tạo toàn diện
               </p>

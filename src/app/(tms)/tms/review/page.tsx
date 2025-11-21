@@ -63,8 +63,6 @@ import {
   getCourseWorkflowStageLabel,
   CohortWorkflowStage,
   getCohortWorkflowStageLabel,
-  OrgUnitWorkflowStage,
-  getOrgUnitWorkflowStageLabel,
 } from '@/constants/workflow-statuses';
 import {
   getProgramStageFromStatus,
@@ -83,11 +81,6 @@ import {
   computeCohortStepIndex,
 } from '@/constants/cohorts';
 import {
-  OrgUnitStatus,
-  getOrgUnitStageFromStatus,
-  computeOrgUnitStepIndex,
-} from '@/constants/org-units';
-import {
   WORKFLOW_STATUS_OPTIONS,
   WORKFLOW_STATUS_VALUES,
   WorkflowStatus,
@@ -97,7 +90,7 @@ import {
 } from '@/constants/workflow-statuses';
 import { useSession } from 'next-auth/react';
 
-type ResourceType = 'program' | 'major' | 'course' | 'cohort' | 'org_unit';
+type ResourceType = 'program' | 'major' | 'course' | 'cohort';
 
 interface ReviewRow {
   id: string;
@@ -187,23 +180,6 @@ const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
       })),
     detailPath: (id) => `/tms/cohorts/${id}`,
   },
-  org_unit: {
-    label: 'Đơn vị',
-    fetchUrl: '/api/org/units?limit=200',
-    statuses: WORKFLOW_STATUS_VALUES,
-    getStatusLabel: (status) => getWorkflowStatusLabel(status),
-    getStatusColor: (status) => getWorkflowStatusColor(status),
-    mapItems: (items) =>
-      items.map((item: any) => ({
-        id: String(item.id),
-        code: item.code ?? '—',
-        name: item.name ?? 'Không xác định',
-        status: normalizeWorkflowStatusFromResource('org_unit', item.status ?? OrgUnitStatus.DRAFT),
-        owner: item.parent?.name ?? '',
-        updatedAt: item.updated_at ?? item.updatedAt ?? '',
-      })),
-    detailPath: (id) => `/org/unit/${id}`,
-  },
 };
 
 const emptyRows: Record<ResourceType, ReviewRow[]> = {
@@ -211,7 +187,6 @@ const emptyRows: Record<ResourceType, ReviewRow[]> = {
   major: [],
   course: [],
   cohort: [],
-  org_unit: [],
 };
 
 const emptyLoaded: Record<ResourceType, boolean> = {
@@ -219,7 +194,6 @@ const emptyLoaded: Record<ResourceType, boolean> = {
   major: false,
   course: false,
   cohort: false,
-  org_unit: false,
 };
 
 // Workflow stages for each resource type
@@ -249,13 +223,6 @@ const COHORT_PROCESS_STAGES = [
   { stage: CohortWorkflowStage.REVIEWING, label: 'Khoa gửi PĐT xem xét', Icon: SchoolIcon },
   { stage: CohortWorkflowStage.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
   { stage: CohortWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
-];
-
-const ORG_UNIT_PROCESS_STAGES = [
-  { stage: OrgUnitWorkflowStage.DRAFT, label: 'Soạn thảo', Icon: DescriptionIcon },
-  { stage: OrgUnitWorkflowStage.REVIEWING, label: 'Đang xem xét', Icon: SchoolIcon },
-  { stage: OrgUnitWorkflowStage.APPROVED, label: 'Đã phê duyệt', Icon: CheckCircleIcon },
-  { stage: OrgUnitWorkflowStage.PUBLISHED, label: 'Đã kích hoạt', Icon: RocketLaunchIcon },
 ];
 
 interface ApprovalHistoryEntry {
@@ -324,12 +291,6 @@ export default function TmsReviewHub(): JSX.Element {
           throw new Error(result?.error || 'Không thể tải dữ liệu');
         }
         items = result?.cohorts || result?.data?.cohorts || [];
-      } else if (type === 'org_unit') {
-        // Org units API returns { items: [...], pagination: {...} }
-        if (!response.ok || !result?.success) {
-          throw new Error(result?.error || 'Không thể tải dữ liệu');
-        }
-        items = extractItems(result);
       } else {
         // Programs/Majors/Courses return { success: true, data: [...] }
         if (!response.ok || !result?.success) {
@@ -414,7 +375,6 @@ export default function TmsReviewHub(): JSX.Element {
     if (resourceType === 'major') return MAJOR_PROCESS_STAGES;
     if (resourceType === 'course') return COURSE_PROCESS_STAGES;
     if (resourceType === 'cohort') return COHORT_PROCESS_STAGES;
-    if (resourceType === 'org_unit') return ORG_UNIT_PROCESS_STAGES;
     return [];
   };
 
@@ -462,10 +422,6 @@ export default function TmsReviewHub(): JSX.Element {
       const stage = getCohortStageFromStatus(status);
       setProcessIndex(computeCohortStepIndex(status));
       setFocusedStage(stage);
-    } else if (resourceType === 'org_unit') {
-      const stage = getOrgUnitStageFromStatus(status as OrgUnitStatus);
-      setProcessIndex(computeOrgUnitStepIndex(status as OrgUnitStatus));
-      setFocusedStage(stage);
     }
   };
 
@@ -490,9 +446,7 @@ export default function TmsReviewHub(): JSX.Element {
         ? `/api/tms/majors/${row.id}`
         : resourceType === 'course'
         ? `/api/tms/courses/${row.id}`
-        : resourceType === 'cohort'
-        ? `/api/cohorts/${row.id}`
-        : `/api/org/units/${row.id}`;
+        : `/api/cohorts/${row.id}`;
       
       const response = await fetch(apiPath);
       const result = await response.json();
@@ -502,12 +456,6 @@ export default function TmsReviewHub(): JSX.Element {
       if (resourceType === 'cohort') {
         // Cohorts API returns { cohort: {...}, stats: {...} }
         detailData = result?.cohort || result?.data?.cohort || result?.data;
-      } else if (resourceType === 'org_unit') {
-        // Org units API returns { success: true, data: {...} }
-        if (!response.ok || !result?.success || !result?.data) {
-          throw new Error(result?.error || 'Không thể tải chi tiết');
-        }
-        detailData = result.data?.data || result.data;
       } else {
         // Programs/Majors/Courses return { success: true, data: {...} }
         if (!response.ok || !result?.success || !result?.data) {
@@ -606,9 +554,7 @@ export default function TmsReviewHub(): JSX.Element {
         ? `/api/tms/majors/${pendingAction.row.id}`
         : resourceType === 'course'
         ? `/api/tms/courses/${pendingAction.row.id}`
-        : resourceType === 'cohort'
-        ? `/api/cohorts/${pendingAction.row.id}`
-        : `/api/org/units/${pendingAction.row.id}`;
+        : `/api/cohorts/${pendingAction.row.id}`;
       
       const method = resourceType === 'program' ? 'PATCH' : 'PUT';
       const response = await fetch(apiPath, {
@@ -629,11 +575,6 @@ export default function TmsReviewHub(): JSX.Element {
       if (resourceType === 'cohort') {
         // Cohorts API returns { cohort: {...} } directly
         if (!response.ok || !result?.cohort) {
-          throw new Error(result?.error || 'Thao tác không thành công');
-        }
-      } else if (resourceType === 'org_unit') {
-        // Org units API returns { success: true, data: {...} }
-        if (!response.ok || !result?.success) {
           throw new Error(result?.error || 'Thao tác không thành công');
         }
       } else {
@@ -724,18 +665,15 @@ export default function TmsReviewHub(): JSX.Element {
     const approvePerm = resourceType === 'program' ? 'tms.program.approve' 
       : resourceType === 'major' ? 'tms.major.approve'
       : resourceType === 'course' ? 'tms.course.approve'
-      : resourceType === 'cohort' ? 'tms.cohort.approve'
-      : 'org_unit.unit.approve';
+      : 'tms.cohort.approve';
     const updatePerm = resourceType === 'program' ? 'tms.program.update'
       : resourceType === 'major' ? 'tms.major.update'
       : resourceType === 'course' ? 'tms.course.update'
-      : resourceType === 'cohort' ? 'tms.cohort.update'
-      : 'org_unit.unit.update';
+      : 'tms.cohort.update';
     const publishPerm = resourceType === 'program' ? 'tms.program.publish'
       : resourceType === 'major' ? 'tms.major.publish'
       : resourceType === 'course' ? 'tms.course.publish'
-      : resourceType === 'cohort' ? 'tms.cohort.publish'
-      : 'org_unit.unit.activate';
+      : 'tms.cohort.publish';
 
     const workflowStatus = row.status;
 
@@ -843,9 +781,6 @@ export default function TmsReviewHub(): JSX.Element {
     if (resourceType === 'cohort') {
       return getCohortWorkflowStageLabel(focusedStage as CohortWorkflowStage);
     }
-    if (resourceType === 'org_unit') {
-      return getOrgUnitWorkflowStageLabel(focusedStage as OrgUnitWorkflowStage);
-    }
     return focusedStage;
   };
 
@@ -871,7 +806,7 @@ export default function TmsReviewHub(): JSX.Element {
             Trung tâm phê duyệt TMS
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Tổng hợp các yêu cầu phê duyệt chương trình, ngành, học phần, khóa học và đơn vị trong một giao diện.
+            Tổng hợp các yêu cầu phê duyệt chương trình, ngành, học phần và khóa học trong một giao diện.
           </Typography>
         </Box>
 
@@ -964,7 +899,6 @@ export default function TmsReviewHub(): JSX.Element {
                   <TableCell sx={{ width: 120 }}>Loại</TableCell>
                   <TableCell sx={{ width: 120 }}>Mã</TableCell>
                   <TableCell>Tên</TableCell>
-                  <TableCell sx={{ width: 200 }}>Đơn vị</TableCell>
                   <TableCell sx={{ width: 140 }}>Trạng thái</TableCell>
                   <TableCell sx={{ width: 140 }}>Cập nhật</TableCell>
                   <TableCell sx={{ width: 80 }} align="center">
@@ -975,7 +909,7 @@ export default function TmsReviewHub(): JSX.Element {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                       Đang tải dữ liệu...
                     </TableCell>
                   </TableRow>
@@ -983,7 +917,7 @@ export default function TmsReviewHub(): JSX.Element {
 
                 {!loading && filteredRows.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                    <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                       Không có bản ghi nào phù hợp.
                     </TableCell>
                   </TableRow>
@@ -1000,7 +934,6 @@ export default function TmsReviewHub(): JSX.Element {
                       <TableCell>{currentConfig.label}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{row.code}</TableCell>
                       <TableCell>{row.name}</TableCell>
-                      <TableCell>{row.owner || '—'}</TableCell>
                       <TableCell>
                         <Chip
                           label={resolveStatusLabel(row.status)}
@@ -1069,7 +1002,7 @@ export default function TmsReviewHub(): JSX.Element {
                     Mã: <strong>{detail.code ?? '—'}</strong>
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Cập nhật: <strong>{resourceType === 'program' ? formatProgramDateTime(detail.updated_at ?? detail.updatedAt) : resourceType === 'major' ? formatMajorDateTime(detail.updated_at ?? detail.updatedAt) : formatDate(detail.updated_at ?? detail.updatedAt)}</strong>
+                    Cập nhật: <strong>{getUpdatedAtDisplay(detail)}</strong>
                   </Typography>
                 </Stack>
               </Stack>

@@ -421,7 +421,7 @@ model Course {
   status                    String                     @default("DRAFT") @db.VarChar(32)
   theory_credit             Decimal?                   @db.Decimal(4, 1)
   practical_credit          Decimal?                   @db.Decimal(4, 1)
-  contents                  CourseContent[]
+  is_active                 Boolean                    @default(true)
   prerequisites             CoursePrerequisites[]      @relation("CoursePrerequisites")
   prerequisite_for          CoursePrerequisites[]      @relation("CoursePrerequisitesFor")
   CourseVersion             CourseVersion[]
@@ -1066,14 +1066,33 @@ model CoursePrerequisites {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model CourseSyllabus {
-  id                BigInt         @id @default(autoincrement())
-  course_version_id BigInt?
-  syllabus_data     Json?          @db.JsonB
-  created_by        BigInt?
-  created_at        DateTime?      @default(now()) @db.Timestamptz(6)
-  course_versions   CourseVersion? @relation(fields: [course_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                BigInt    @id @default(autoincrement())
+  course_version_id BigInt
+  version_no         Int       @default(1)
+  status             String    @default("draft") @db.VarChar(20)
+  language           String    @default("vi") @db.VarChar(10)
+  effective_from     DateTime? @db.Date
+  effective_to       DateTime? @db.Date
+  is_current         Boolean   @default(false)
+  basic_info         Json?     @db.JsonB
+  learning_outcomes  Json?     @db.JsonB
+  weekly_plan        Json?     @db.JsonB
+  assessment_plan   Json?     @db.JsonB
+  teaching_methods   Json?     @db.JsonB
+  materials          Json?     @db.JsonB
+  policies           Json?     @db.JsonB
+  rubrics            Json?     @db.JsonB
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  created_by         BigInt?
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+  updated_by         BigInt?
+  course_versions    CourseVersion @relation(fields: [course_version_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([course_version_id], map: "idx_course_syllabus_course_version_id")
+  @@index([status], map: "idx_course_syllabus_status")
+  @@index([is_current], map: "idx_course_syllabus_is_current")
+  @@index([course_version_id, status], map: "idx_course_syllabus_course_version_status")
+  @@index([effective_from, effective_to], map: "idx_course_syllabus_effective_dates")
   @@map("course_syllabus")
   @@schema("academic")
 }
@@ -1161,23 +1180,6 @@ model StudentAcademicProgress {
   @@index([student_id], map: "idx_student_progress_student_id")
   @@map("student_academic_progress")
   @@schema("student")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model CourseContent {
-  id                  BigInt    @id @default(autoincrement())
-  course_id           BigInt
-  prerequisites       String?
-  learning_objectives Json?
-  assessment_methods  Json?
-  passing_grade       Decimal?  @default(5.0) @db.Decimal(2, 1)
-  created_at          DateTime? @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
-  courses             Course    @relation(fields: [course_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_course_contents_course_id")
-
-  @@index([course_id], map: "idx_course_contents_course_id")
-  @@map("course_contents")
-  @@schema("academic")
 }
 
 model WorkflowDefinition {

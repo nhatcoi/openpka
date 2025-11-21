@@ -290,12 +290,14 @@ export function computeProgramStepIndex(status: string): number {
   return index >= 0 ? index : 0;
 }
 
-export function formatProgramDateTime(value?: string | null): string {
+export function formatProgramDateTime(value?: string | Date | null): string {
   if (!value) return '—';
   try {
-    return new Date(value).toLocaleString('vi-VN');
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('vi-VN');
   } catch {
-    return value;
+    return typeof value === 'string' ? value : '—';
   }
 }
 
