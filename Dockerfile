@@ -1,18 +1,28 @@
 # 1) Tải node và pack
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package*.json ./
-RUN npm ci
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile
 
 # 2) Build
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-lock.yaml* ./pnpm-lock.yaml*
 COPY . .
 
 # Generate Prisma client and build Next.js
-RUN npm run db:generate
-RUN npm run build
+RUN pnpm run db:generate
+RUN pnpm run build
 
 # 3) Runtime (production)
 FROM node:20-alpine AS runner
@@ -23,8 +33,12 @@ ENV NODE_ENV=production
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Install pnpm for runtime
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # App files for runtime
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml* ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
@@ -36,4 +50,4 @@ ENV PORT=3000
 
 # Start (via entrypoint to run migrations first)
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]
