@@ -23,6 +23,7 @@
 # misc
 .DS_Store
 *.pem
+.idea
 
 # lockfiles - use pnpm only (pnpm-lock.yaml should be committed)
 bun.lock
