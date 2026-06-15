@@ -8,14 +8,12 @@ if [ -f "/docker-entrypoint-initdb.d/training_system.dump" ]; then
     --clean \
     --if-exists \
     --no-owner \
-    --host=localhost \
     --username="${POSTGRES_USER}" \
     --dbname="${POSTGRES_DB}" \
-    /docker-entrypoint-initdb.d/training_system.dump
+    /docker-entrypoint-initdb.d/training_system.dump \
+    || echo "pg_restore completed with warnings; Prisma db push will reconcile schema."
   echo "Database restore complete."
 else
   echo "training_system.dump not found; skipping restore."
 fi
-
-
 

@@ -1,13 +1,63 @@
 services:
+  db:
+    image: postgres:17-alpine
+    container_name: openacademix_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-openacademix}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-openacademix_password}
+      POSTGRES_DB: ${POSTGRES_DB:-openacademix}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/initdb/restore.sh:/docker-entrypoint-initdb.d/10-restore.sh:ro
+      - ./backup/training_system.dump:/docker-entrypoint-initdb.d/training_system.dump:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  prisma-init:
+    build: .
+    container_name: openacademix_prisma_init
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-openacademix}:${POSTGRES_PASSWORD:-openacademix_password}@db:5432/${POSTGRES_DB:-openacademix}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo 'Preparing database objects for Prisma db push...'
+        npx prisma db execute --schema=prisma/schema.prisma --stdin <<'SQL'
+        DROP VIEW IF EXISTS auth.user_permission_summary, finance.program_min_tuition, hr.employee_activity_summary, hr.recent_employee_changes CASCADE;
+        DELETE FROM academic.program_course_map pcm WHERE NOT EXISTS (SELECT 1 FROM academic.programs p WHERE p.id = pcm.program_id);
+        SQL
+        echo 'Applying Prisma schema with db push...'
+        npx prisma db push --schema=prisma/schema.prisma --skip-generate --accept-data-loss
+        echo 'Prisma schema is ready.'
+    restart: "no"
+
   app:
     build: .
     container_name: openacademix_app
     environment:
       NODE_ENV: production
-      DATABASE_URL: 
+      DATABASE_URL: postgresql://${POSTGRES_USER:-openacademix}:${POSTGRES_PASSWORD:-openacademix_password}@db:5432/${POSTGRES_DB:-openacademix}?schema=public
       NEXTAUTH_URL: http://localhost:3000
-      NEXTAUTH_SECRET: your-secret-key-here
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-in-production}
       SKIP_MIGRATIONS: "true"
     ports:
       - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      prisma-init:
+        condition: service_completed_successfully
     restart: unless-stopped
+
+volumes:
+  postgres_data:
