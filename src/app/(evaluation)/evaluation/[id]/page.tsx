@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
+import { useEvaluation, useSubmitEvaluation } from '@/features/hr';
 import {
     Box,
     Typography,
@@ -44,80 +45,38 @@ export default function EvaluationFormPage() {
     const params = useParams();
     const evaluationId = params.id as string;
 
-    const [evaluation, setEvaluation] = useState<EvaluationData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Form data
-  const [formData, setFormData] = useState({
-    score: 0,
-    comments: ''
-  });
+    const token = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('token') || undefined : undefined;
+    const { data: evaluation, isLoading: loading, error: queryError } = useEvaluation(evaluationId, token);
+    const { mutateAsync: submitEvaluation, isPending: submitting } = useSubmitEvaluation();
 
-    useEffect(() => {
-        if (evaluationId) {
-            fetchEvaluation();
-        }
-    }, [evaluationId]);
+    const [formData, setFormData] = useState({
+      score: 0,
+      comments: ''
+    });
 
-    const fetchEvaluation = async () => {
-        try {
-            setLoading(true);
-            const url = new URL(`/api/hr/evaluation/${evaluationId}`, window.location.origin);
-            url.searchParams.set('token', new URLSearchParams(window.location.search).get('token') || '');
+    const error = submitError || (queryError ? (queryError as Error).message : null);
 
-            const response = await fetch(url.toString());
-            if (!response.ok) {
-                throw new Error('Không thể tải thông tin đánh giá');
-            }
-
-            const data = await response.json();
-            setEvaluation(data.data);
-        } catch (error) {
-            console.error('Error fetching evaluation:', error);
-            setError('Không thể tải thông tin đánh giá');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-  const handleSubmit = async () => {
-    if (formData.score === 0) {
-      setError('Vui lòng chọn điểm đánh giá');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      setError(null);
-
-      const response = await fetch('/api/hr/evaluation-submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          evaluationId,
-          score: formData.score,
-          comments: formData.comments
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Không thể gửi đánh giá');
+    const handleSubmit = async () => {
+      if (formData.score === 0) {
+        setSubmitError('Vui lòng chọn điểm đánh giá');
+        return;
       }
 
-      setSuccess(true);
-    } catch (error) {
-      console.error('Error submitting evaluation:', error);
-      setError(error instanceof Error ? error.message : 'Không thể gửi đánh giá');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      try {
+        setSubmitError(null);
+        await submitEvaluation({
+          evaluationId,
+          score: formData.score,
+          comments: formData.comments,
+        });
+        setSuccess(true);
+      } catch (err: any) {
+        setSubmitError(err.message || 'Không thể gửi đánh giá');
+      }
+    };
 
     if (loading) {
         return (

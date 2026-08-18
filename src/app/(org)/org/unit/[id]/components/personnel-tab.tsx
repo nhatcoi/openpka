@@ -45,7 +45,7 @@ import {
   AssignmentInd as AssignmentIndIcon,
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/use-org-units';
-import { useEmployeeSearch } from '@/features/hr/hooks/use-employee-search';
+import { useEmployeeSearch, useJobPositions } from '@/features/hr';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface PersonnelTabProps {
@@ -103,7 +103,7 @@ interface AssignedEmployee {
 export default function PersonnelTab({ unit }: PersonnelTabProps) {
   // Assignment management state
   const [assignments, setAssignments] = useState<OrgAssignment[]>([]);
-  const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+  const { data: jobPositions = [] } = useJobPositions();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
@@ -127,10 +127,9 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
     allocation: '1.00',
   });
 
-  // Load assignments and job positions
+  // Load assignments
   useEffect(() => {
     loadAssignments();
-    loadJobPositions();
   }, [unit.id]);
 
   const loadAssignments = async () => {
@@ -149,19 +148,6 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
       setError(err.message || 'Failed to load assignments');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadJobPositions = async () => {
-    try {
-      const response = await fetch('/api/hr/job-positions');
-      const result = await response.json();
-      
-      if (result.success) {
-        setJobPositions(result.data);
-      }
-    } catch (err: any) {
-      console.error('Failed to load job positions:', err);
     }
   };
 
@@ -803,9 +789,9 @@ export default function PersonnelTab({ unit }: PersonnelTabProps) {
             {/* Job Position Selection */}
             <Autocomplete
               options={jobPositions}
-              getOptionLabel={(option) => `${option.title} (${option.code})`}
-              value={jobPositions.find(pos => pos.id === formData.job_position_id) || null}
-              onChange={(event, newValue) => {
+              getOptionLabel={(option: any) => `${option.title} (${option.code})`}
+              value={jobPositions.find((pos: any) => pos.id === formData.job_position_id) || null}
+              onChange={(event, newValue: any) => {
                 setFormData(prev => ({ ...prev, job_position_id: newValue?.id || '' }));
               }}
               renderInput={(params) => (
