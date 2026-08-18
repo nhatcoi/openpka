@@ -4,53 +4,15 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Box, Typography, Button, CircularProgress, Alert, Grid, Card, CardContent, Chip, Breadcrumbs, Link } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, School as SchoolIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
-
-interface OrgUnit {
-    id: string;
-    name: string;
-    code: string;
-    type: string;
-    status: string;
-    parent_id: string | null;
-    children: OrgUnit[];
-    assignments: Assignment[];
-}
-
-interface Assignment {
-    id: string;
-    employee: Employee;
-    org_unit: OrgUnit;
-    position?: {
-        id: string;
-        title: string;
-        code: string;
-    } | null;
-}
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    user: {
-        id: string;
-        username: string;
-        full_name: string;
-        email: string | null;
-    } | null;
-    position?: {
-        id: string;
-        title: string;
-        code: string;
-    } | null;
-}
+import { OrgUnit } from '@/features/org';
+import { Employee, Assignment } from '@/features/hr';
 
 interface OrgUnitStats {
     id: string;
     name: string;
-    code: string;
-    type: string;
-    status: string;
+    code?: string | null;
+    type?: string | null;
+    status?: string | null;
     level: number;
     employees: Employee[];
     totalEmployees: number;

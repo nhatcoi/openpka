@@ -1,6 +1,6 @@
 export interface EmployeeSummary {
   id: string;
-  user_id: string;
+  user_id?: string | null;
   employee_no?: string | null;
   employment_type: string;
   status: string;
@@ -16,6 +16,20 @@ export interface EmployeeSummary {
     phone?: string | null;
     avatar_url?: string | null;
   } | null;
+  user?: {
+    id: string;
+    username?: string;
+    full_name: string;
+    email: string;
+    phone?: string | null;
+    avatar_url?: string | null;
+  } | null;
+  position?: {
+    id: string;
+    title: string;
+    code?: string;
+  } | null;
+  assignments?: any[];
   OrgAssignment?: Array<{
     id: string;
     employee_id: string;
@@ -55,6 +69,8 @@ export interface EmployeeSummary {
   }>;
 }
 
+export type Employee = EmployeeSummary;
+
 export interface EmployeeFilterParams {
   search?: string;
   status?: string;
@@ -89,6 +105,17 @@ export interface EvaluationPeriodItem {
   _count: {
     id: number;
   };
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  full_name: string;
+  phone?: string | null;
+  address?: string | null;
+  dob?: string | null;
+  gender?: string | null;
 }
 
 export interface UserProfileData {

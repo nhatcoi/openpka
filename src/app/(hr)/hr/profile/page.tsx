@@ -9,7 +9,6 @@ import {
     Typography,
     TextField,
     Button,
-    Grid,
     Alert,
     CircularProgress,
     FormControl,
@@ -19,19 +18,7 @@ import {
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { HR_ROUTES } from '@/constants/routes';
-
-interface UserProfile {
-    id: string;
-    username: string;
-    email: string;
-    full_name: string;
-    phone: string;
-    address: string;
-    dob: string;
-    gender: string;
-}
-
-import { useHrMe } from '@/features/hr';
+import { useHrMe, UserProfile } from '@/features/hr';
 
 export default function ProfilePage() {
     const { data: session, status } = useSession();

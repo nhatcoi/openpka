@@ -10,76 +10,19 @@ import {
     Grid,
     Card,
     CardContent,
-    Chip,
     Alert,
     CircularProgress,
-    Accordion,
-    AccordionSummary,
-    AccordionDetails,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemAvatar,
-    Avatar,
     Divider,
     Button,
 } from '@mui/material';
 import {
-    ExpandMore as ExpandMoreIcon,
     School as SchoolIcon,
     People as PeopleIcon,
     Work as WorkIcon,
     Business as BusinessIcon,
 } from '@mui/icons-material';
-import { API_ROUTES, HR_ROUTES } from '@/constants/routes';
+import { HR_ROUTES } from '@/constants/routes';
 import { useHrStats } from '@/features/hr';
-
-interface OrgUnit {
-    id: string;
-    name: string;
-    code: string | null;
-    parent_id: string | null;
-    type: string;
-    status: string;
-    level?: number;
-    is_active?: boolean;
-    children?: OrgUnit[];
-}
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    user: {
-        id: string;
-        username: string;
-        full_name: string;
-        email: string | null;
-    } | null;
-}
-
-interface Assignment {
-    id: string;
-    employee_id: string;
-    org_unit_id: string;
-    position_id: string | null;
-    is_primary: boolean;
-    assignment_type: string;
-    allocation: string;
-    start_date: string;
-    end_date: string | null;
-    employee: Employee;
-    org_unit: OrgUnit;
-}
-
-interface OrgUnitStats {
-    orgUnit: OrgUnit;
-    totalEmployees: number;
-    activeEmployees: number;
-    employees: Employee[];
-    children: OrgUnitStats[];
-}
 
 export default function HRDashboardPage() {
     const { data: session, status } = useSession();

@@ -5,16 +5,21 @@
 export interface OrgUnit {
   id: string;
   parent_id: string | null;
-  type: string | null;
-  code: string;
+  type?: string | null;
+  code?: string | null;
   name: string;
-  created_at: string;
-  updated_at: string;
-  description: string | null;
-  status: string | null;
-  effective_from: string | null;
-  effective_to: string | null;
+  created_at?: string;
+  updated_at?: string;
+  description?: string | null;
+  status?: string | null;
+  effective_from?: string | null;
+  effective_to?: string | null;
   parent?: OrgUnit | null;
+  level?: number | null;
+  is_active?: boolean;
+  children?: OrgUnit[];
+  assignments?: any[];
+  OrgAssignment?: any[];
 }
 
 export interface OrgUnitHistory {

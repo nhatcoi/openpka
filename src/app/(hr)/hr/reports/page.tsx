@@ -33,43 +33,8 @@ import {
     Download as DownloadIcon,
 } from '@mui/icons-material';
 import { API_ROUTES } from '@/constants/routes';
-
-interface OrgUnit {
-    id: string;
-    name: string;
-    code: string | null;
-    parent_id: string | null;
-    level?: number | null;
-    type?: string | null;
-    status?: string | null;
-}
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    user: {
-        id: string;
-        username: string;
-        full_name: string;
-        email: string | null;
-    } | null;
-}
-
-interface Assignment {
-    id: string;
-    employee_id: string;
-    org_unit_id: string;
-    position_id: string | null;
-    is_primary: boolean;
-    assignment_type: string;
-    allocation: string;
-    start_date: string;
-    end_date: string | null;
-    employee?: Employee | null;
-    org_unit?: OrgUnit | null;
-}
+import { OrgUnit } from '@/features/org';
+import { Employee, Assignment } from '@/features/hr';
 
 interface ReportData {
     orgUnit: OrgUnit;
