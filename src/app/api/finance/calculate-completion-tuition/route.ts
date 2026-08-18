@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { authOptions } from '@/lib/auth/auth';
-import { calculateMinTuition, formatDecimal } from '@/lib/finance/tuition';
+import { calculateMinTuition, formatDecimal } from '@/features/finance/utils/tuition';
 
 const querySchema = z.object({
   studentId: z.coerce.bigint(),

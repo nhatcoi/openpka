@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import { db } from '@/lib/db'
-import { academicYearRegex, formatDecimal } from '@/lib/finance/tuition'
+import { academicYearRegex, formatDecimal } from '@/features/finance/utils/tuition'
 
 const querySchema = z.object({
   year: z

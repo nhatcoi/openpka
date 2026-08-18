@@ -1,7 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { withErrorHandling, createErrorResponse } from '@/lib/api/api-handler';
-import { AcademicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { AcademicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { db } from '@/lib/db';
 
 const engine = new AcademicWorkflowEngine();

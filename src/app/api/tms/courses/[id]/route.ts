@@ -8,7 +8,7 @@ import {
 } from '@/constants/workflow-statuses';
 import { CourseType } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
-import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { academicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 const getCourseById = async (id: string, request: Request) => {

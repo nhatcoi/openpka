@@ -8,7 +8,7 @@ import {getToken} from 'next-auth/jwt';
 import {
     formatEmploymentTypeForClient,
     normalizeEmploymentType,
-} from '@/lib/hr/employment-type';
+} from '@/features/hr/utils/employment-type';
 
 export async function GET(
     request: NextRequest,

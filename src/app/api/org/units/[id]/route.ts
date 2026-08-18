@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { requirePermission, createForbiddenResponse } from '@/lib/auth/api-permissions';
-import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { academicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { OrgUnitStatus } from '@/constants/org-units';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
@@ -153,7 +153,7 @@ export const PUT = withIdAndBody(
 
       // Đồng bộ OrgUnitRelation nếu parent_id được cập nhật
       if (parent_id !== undefined) {
-        const { syncRelationFromParentId } = await import('@/lib/org/unit-relation-sync');
+        const { syncRelationFromParentId } = await import('@/features/org/services/unit-relation-sync');
         await syncRelationFromParentId(unitId, updateData.parent_id ?? null, tx);
       }
 

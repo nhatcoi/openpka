@@ -9,7 +9,7 @@ import { logEmployeeActivity, getActorInfo } from '@/lib/audit-logger';
 import {
   formatEmploymentTypeForClient,
   normalizeEmploymentType,
-} from '@/lib/hr/employment-type';
+} from '@/features/hr/utils/employment-type';
 
 export async function GET() {
   try {

@@ -6,7 +6,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { MAJOR_PERMISSIONS } from '@/constants/majors';
-import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { academicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 
 // Simplified update schema aligned with current DB columns

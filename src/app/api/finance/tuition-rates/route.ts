@@ -5,7 +5,7 @@ import { Prisma, TuitionCreditRate } from '@prisma/client'
 
 import { authOptions } from '@/lib/auth/auth'
 import { db } from '@/lib/db'
-import { academicYearRegex, calculateMinTuition, formatDecimal } from '@/lib/finance/tuition'
+import { academicYearRegex, calculateMinTuition, formatDecimal } from '@/features/finance/utils/tuition'
 
 const ratePayloadSchema = z.object({
   majorId: z.coerce.bigint().optional(),

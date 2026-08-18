@@ -13,7 +13,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
 import { requirePermission } from '@/lib/auth/api-permissions';
 import { selectProgramDetail } from '@/lib/api/selects/program';
-import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { academicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 
 const CONTEXT_GET = 'get program';

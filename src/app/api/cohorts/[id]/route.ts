@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth/auth';
-import { academicWorkflowEngine } from '@/lib/academic/workflow-engine';
+import { academicWorkflowEngine } from '@/features/academic/services/workflow-engine.service';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { setHistoryContext, getRequestContext, getActorInfo } from '@/lib/db-history-context';
 

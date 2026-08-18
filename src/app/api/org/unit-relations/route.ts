@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { withErrorHandling, withBody } from '@/lib/api/api-handler';
 import { db } from '@/lib/db';
 import { Prisma } from '@prisma/client';
-import { syncParentIdFromRelations } from '@/lib/org/unit-relation-sync';
+import { syncParentIdFromRelations } from '@/features/org/services/unit-relation-sync';
 
 // GET /api/org/unit-relations - Get all org unit relations with pagination and filters
 export const GET = withErrorHandling(

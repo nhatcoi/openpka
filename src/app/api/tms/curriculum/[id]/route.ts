@@ -4,7 +4,7 @@ import { selectProgramDetail } from '@/lib/api/selects/program';
 import { ProgramPriority } from '@/constants/programs';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { CurriculumStatus, normalizeCurriculumStatus } from '@/constants/curriculum';
-import { parseCurriculumStructure } from '@/lib/curriculum/structure';
+import { parseCurriculumStructure } from '@/features/tms/utils/structure';
 
 const CONTEXT = 'get curriculum detail';
 

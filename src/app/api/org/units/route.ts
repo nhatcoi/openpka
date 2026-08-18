@@ -200,7 +200,7 @@ export const POST = withBody(
 
       // Đồng bộ OrgUnitRelation nếu có parent_id
       if (parentIdBigInt) {
-        const { syncRelationFromParentId } = await import('@/lib/org/unit-relation-sync');
+        const { syncRelationFromParentId } = await import('@/features/org/services/unit-relation-sync');
         await syncRelationFromParentId(unit.id, parentIdBigInt, tx);
       }
 
