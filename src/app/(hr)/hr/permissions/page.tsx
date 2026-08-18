@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import { useRouter } from 'next/navigation';
 import {
     Box,

@@ -65,7 +65,7 @@ import {
   getDocumentIcon, 
   getDocumentColor 
 } from '@/lib/cloudinary-client';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 export default function DocumentsPage() {
   const confirmDialog = useConfirmDialog();

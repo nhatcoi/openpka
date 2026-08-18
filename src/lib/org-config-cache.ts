@@ -4,24 +4,24 @@ interface OrgUnitType {
   id: string;
   code: string;
   name: string;
-  description?: string;
-  color: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
+  description?: string | null;
+  color?: string | null;
+  is_active?: boolean | null;
+  sort_order?: number | null;
+  created_at?: Date | string | null;
+  updated_at?: Date | string | null;
 }
 
 interface OrgUnitStatus {
   id: string;
   code: string;
   name: string;
-  description?: string;
-  color: string;
-  is_active: boolean;
-  workflow_step: number;
-  created_at: string;
-  updated_at: string;
+  description?: string | null;
+  color?: string | null;
+  is_active?: boolean | null;
+  workflow_step?: number | null;
+  created_at?: Date | string | null;
+  updated_at?: Date | string | null;
 }
 
 class OrgConfigCache {

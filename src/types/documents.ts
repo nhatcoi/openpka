@@ -16,6 +16,10 @@ export interface Document {
   is_active?: boolean;
   created_at?: Date;
   updated_at?: Date;
+  User?: {
+    full_name?: string | null;
+    email?: string | null;
+  } | null;
 }
 
 export interface CreateDocumentInput {

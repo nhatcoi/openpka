@@ -38,11 +38,15 @@ export interface AcademicHistoryResponse {
   success: boolean;
   data: AcademicHistoryEntry[];
   pagination: AcademicHistoryPagination;
+  error?: string;
+  message?: string;
 }
 
 export interface AcademicHistorySingleResponse {
   success: boolean;
   data: AcademicHistoryEntry;
+  error?: string;
+  message?: string;
 }
 
 export function useAcademicHistory() {

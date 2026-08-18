@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AcademicHistoryFilters } from '@/hooks/use-academic-history';
+import type { AcademicHistoryFilters as AcademicHistoryFiltersType } from '@/hooks/use-academic-history';
 import {
   Button,
   TextField,
@@ -17,14 +17,11 @@ import {
   Stack,
   IconButton,
 } from '@mui/material';
-// import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-// import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-// import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { X } from 'lucide-react';
 
 interface AcademicHistoryFiltersProps {
-  filters: AcademicHistoryFilters;
-  onFiltersChange: (filters: AcademicHistoryFilters) => void;
+  filters: AcademicHistoryFiltersType;
+  onFiltersChange: (filters: AcademicHistoryFiltersType) => void;
 }
 
 const ENTITY_TYPES = [
@@ -52,20 +49,19 @@ export function AcademicHistoryFilters({
   filters,
   onFiltersChange,
 }: AcademicHistoryFiltersProps) {
-  const [localFilters, setLocalFilters] = useState<AcademicHistoryFilters>(filters);
+  const [localFilters, setLocalFilters] = useState<AcademicHistoryFiltersType>(filters);
 
-  const handleFilterChange = (key: keyof AcademicHistoryFilters, value: string) => {
+  const handleFilterChange = (key: keyof AcademicHistoryFiltersType, value: string) => {
     const newFilters = { ...localFilters, [key]: value || undefined };
     setLocalFilters(newFilters);
   };
-
 
   const applyFilters = () => {
     onFiltersChange(localFilters);
   };
 
   const clearFilters = () => {
-    const emptyFilters: AcademicHistoryFilters = {};
+    const emptyFilters: AcademicHistoryFiltersType = {};
     setLocalFilters(emptyFilters);
     onFiltersChange(emptyFilters);
   };

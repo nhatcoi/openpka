@@ -27,7 +27,7 @@ import {
     Visibility as ViewIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/components/hr/HrSearchBar';
+import HrSearchBar from '@/components/hr/hr-search-bar';
 
 // Types
 interface Assignment {

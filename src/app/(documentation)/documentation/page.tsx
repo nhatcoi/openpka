@@ -31,7 +31,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import DocumentViewer from '@/components/documentation/DocumentViewer';
+import DocumentViewer from '@/components/documentation/document-viewer';
 import {
   DocumentationFile,
   DocumentationSection,

@@ -73,7 +73,7 @@ import {
   mapOrgUnitOptions,
   mapCourseResponse,
 } from './course-utils';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface PaginationState {
   page: number;

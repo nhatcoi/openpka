@@ -46,7 +46,7 @@ import {
 } from '@mui/icons-material';
 import { ProgramBlockType, getProgramBlockTypeLabel } from '@/constants/programs';
 import { API_ROUTES } from '@/constants/routes';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 const DEFAULT_PAGE_SIZE = 10;
 

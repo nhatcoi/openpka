@@ -41,6 +41,12 @@ export function usePermissions() {
     hasPermission: (permission: string) => hasPermission(permissions, permission),
     hasAnyPermission: (permissionsList: string[]) => hasAnyPermission(permissions, permissionsList),
     hasAllPermissions: (permissionsList: string[]) => hasAllPermissions(permissions, permissionsList),
+    canReadOrgUnits: () => hasPermission(permissions, 'org_unit.read') || hasPermission(permissions, 'org_unit.unit.view'),
+    canCreateOrgUnits: () => hasPermission(permissions, 'org_unit.create') || hasPermission(permissions, 'org_unit.unit.create'),
+    canUpdateOrgUnits: () => hasPermission(permissions, 'org_unit.update') || hasPermission(permissions, 'org_unit.unit.update'),
+    canDeleteOrgUnits: () => hasPermission(permissions, 'org_unit.delete') || hasPermission(permissions, 'org_unit.unit.delete'),
+    canAdminOrgUnits: () => hasPermission(permissions, 'org_unit.admin') || hasPermission(permissions, 'org_unit.type.admin'),
+    isAdmin: () => hasPermission(permissions, 'admin') || hasPermission(permissions, 'hr.employee.delete'),
   };
 }
 

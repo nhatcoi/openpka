@@ -1,6 +1,7 @@
 import {
   WORKFLOW_STATUS_OPTIONS,
   WorkflowStatus,
+  WorkflowStatus as ProgramStatus,
   getWorkflowStatusColor as getWorkflowStatusColorBase,
   getWorkflowStatusLabel as getWorkflowStatusLabelBase,
   normalizeWorkflowStatusFromResource,
@@ -8,6 +9,8 @@ import {
   PROGRAM_WORKFLOW_STAGES,
   getProgramWorkflowStageLabel,
 } from '@/constants/workflow-statuses';
+
+export { WorkflowStatus as ProgramStatus };
 
 export enum ProgramPriority {
   HIGH = 'HIGH',

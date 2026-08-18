@@ -62,7 +62,7 @@ import {
   getProgramStatusColor,
   getProgramStatusLabel,
 } from '@/constants/programs';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
 import {

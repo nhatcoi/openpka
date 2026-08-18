@@ -46,7 +46,7 @@ import {
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/use-org-units';
 import { useEmployeeSearch } from '@/hooks/use-employee-search';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface PersonnelTabProps {
   unit: OrgUnit;

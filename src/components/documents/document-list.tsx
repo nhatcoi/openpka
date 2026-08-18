@@ -42,7 +42,7 @@ import {
   getDocumentIcon, 
   getDocumentColor 
 } from '@/lib/cloudinary-client';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface DocumentListProps {
   entityType?: string;
@@ -109,7 +109,7 @@ export default function DocumentList({
     }
   };
 
-  const handleContextMenu = (event: React.MouseEvent, document: Document) => {
+  const handleContextMenu = (event: React.MouseEvent<HTMLElement>, document: Document) => {
     event.preventDefault();
     setAnchorEl(event.currentTarget);
     setContextMenuDocument(document);
@@ -151,7 +151,7 @@ export default function DocumentList({
       ) : (
         <Grid container spacing={2}>
           {documents.map((document) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={document.id.toString()}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={document.id.toString()}>
               <Card 
                 sx={{ 
                   height: '100%',
@@ -257,35 +257,35 @@ export default function DocumentList({
           {selectedDocument && (
             <Box>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" gutterBottom>Loại tài liệu:</Typography>
                   <Chip label={selectedDocument.document_type} />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" gutterBottom>Kích thước:</Typography>
                   <Typography variant="body2">
                     {selectedDocument.file_size ? formatFileSize(Number(selectedDocument.file_size)) : 'Unknown'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" gutterBottom>Entity:</Typography>
                   <Typography variant="body2">
                     {selectedDocument.entity_type} - {selectedDocument.entity_id.toString()}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                   <Typography variant="subtitle2" gutterBottom>Upload bởi:</Typography>
                   <Typography variant="body2">
                     {selectedDocument.User?.full_name || selectedDocument.User?.email || 'Unknown'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle2" gutterBottom>Mô tả:</Typography>
                   <Typography variant="body2">
                     {selectedDocument.description || 'Không có mô tả'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                   <Typography variant="subtitle2" gutterBottom>URL:</Typography>
                   <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
                     {selectedDocument.file_url}

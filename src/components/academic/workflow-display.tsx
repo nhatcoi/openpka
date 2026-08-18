@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Typography,
@@ -46,6 +47,7 @@ interface ApprovalRecord {
     id: bigint;
     name: string;
     email: string;
+    role?: string;
   };
 }
 

@@ -35,7 +35,7 @@ import {
   Refresh as RefreshIcon,
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material'
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider'
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider'
 
 type ProgramOption = {
   id: string

@@ -12,7 +12,7 @@ const createEmptyStructure = (raw?: unknown): CurriculumStructure => ({
   raw,
 });
 
-const safeString = (value: unknown, fallback: string): string => {
+const safeString = (value: unknown, fallback = ''): string => {
   if (typeof value === 'string' && value.trim().length > 0) {
     return value.trim();
   }
@@ -82,42 +82,43 @@ const coerceCourses = (rawCourses: unknown, fallbackIdPrefix: string): Curriculu
 const normalizeSemesters = (rawSemesters: unknown): CurriculumSemesterItem[] => {
   if (!Array.isArray(rawSemesters)) return [];
 
-  return rawSemesters
-    .map((item, semIndex) => {
-      if (!item || typeof item !== 'object') return null;
-      const record = item as Record<string, unknown>;
+  const items: CurriculumSemesterItem[] = [];
 
-      const idSeed = record.id ?? record.code ?? record.name ?? record.semester ?? semIndex + 1;
-      const id = safeString(idSeed, `semester-${semIndex + 1}`);
-      const name = safeString(
-        record.name ?? record.title ?? record.semesterLabel ?? record.semester_name,
-        `Học kỳ ${semIndex + 1}`,
-      );
-      const orderValue = record.order ?? record.display_order ?? record.semester ?? semIndex + 1;
-      const order = toNumber(orderValue, semIndex + 1);
-      const note = typeof record.note === 'string' ? record.note : typeof record.description === 'string' ? record.description : null;
+  rawSemesters.forEach((item, semIndex) => {
+    if (!item || typeof item !== 'object') return;
+    const record = item as Record<string, unknown>;
 
-      const courses = coerceCourses(record.courses ?? record.subjects ?? record.modules, id);
-      const totalCredits = courses.reduce((sum, course) => sum + (course.credits || 0), 0);
-      const requiredCredits = courses
-        .filter((course) => course.required)
-        .reduce((sum, course) => sum + (course.credits || 0), 0);
-      const optionalCredits = totalCredits - requiredCredits;
+    const idSeed = record.id ?? record.code ?? record.name ?? record.semester ?? semIndex + 1;
+    const id = safeString(idSeed, `semester-${semIndex + 1}`);
+    const name = safeString(
+      record.name ?? record.title ?? record.semesterLabel ?? record.semester_name,
+      `Học kỳ ${semIndex + 1}`,
+    );
+    const orderValue = record.order ?? record.display_order ?? record.semester ?? semIndex + 1;
+    const order = toNumber(orderValue, semIndex + 1);
+    const note = typeof record.note === 'string' ? record.note : typeof record.description === 'string' ? record.description : null;
 
-      return {
-        id,
-        name,
-        order,
-        note,
-        courses,
-        totalCredits,
-        requiredCredits,
-        optionalCredits,
-        courseCount: courses.length,
-      } satisfies CurriculumSemesterItem;
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.order - b.order) as CurriculumSemesterItem[];
+    const courses = coerceCourses(record.courses ?? record.subjects ?? record.modules, id);
+    const totalCredits = courses.reduce((sum, course) => sum + (course.credits || 0), 0);
+    const requiredCredits = courses
+      .filter((course) => course.required)
+      .reduce((sum, course) => sum + (course.credits || 0), 0);
+    const optionalCredits = totalCredits - requiredCredits;
+
+    items.push({
+      id,
+      name,
+      order,
+      note,
+      courses,
+      totalCredits,
+      requiredCredits,
+      optionalCredits,
+      courseCount: courses.length,
+    });
+  });
+
+  return items.sort((a, b) => a.order - b.order);
 };
 
 const summarizeSemesters = (semesters: CurriculumSemesterItem[]) => {

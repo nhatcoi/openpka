@@ -244,8 +244,8 @@ export function handleApiError(error: unknown, context: string): NextResponse<Ap
 
 // error middleware
 export function withErrorHandling<T>(
-  handler: (request: NextRequest, context?: { params?: Promise<{ id: string }> }) => Promise<T>,
-  context: string
+  handler: (request: NextRequest, context?: { params?: Promise<{ id: string }> }) => Promise<T | NextResponse<any>>,
+  context: string = 'api request'
 ): ApiHandler<T> {
   return async (request: NextRequest, handlerContext?: { params?: Promise<{ id: string }> }) => {
     try {

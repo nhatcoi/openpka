@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching course stats:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch course statistics', details: error.message },
+      { success: false, error: 'Failed to fetch course statistics', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

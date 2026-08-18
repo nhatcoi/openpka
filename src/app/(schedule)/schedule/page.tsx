@@ -13,7 +13,7 @@ import {
 
 export default function SchedulePage() {
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: 'background.default', py: 4 }}>
+    <Box sx={{ py: 2 }}>
       <Container maxWidth="lg">
         <Paper elevation={0} sx={{ p: 4, background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)', color: 'white', borderRadius: 2, mb: 4 }}>
           <Stack spacing={2} alignItems="center" textAlign="center">

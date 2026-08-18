@@ -38,9 +38,9 @@ import {
   getStatusNameFromApi,
 } from '@/utils/org-data-converters';
 
-import BasicInfoTab from './components/BasicInfoTab';
-import PersonnelTab from './components/PersonnelTab';
-import ReportsTab from './components/ReportsTab';
+import BasicInfoTab from './components/basic-info-tab';
+import PersonnelTab from './components/personnel-tab';
+import ReportsTab from './components/reports-tab';
 
 interface TabPanelProps {
   children?: React.ReactNode;

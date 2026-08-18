@@ -39,7 +39,7 @@ import {
     Cancel as RejectIcon
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import { useRouter } from 'next/navigation';
 
 interface LeaveRequest {

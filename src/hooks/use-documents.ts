@@ -3,7 +3,7 @@ import { Document, CreateDocumentInput, UpdateDocumentInput, DocumentFilters } f
 
 interface UseDocumentsOptions {
   entityType?: string;
-  entityId?: bigint;
+  entityId?: bigint | string | number;
   filters?: DocumentFilters;
   autoFetch?: boolean;
 }

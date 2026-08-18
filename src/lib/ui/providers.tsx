@@ -6,7 +6,7 @@ import { CssBaseline } from '@mui/material';
 import { useState } from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { lightTheme } from './mui-theme';
-import { ConfirmDialogProvider } from '@/components/dialogs/ConfirmDialogProvider';
+import { ConfirmDialogProvider } from '@/components/dialogs/confirm-dialog-provider';
 
 interface ProvidersProps {
   children: React.ReactNode;

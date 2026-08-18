@@ -3,7 +3,7 @@
 import React, {useState, useEffect, useMemo} from 'react';
 import {useSession} from 'next-auth/react';
 import {useRouter} from 'next/navigation';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import {
     Box,
     Typography,
@@ -40,7 +40,7 @@ import {
     Visibility as ViewIcon
 } from '@mui/icons-material';
 import {HR_ROUTES, API_ROUTES} from '@/constants/routes';
-import HrSearchBar from '@/components/hr/HrSearchBar';
+import HrSearchBar from '@/components/hr/hr-search-bar';
 
 interface Employee {
     id: string;

@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Alert } from '@mui/material';
-import MarkdownViewer from './MarkdownViewer';
-import PDFViewerWrapper from './PDFViewerWrapper';
+import MarkdownViewer from './markdown-viewer';
+import PDFViewerWrapper from './pdf-viewer-wrapper';
 import { DocumentationFile } from '@/app/api/documentation/route';
 
 interface DocumentViewerProps {

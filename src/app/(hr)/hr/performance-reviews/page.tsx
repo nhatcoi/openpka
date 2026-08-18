@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Box,
@@ -45,7 +45,7 @@ import {
     Star as StarIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/components/hr/HrSearchBar';
+import HrSearchBar from '@/components/hr/hr-search-bar';
 
 interface User {
     id: string;

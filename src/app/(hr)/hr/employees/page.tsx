@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import {
     Box,
     Paper,
@@ -28,7 +28,7 @@ import {
     Assessment as AssessmentIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
-import HrSearchBar from '@/components/hr/HrSearchBar';
+import HrSearchBar from '@/components/hr/hr-search-bar';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 
 interface Employee {

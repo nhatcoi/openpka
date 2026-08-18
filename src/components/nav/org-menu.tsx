@@ -27,7 +27,7 @@ import { useSession } from 'next-auth/react';
 interface MenuItem {
   key: string;
   label: string;
-  icon: React.ReactNode;
+  icon?: React.ReactNode;
   href?: string;
   permission?: string;
   children?: MenuItem[];

@@ -36,7 +36,7 @@ import {
 import { useRouter, useParams } from 'next/navigation';
 import { API_ROUTES } from '@/constants/routes';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface CourseVersion {
   id: string;

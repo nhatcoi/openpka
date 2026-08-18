@@ -6,7 +6,7 @@ import { Box, CircularProgress } from '@mui/material';
 
 // Dynamic import PDFViewer để tránh SSR issues
 const PDFViewer = dynamic(
-  () => import('./PDFViewer'),
+  () => import('./pdf-viewer'),
   {
     ssr: false,
     loading: () => (

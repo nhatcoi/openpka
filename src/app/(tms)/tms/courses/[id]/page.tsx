@@ -48,7 +48,7 @@ import {
 } from '@mui/material';
 import Tooltip from '@mui/material/Tooltip';
 import Snackbar from '@mui/material/Snackbar';
-import { useConfirmDialog } from '@/components/dialogs/ConfirmDialogProvider';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
