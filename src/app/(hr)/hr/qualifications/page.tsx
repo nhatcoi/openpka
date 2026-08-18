@@ -32,22 +32,26 @@ import {
     Delete as DeleteIcon,
     School as SchoolIcon
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Qualification {
-    id: string;
-    code: string;
-    title: string;
-}
+import {
+    useQualifications,
+    useCreateQualification,
+    useUpdateQualification,
+    useDeleteQualification,
+    Qualification,
+    HrSearchBar
+} from '@/features/hr';
 
 export default function QualificationsPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
-    const [qualifications, setQualifications] = useState<Qualification[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const { data: qualifications = [], isLoading: loading, error: queryError } = useQualifications();
+    const { mutateAsync: createQualification } = useCreateQualification();
+    const { mutateAsync: updateQualification } = useUpdateQualification();
+    const { mutateAsync: deleteQualification } = useDeleteQualification();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingQualification, setEditingQualification] = useState<Qualification | null>(null);
     const [formData, setFormData] = useState({
@@ -61,28 +65,10 @@ export default function QualificationsPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchQualifications();
     }, [session, status, router]);
 
-    const fetchQualifications = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.QUALIFICATIONS);
-            const result = await response.json();
-
-            if (result.success) {
-                setQualifications(result.data);
-            } else {
-                setError(result.error || 'Lỗi khi tải danh sách bằng cấp');
-            }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleOpenDialog = (qualification?: Qualification) => {
         if (qualification) {
@@ -113,37 +99,21 @@ export default function QualificationsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.code || !formData.title) {
-            setError('Vui lòng điền đầy đủ thông tin');
+            setActionError('Vui lòng điền đầy đủ thông tin');
             return;
         }
 
         try {
             setSaving(true);
-            const url = editingQualification
-                ? API_ROUTES.HR.QUALIFICATIONS_BY_ID(editingQualification.id)
-                : API_ROUTES.HR.QUALIFICATIONS;
-
-            const method = editingQualification ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchQualifications();
-                handleCloseDialog();
-                setError(null);
+            setActionError(null);
+            if (editingQualification) {
+                await updateQualification({ id: editingQualification.id, data: formData });
             } else {
-                setError(result.error || 'Lỗi khi lưu bằng cấp');
+                await createQualification(formData);
             }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu bằng cấp');
         } finally {
             setSaving(false);
         }
@@ -162,20 +132,10 @@ export default function QualificationsPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.QUALIFICATIONS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchQualifications();
-                setError(null);
-            } else {
-                setError(result.error || 'Lỗi khi xóa bằng cấp');
-            }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            setActionError(null);
+            await deleteQualification(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa bằng cấp');
         }
     };
 
@@ -233,7 +193,7 @@ export default function QualificationsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}

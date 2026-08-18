@@ -36,45 +36,28 @@ import {
     Delete as DeleteIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Training {
-    id: string;
-    title: string;
-    provider: string;
-    start_date: string;
-    end_date: string;
-    training_type: string;
-    description?: string;
-}
-
-const TRAINING_TYPES = [
-    'technical',
-    'soft_skills',
-    'leadership',
-    'compliance',
-    'safety',
-    'other'
-];
-
-const TRAINING_TYPE_LABELS = {
-    technical: 'Kỹ thuật',
-    soft_skills: 'Kỹ năng mềm',
-    leadership: 'Lãnh đạo',
-    compliance: 'Tuân thủ',
-    safety: 'An toàn',
-    other: 'Khác'
-};
+import {
+    useTrainings,
+    useCreateTraining,
+    useUpdateTraining,
+    useDeleteTraining,
+    Training,
+    TRAINING_TYPES,
+    TRAINING_TYPE_LABELS,
+    HrSearchBar
+} from '@/features/hr';
 
 export default function TrainingsPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [trainings, setTrainings] = useState<Training[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: trainings = [], isLoading: loading, error: queryError } = useTrainings();
+    const { mutateAsync: createTraining } = useCreateTraining();
+    const { mutateAsync: updateTraining } = useUpdateTraining();
+    const { mutateAsync: deleteTraining } = useDeleteTraining();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTraining, setEditingTraining] = useState<Training | null>(null);
     const [formData, setFormData] = useState({
@@ -91,28 +74,10 @@ export default function TrainingsPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.TRAININGS);
-            const result = await response.json();
-
-            if (result.success) {
-                setTrainings(result.data);
-            } else {
-                setError(result.error || 'Failed to fetch trainings');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -163,30 +128,15 @@ export default function TrainingsPage() {
         e.preventDefault();
 
         try {
-            const url = editingTraining
-                ? API_ROUTES.HR.TRAININGS_BY_ID(editingTraining.id)
-                : API_ROUTES.HR.TRAININGS;
-
-            const method = editingTraining ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
+            setActionError(null);
+            if (editingTraining) {
+                await updateTraining({ id: editingTraining.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save training');
+                await createTraining(formData);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu khóa đào tạo');
         }
     };
 
@@ -203,19 +153,10 @@ export default function TrainingsPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.TRAININGS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-            } else {
-                setError(result.error || 'Failed to delete training');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteTraining(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa khóa đào tạo');
         }
     };
 
@@ -274,7 +215,7 @@ export default function TrainingsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}

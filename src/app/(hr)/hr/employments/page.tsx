@@ -39,45 +39,30 @@ import {
     Person as PersonIcon,
     Visibility as ViewIcon
 } from '@mui/icons-material';
-import {HR_ROUTES, API_ROUTES} from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    user: {
-        full_name: string;
-        username: string;
-    } | null;
-}
-
-interface Employment {
-    id: string;
-    employee_id: string;
-    contract_no: string;
-    contract_type: string;
-    start_date: string;
-    end_date: string | null;
-    fte: number;
-    salary_band: string;
-    employees: {
-        id: string;
-        employee_no: string | null;
-        user: {
-            full_name: string;
-            username: string;
-        } | null;
-    } | null;
-}
+import {
+    useEmployments,
+    useCreateEmployment,
+    useUpdateEmployment,
+    useDeleteEmployment,
+    useEmployeeSearch,
+    Employment,
+    EmployeeSummary,
+    HrSearchBar
+} from '@/features/hr';
 
 export default function EmploymentsPage() {
     const {data: session, status} = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
-    const [employments, setEmployments] = useState<Employment[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const { data: employments = [], isLoading: employmentsLoading, error: queryError } = useEmployments();
+    const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+    const { mutateAsync: createEmployment } = useCreateEmployment();
+    const { mutateAsync: updateEmployment } = useUpdateEmployment();
+    const { mutateAsync: deleteEmployment } = useDeleteEmployment();
+
+    const loading = employmentsLoading || employeesLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingEmployment, setEditingEmployment] = useState<Employment | null>(null);
     const [viewingEmployment, setViewingEmployment] = useState<Employment | null>(null);
@@ -112,9 +97,7 @@ export default function EmploymentsPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
     useEffect(() => {
@@ -126,63 +109,7 @@ export default function EmploymentsPage() {
         }
     }, []);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            console.log('Starting fetchData...');
-
-            // Check for employee_id in URL params
-            const urlParams = new URLSearchParams(window.location.search);
-            const employeeId = urlParams.get('employee_id');
-            console.log('Employee ID from URL:', employeeId);
-
-            const employeesUrl = API_ROUTES.HR.EMPLOYEES;
-            const employmentsUrl = employeeId ? `${API_ROUTES.HR.EMPLOYMENTS}?employee_id=${employeeId}` : API_ROUTES.HR.EMPLOYMENTS;
-
-            console.log('Fetching from URLs:', {employeesUrl, employmentsUrl});
-
-            const [employeesRes, employmentsRes] = await Promise.all([
-                fetch(employeesUrl, {
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                }),
-                fetch(employmentsUrl, {
-                    credentials: 'include',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                })
-            ]);
-
-            console.log('Response statuses:', {
-                employeesStatus: employeesRes.status,
-                employmentsStatus: employmentsRes.status
-            });
-
-            const [employeesResult, employmentsResult] = await Promise.all([
-                employeesRes.json(),
-                employmentsRes.json()
-            ]);
-
-            console.log('API Results:', {employeesResult, employmentsResult});
-
-            if (employeesResult.success) {
-                setEmployees(employeesResult.data);
-                console.log('Employees set:', employeesResult.data.length);
-            }
-            if (employmentsResult.success) {
-                setEmployments(employmentsResult.data);
-                console.log('Employments set:', employmentsResult.data.length);
-            }
-        } catch (error) {
-            console.error('Fetch error:', error);
-            setError('Lỗi kết nối đến server');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleOpenDialog = (employment?: Employment) => {
         if (employment) {
@@ -191,10 +118,10 @@ export default function EmploymentsPage() {
                 employee_id: employment.employee_id,
                 contract_no: employment.contract_no,
                 contract_type: employment.contract_type,
-                start_date: employment.start_date.split('T')[0],
+                start_date: employment.start_date ? employment.start_date.split('T')[0] : '',
                 end_date: employment.end_date ? employment.end_date.split('T')[0] : '',
-                fte: employment.fte.toString(),
-                salary_band: employment.salary_band
+                fte: employment.fte ? employment.fte.toString() : '1.0',
+                salary_band: employment.salary_band || ''
             });
         } else {
             setEditingEmployment(null);
@@ -233,37 +160,26 @@ export default function EmploymentsPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.employee_id || !formData.contract_no || !formData.contract_type || !formData.start_date || !formData.fte || !formData.salary_band) {
-            setError('Vui lòng điền đầy đủ thông tin bắt buộc');
+            setActionError('Vui lòng điền đầy đủ thông tin bắt buộc');
             return;
         }
 
         try {
             setSaving(true);
-            const url = editingEmployment
-                ? API_ROUTES.HR.EMPLOYMENTS_BY_ID(editingEmployment.id)
-                : API_ROUTES.HR.EMPLOYMENTS;
+            setActionError(null);
+            const payload = {
+                ...formData,
+                fte: parseFloat(formData.fte) || 1.0,
+            };
 
-            const method = editingEmployment ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
-                setError(null);
+            if (editingEmployment) {
+                await updateEmployment({ id: editingEmployment.id, data: payload as any });
             } else {
-                setError(result.error || 'Lỗi khi lưu hợp đồng');
+                await createEmployment(payload as any);
             }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu hợp đồng');
         } finally {
             setSaving(false);
         }
@@ -282,20 +198,10 @@ export default function EmploymentsPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.EMPLOYMENTS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                setError(null);
-            } else {
-                setError(result.error || 'Lỗi khi xóa hợp đồng');
-            }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            setActionError(null);
+            await deleteEmployment(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa hợp đồng');
         }
     };
 
@@ -366,7 +272,7 @@ export default function EmploymentsPage() {
                             const urlParams = new URLSearchParams(window.location.search);
                             const employeeId = urlParams.get('employee_id');
                             if (employeeId) {
-                                const employee = employees.find(emp => emp.id === employeeId);
+                                const employee = employees.find((emp: any) => emp.id === employeeId);
                                 return (
                                     <Typography variant="subtitle1" color="text.secondary">
                                         Lịch sử hợp đồng của: {employee?.User?.full_name || 'Nhân viên'}
@@ -395,7 +301,7 @@ export default function EmploymentsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{mb: 3}} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{mb: 3}} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -498,7 +404,7 @@ export default function EmploymentsPage() {
                                     onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
                                     label="Nhân viên"
                                 >
-                                    {employees.map((employee) => (
+                                    {employees.map((employee: any) => (
                                         <MenuItem key={employee.id} value={employee.id}>
                                             {employee.User?.full_name} ({employee.employee_no})
                                         </MenuItem>
@@ -601,7 +507,7 @@ export default function EmploymentsPage() {
                 <DialogContent>
                     {viewingEmployment && (
                         <Grid container spacing={2} sx={{mt: 1}}>
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Nhân viên
                                 </Typography>
@@ -613,7 +519,7 @@ export default function EmploymentsPage() {
                                 </Typography>
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Số hợp đồng
                                 </Typography>
@@ -622,7 +528,7 @@ export default function EmploymentsPage() {
                                 </Typography>
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Loại hợp đồng
                                 </Typography>
@@ -637,7 +543,7 @@ export default function EmploymentsPage() {
                                 />
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Bậc lương
                                 </Typography>
@@ -649,7 +555,7 @@ export default function EmploymentsPage() {
                                 />
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Ngày bắt đầu
                                 </Typography>
@@ -658,7 +564,7 @@ export default function EmploymentsPage() {
                                 </Typography>
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Ngày kết thúc
                                 </Typography>
@@ -667,7 +573,7 @@ export default function EmploymentsPage() {
                                 </Typography>
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     FTE (Full-time Equivalent)
                                 </Typography>
@@ -676,7 +582,7 @@ export default function EmploymentsPage() {
                                 </Typography>
                             </Grid>
 
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="subtitle2" color="text.secondary">
                                     Trạng thái hợp đồng
                                 </Typography>

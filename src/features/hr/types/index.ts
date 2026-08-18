@@ -118,3 +118,116 @@ export interface UserProfileData {
     }>;
   }>;
 }
+
+export interface Training {
+  id: string;
+  title: string;
+  provider: string;
+  start_date: string;
+  end_date: string;
+  training_type: string;
+  description?: string;
+}
+
+export interface EmployeeTraining {
+  id: string;
+  employee_id: string;
+  training_id: string;
+  completion_date: string | null;
+  status: string;
+  result?: string | null;
+  score?: number | null;
+  Employee?: any;
+  Training?: Training;
+}
+
+export interface Qualification {
+  id: string;
+  code: string;
+  title: string;
+}
+
+export interface EmployeeQualification {
+  id: string;
+  employee_id: string;
+  qualification_id: string;
+  field_of_study?: string | null;
+  issued_by?: string | null;
+  issued_date?: string | null;
+  Employee?: any;
+  Qualification?: Qualification;
+}
+
+export interface AcademicTitle {
+  id: string;
+  code: string;
+  title: string;
+}
+
+export interface EmployeeAcademicTitle {
+  id: string;
+  employee_id: string;
+  academic_title_id: string;
+  decision_no?: string | null;
+  decision_date?: string | null;
+  field_of_study?: string | null;
+  Employee?: any;
+  AcademicTitle?: AcademicTitle;
+}
+
+export interface Employment {
+  id: string;
+  employee_id: string;
+  contract_no: string;
+  contract_type: string;
+  start_date: string;
+  end_date: string | null;
+  fte: number;
+  salary_band: string;
+  employees?: any;
+  Employee?: any;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+}
+
+export interface Permission {
+  id: string;
+  name: string;
+  code: string;
+  resource?: string | null;
+  action?: string | null;
+  description?: string | null;
+}
+
+export interface RolePermission {
+  id: string;
+  role_id: string;
+  permission_id: string;
+  Role?: Role;
+  Permission?: Permission;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role_id: string;
+  User?: any;
+  Role?: Role;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  reason?: string | null;
+  status: string;
+  approved_by?: string | null;
+  Employee?: any;
+}

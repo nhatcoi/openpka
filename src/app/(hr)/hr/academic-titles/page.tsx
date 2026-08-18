@@ -32,23 +32,26 @@ import {
     Delete as DeleteIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface AcademicTitle {
-    id: string;
-    code: string;
-    title: string;
-}
+import {
+    useAcademicTitles,
+    useCreateAcademicTitle,
+    useUpdateAcademicTitle,
+    useDeleteAcademicTitle,
+    AcademicTitle,
+    HrSearchBar
+} from '@/features/hr';
 
 export default function AcademicTitlesPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [academicTitles, setAcademicTitles] = useState<AcademicTitle[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: academicTitles = [], isLoading: loading, error: queryError } = useAcademicTitles();
+    const { mutateAsync: createTitle } = useCreateAcademicTitle();
+    const { mutateAsync: updateTitle } = useUpdateAcademicTitle();
+    const { mutateAsync: deleteTitle } = useDeleteAcademicTitle();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTitle, setEditingTitle] = useState<AcademicTitle | null>(null);
     const [formData, setFormData] = useState({
@@ -61,28 +64,10 @@ export default function AcademicTitlesPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.ACADEMIC_TITLES);
-            const result = await response.json();
-
-            if (result.success) {
-                setAcademicTitles(result.data);
-            } else {
-                setError(result.error || 'Failed to fetch academic titles');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -121,30 +106,15 @@ export default function AcademicTitlesPage() {
         e.preventDefault();
 
         try {
-            const url = editingTitle
-                ? API_ROUTES.HR.ACADEMIC_TITLES_BY_ID(editingTitle.id)
-                : API_ROUTES.HR.ACADEMIC_TITLES;
-
-            const method = editingTitle ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
+            setActionError(null);
+            if (editingTitle) {
+                await updateTitle({ id: editingTitle.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save academic title');
+                await createTitle(formData);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu học hàm học vị');
         }
     };
 
@@ -161,19 +131,10 @@ export default function AcademicTitlesPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.ACADEMIC_TITLES_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-            } else {
-                setError(result.error || 'Failed to delete academic title');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteTitle(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa học hàm học vị');
         }
     };
 
@@ -226,7 +187,7 @@ export default function AcademicTitlesPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
