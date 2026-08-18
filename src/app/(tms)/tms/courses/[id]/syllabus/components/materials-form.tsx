@@ -30,7 +30,7 @@ import {
   Upload as UploadIcon,
   Description as DescriptionIcon,
 } from '@mui/icons-material';
-import { DOCUMENT_TYPES, ENTITY_TYPES } from '@/types/documents';
+import { DOCUMENT_TYPES, ENTITY_TYPES } from '@/features/documents';
 
 export interface MaterialDocument {
   id: string;

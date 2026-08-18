@@ -25,14 +25,14 @@ import {
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { API_ROUTES } from '@/constants/routes';
-import BasicInfoForm from './components/BasicInfoForm';
-import LearningOutcomesForm, { CLOItem } from './components/LearningOutcomesForm';
-import WeeklyPlanForm, { WeekItem } from './components/WeeklyPlanForm';
-import AssessmentPlanForm, { AssessmentComponent } from './components/AssessmentPlanForm';
-import TeachingMethodsForm, { TeachingMethod } from './components/TeachingMethodsForm';
-import PoliciesForm, { PoliciesData } from './components/PoliciesForm';
-import RubricsForm, { RubricComponent } from './components/RubricsForm';
-import MaterialsForm from './components/MaterialsForm';
+import BasicInfoForm from './components/basic-info-form';
+import LearningOutcomesForm, { CLOItem } from './components/learning-outcomes-form';
+import WeeklyPlanForm, { WeekItem } from './components/weekly-plan-form';
+import AssessmentPlanForm, { AssessmentComponent } from './components/assessment-plan-form';
+import TeachingMethodsForm, { TeachingMethod } from './components/teaching-methods-form';
+import PoliciesForm, { PoliciesData } from './components/policies-form';
+import RubricsForm, { RubricComponent } from './components/rubrics-form';
+import MaterialsForm from './components/materials-form';
 
 interface CourseSyllabus {
   id: string;

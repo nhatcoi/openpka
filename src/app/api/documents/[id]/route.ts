@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { UpdateDocumentInput } from '@/types/documents';
+import { UpdateDocumentInput } from '@/features/documents';
 
 // GET /api/documents/[id] - Lấy document theo ID
 export async function GET(

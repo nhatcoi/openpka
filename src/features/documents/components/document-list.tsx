@@ -35,8 +35,8 @@ import {
   AudioFile as AudioIcon,
   Archive as ArchiveIcon,
 } from '@mui/icons-material';
-import { useDocuments } from '@/hooks/use-documents';
-import { Document } from '@/types/documents';
+import { useDocuments } from '@/features/documents';
+import { Document } from '@/features/documents';
 import { 
   formatFileSize, 
   getDocumentIcon, 

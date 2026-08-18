@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { CreateDocumentInput, DocumentFilters } from '@/types/documents';
+import { CreateDocumentInput, DocumentFilters } from '@/features/documents';
 
 // GET /api/documents - Lấy danh sách documents
 export async function GET(request: NextRequest) {

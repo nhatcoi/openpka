@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Document, CreateDocumentInput, UpdateDocumentInput, DocumentFilters } from '@/types/documents';
+import { Document, CreateDocumentInput, UpdateDocumentInput, DocumentFilters } from '@/features/documents';
 
 interface UseDocumentsOptions {
   entityType?: string;

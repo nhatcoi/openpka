@@ -56,8 +56,8 @@ import {
   ViewModule as CardViewIcon,
   ViewList as ListViewIcon,
 } from '@mui/icons-material';
-import { useDocuments } from '@/hooks/use-documents';
-import { Document, ENTITY_TYPES, DOCUMENT_TYPES } from '@/types/documents';
+import { useDocuments } from '@/features/documents';
+import { Document, ENTITY_TYPES, DOCUMENT_TYPES } from '@/features/documents';
 import { API_ROUTES } from '@/constants/routes';
 import { 
   getFileTypeFromMime, 

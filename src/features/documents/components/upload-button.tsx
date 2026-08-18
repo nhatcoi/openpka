@@ -22,7 +22,7 @@ import {
   CloudUpload as CloudUploadIcon,
   Upload as UploadIcon,
 } from '@mui/icons-material';
-import { ENTITY_TYPES, DOCUMENT_TYPES } from '@/types/documents';
+import { ENTITY_TYPES, DOCUMENT_TYPES } from '@/features/documents';
 import { getFileTypeFromMime } from '@/lib/cloudinary-client';
 
 interface UploadButtonProps {
