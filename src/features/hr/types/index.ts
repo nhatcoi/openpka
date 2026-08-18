@@ -44,3 +44,77 @@ export interface EmployeeFilterParams {
   page?: number;
   limit?: number;
 }
+
+export interface EvaluationDetails {
+  id: string;
+  employee_id: string;
+  review_period: string;
+  score: number | null;
+  comments: string | null;
+  created_at: string;
+  updated_at: string;
+  Employee?: {
+    id: string;
+    User?: {
+      id: string;
+      full_name: string;
+      email: string;
+    } | null;
+  } | null;
+}
+
+export interface EvaluationPeriodItem {
+  review_period: string;
+  created_at: string;
+  updated_at: string;
+  _count: {
+    id: number;
+  };
+}
+
+export interface UserProfileData {
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    full_name: string;
+    phone?: string;
+    address?: string;
+    dob?: string;
+    gender?: string;
+    status?: string;
+    last_login_at?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  roles: Array<{
+    id: string;
+    name: string;
+    code?: string;
+    description?: string;
+  }>;
+  permissions: Array<{
+    id: string;
+    name: string;
+    code: string;
+    resource?: string;
+    action?: string;
+    description?: string;
+  }>;
+  employee: Array<{
+    id: string;
+    employee_no?: string;
+    employment_type?: string;
+    status?: string;
+    hired_at?: string;
+    terminated_at?: string;
+    org_assignments?: Array<{
+      id: string;
+      org_unit?: {
+        id: string;
+        name: string;
+        code?: string;
+      } | null;
+    }>;
+  }>;
+}

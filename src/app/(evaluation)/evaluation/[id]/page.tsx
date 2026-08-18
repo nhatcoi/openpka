@@ -23,24 +23,6 @@ import {
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
-interface EvaluationData {
-    id: string;
-    employee_id: string;
-    review_period: string;
-    score: number | null;
-    comments: string | null;
-    created_at: string;
-    updated_at: string;
-    employees: {
-        id: string;
-        user: {
-            id: string;
-            full_name: string;
-            email: string;
-        };
-    };
-}
-
 export default function EvaluationFormPage() {
     const params = useParams();
     const evaluationId = params.id as string;
@@ -124,15 +106,15 @@ export default function EvaluationFormPage() {
                             Thông tin giảng viên
                         </Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="body2" color="text.secondary">
                                     Tên giảng viên:
                                 </Typography>
                                 <Typography variant="body1" fontWeight="medium">
-                                    {evaluation.Employee.User.full_name}
+                                    {evaluation.Employee?.User?.full_name || 'N/A'}
                                 </Typography>
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Typography variant="body2" color="text.secondary">
                                     Kỳ đánh giá:
                                 </Typography>

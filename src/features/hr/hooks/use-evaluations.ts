@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { EvaluationDetails, EvaluationPeriodItem } from '../types';
 
 export function useEvaluation(evaluationId: string, token?: string) {
-  return useQuery({
+  return useQuery<EvaluationDetails>({
     queryKey: ['hr', 'evaluation', evaluationId, token],
     queryFn: async () => {
       const url = new URL(`/api/hr/evaluation/${evaluationId}`, typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
