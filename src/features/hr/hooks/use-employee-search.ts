@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-interface Employee {
+export interface EmployeeSearchResult {
   id: string;
   user_id: string;
   employee_no: string;
@@ -29,107 +30,40 @@ interface Employee {
 }
 
 interface UseEmployeeSearchResult {
-  employees: Employee[];
+  employees: EmployeeSearchResult[];
   loading: boolean;
+  isLoading: boolean;
   error: string | null;
   searchEmployees: (query: string) => void;
   clearSearch: () => void;
   loadAllEmployees: () => void;
 }
 
+async function searchEmployeesApi(query: string, limit = 20): Promise<EmployeeSearchResult[]> {
+  const response = await fetch(`/api/hr/employees/search?q=${encodeURIComponent(query)}&limit=${limit}`);
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.error || 'Failed to search employees');
+  }
+  return result.data || [];
+}
+
 export const useEmployeeSearch = (): UseEmployeeSearchResult => {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const searchEmployees = useCallback(async (query: string) => {
-    // Clear previous timeout
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
+  const query = useQuery({
+    queryKey: ['employees', 'search', searchQuery],
+    queryFn: () => searchEmployeesApi(searchQuery, searchQuery ? 20 : 10),
+    staleTime: 2 * 60 * 1000,
+  });
 
-    // Set new timeout for 300ms
-    debounceRef.current = setTimeout(async () => {
-      if (!query.trim()) {
-        // Load all employees when query is empty
-        setLoading(true);
-        setError(null);
-        
-        try {
-          const response = await fetch(`/api/hr/employees/search?q=&limit=10`);
-          const result = await response.json();
-          
-          if (result.success) {
-            setEmployees(result.data);
-          } else {
-            setError(result.error || 'Failed to load employees');
-          }
-        } catch (err: any) {
-          setError(err.message || 'Failed to load employees');
-        } finally {
-          setLoading(false);
-        }
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(`/api/hr/employees/search?q=${encodeURIComponent(query)}&limit=20`);
-        const result = await response.json();
-
-        if (result.success) {
-          setEmployees(result.data);
-        } else {
-          setError(result.error || 'Failed to search employees');
-        }
-      } catch (err: any) {
-        setError(err.message || 'Failed to search employees');
-      } finally {
-        setLoading(false);
-      }
-    }, 500); // 500ms delay
-  }, []);
-
-  const clearSearch = useCallback(() => {
-    // Clear timeout when clearing search
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-    setEmployees([]);
-    setError(null);
-  }, []);
-
-  const loadAllEmployees = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const response = await fetch(`/api/hr/employees/search?q=&limit=50`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setEmployees(result.data);
-      } else {
-        setError(result.error || 'Failed to load employees');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load employees');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
-
-  return { employees, loading, error, searchEmployees, clearSearch, loadAllEmployees };
+  return {
+    employees: query.data || [],
+    loading: query.isLoading,
+    isLoading: query.isLoading,
+    error: query.error ? (query.error as Error).message : null,
+    searchEmployees: (q: string) => setSearchQuery(q.trim()),
+    clearSearch: () => setSearchQuery(''),
+    loadAllEmployees: () => setSearchQuery(''),
+  };
 };

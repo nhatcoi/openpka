@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { API_ROUTES } from '@/constants/routes';
 import { buildUrl } from '@/lib/api/api-handler';
 
-interface OrgUnitType {
+export interface OrgUnitType {
   id: string;
   code: string;
   name: string;
@@ -14,7 +14,7 @@ interface OrgUnitType {
   updated_at: string;
 }
 
-interface OrgUnitStatus {
+export interface OrgUnitStatus {
   id: string;
   code: string;
   name: string;
@@ -31,86 +31,53 @@ interface UseOrgTypesStatusesReturn {
   statuses: OrgUnitStatus[];
   typesLoading: boolean;
   statusesLoading: boolean;
+  loading: boolean;
+  isLoading: boolean;
   error: string | null;
-  refreshTypes: () => Promise<void>;
-  refreshStatuses: () => Promise<void>;
+  refreshTypes: () => Promise<unknown>;
+  refreshStatuses: () => Promise<unknown>;
   refreshAll: () => Promise<void>;
 }
 
+async function fetchTypesApi(): Promise<OrgUnitType[]> {
+  const response = await fetch(buildUrl(API_ROUTES.ORG.TYPES, { include_inactive: true }));
+  const result = await response.json();
+  if (!response.ok || !result.success) throw new Error(result.error || 'Failed to fetch types');
+  return result.data || [];
+}
+
+async function fetchStatusesApi(): Promise<OrgUnitStatus[]> {
+  const response = await fetch(buildUrl(API_ROUTES.ORG.STATUSES, { include_inactive: true }));
+  const result = await response.json();
+  if (!response.ok || !result.success) throw new Error(result.error || 'Failed to fetch statuses');
+  return result.data || [];
+}
+
 export const useOrgTypesStatuses = (): UseOrgTypesStatusesReturn => {
-  const [types, setTypes] = useState<OrgUnitType[]>([]);
-  const [statuses, setStatuses] = useState<OrgUnitStatus[]>([]);
-  const [typesLoading, setTypesLoading] = useState(false);
-  const [statusesLoading, setStatusesLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const typesQuery = useQuery({
+    queryKey: ['org', 'types'],
+    queryFn: fetchTypesApi,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const fetchTypes = async () => {
-    try {
-      setTypesLoading(true);
-      setError(null);
-      
-      const response = await fetch(buildUrl(API_ROUTES.ORG.TYPES, { include_inactive: true }));
-      const result = await response.json();
-      
-      if (result.success) {
-        setTypes(result.data || []);
-      } else {
-        setError(result.error || 'Failed to fetch types');
-      }
-    } catch (err) {
-      setError('Failed to fetch types');
-      console.error('Error fetching types:', err);
-    } finally {
-      setTypesLoading(false);
-    }
-  };
-
-  const fetchStatuses = async () => {
-    try {
-      setStatusesLoading(true);
-      setError(null);
-      
-      const response = await fetch(buildUrl(API_ROUTES.ORG.STATUSES, { include_inactive: true }));
-      const result = await response.json();
-      
-      if (result.success) {
-        setStatuses(result.data);
-      } else {
-        setError(result.error || 'Failed to fetch statuses');
-      }
-    } catch (err) {
-      setError('Failed to fetch statuses');
-      console.error('Error fetching statuses:', err);
-    } finally {
-      setStatusesLoading(false);
-    }
-  };
-
-  const refreshTypes = async () => {
-    await fetchTypes();
-  };
-
-  const refreshStatuses = async () => {
-    await fetchStatuses();
-  };
-
-  const refreshAll = async () => {
-    await Promise.all([fetchTypes(), fetchStatuses()]);
-  };
-
-  // Initial load
-  useEffect(() => {
-    refreshAll();
-  }, []);
+  const statusesQuery = useQuery({
+    queryKey: ['org', 'statuses'],
+    queryFn: fetchStatusesApi,
+    staleTime: 5 * 60 * 1000,
+  });
 
   return {
-    types,
-    statuses,
-    typesLoading,
-    statusesLoading,
-    error,
-    refreshTypes,
-    refreshStatuses,
-    refreshAll,
+    types: typesQuery.data || [],
+    statuses: statusesQuery.data || [],
+    typesLoading: typesQuery.isLoading,
+    statusesLoading: statusesQuery.isLoading,
+    loading: typesQuery.isLoading || statusesQuery.isLoading,
+    isLoading: typesQuery.isLoading || statusesQuery.isLoading,
+    error: (typesQuery.error as Error)?.message || (statusesQuery.error as Error)?.message || null,
+    refreshTypes: typesQuery.refetch,
+    refreshStatuses: statusesQuery.refetch,
+    refreshAll: async () => {
+      await Promise.all([typesQuery.refetch(), statusesQuery.refetch()]);
+    },
   };
 };
