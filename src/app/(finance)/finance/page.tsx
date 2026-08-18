@@ -99,21 +99,32 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+import { usePrograms } from '@/features/tms'
+
 export default function FinancePage() {
   const confirmDialog = useConfirmDialog()
   const yearOptions = useMemo(() => buildYearOptions(6), [])
   const [academicYear, setAcademicYear] = useState(yearOptions[0])
-  const [programs, setPrograms] = useState<ProgramOption[]>([])
   const [selectedProgram, setSelectedProgram] = useState('')
   const [perCreditFee, setPerCreditFee] = useState('')
   const [note, setNote] = useState('')
   const [tuitionRates, setTuitionRates] = useState<TuitionRate[]>([])
   const [minTuitionList, setMinTuitionList] = useState<MinTuitionRow[]>([])
   const [historyLines, setHistoryLines] = useState<MinTuitionRow[]>([])
-  const [loadingPrograms, setLoadingPrograms] = useState(false)
   const [loadingRates, setLoadingRates] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<ToastState | null>(null)
+
+  const { data: programsData, isLoading: loadingPrograms } = usePrograms({ status: 'PUBLISHED', limit: 200 })
+  const programs = useMemo<ProgramOption[]>(() => {
+    return ((programsData as any)?.items || programsData || []) as ProgramOption[]
+  }, [programsData])
+
+  useEffect(() => {
+    if (!selectedProgram && programs.length > 0) {
+      setSelectedProgram(programs[0].id)
+    }
+  }, [programs, selectedProgram])
 
   const selectedProgramOption = useMemo(() => 
     programs.find((program) => program.id === selectedProgram) || null, 
@@ -121,28 +132,6 @@ export default function FinancePage() {
   )
 
   const selectedProgramInfo = useMemo(() => programs.find((program) => program.id === selectedProgram), [programs, selectedProgram])
-
-  const fetchPrograms = async () => {
-    setLoadingPrograms(true)
-    try {
-      const response = await fetch('/api/tms/programs/list?status=PUBLISHED&limit=200')
-      if (!response.ok) {
-        throw new Error('Failed to fetch programs')
-      }
-      const result = await response.json()
-      if (result.success && result.data?.items) {
-        setPrograms(result.data.items)
-        if (!selectedProgram && result.data.items.length > 0) {
-          setSelectedProgram(result.data.items[0].id)
-        }
-      }
-    } catch (error) {
-      console.error(error)
-      setToast({ open: true, message: 'Không thể tải danh sách CTĐT', severity: 'error' })
-    } finally {
-      setLoadingPrograms(false)
-    }
-  }
 
   const fetchTuitionRates = async () => {
     setLoadingRates(true)
@@ -182,9 +171,6 @@ export default function FinancePage() {
     }
   }
 
-  useEffect(() => {
-    fetchPrograms()
-  }, [])
 
   useEffect(() => {
     fetchTuitionRates()

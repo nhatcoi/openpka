@@ -3,6 +3,7 @@ export * from './hooks/use-employee-search';
 export * from './hooks/use-hr-me';
 export * from './hooks/use-job-positions';
 export * from './hooks/use-evaluations';
+export * from './hooks/use-current-user';
 export * from './components/hr-search-bar';
 export * from './utils/employment-type';
 export * from './types';

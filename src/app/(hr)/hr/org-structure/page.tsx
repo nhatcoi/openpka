@@ -60,71 +60,50 @@ interface OrgUnitStats {
     children: OrgUnitStats[];
 }
 
+import { useAllOrgUnits } from '@/features/org';
+
 export default function OrgStructurePage() {
-    const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
+    const { data: units = [], isLoading: loading, error: queryError } = useAllOrgUnits();
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/org/units');
-                const result = await response.json();
+    const orgUnitStats = React.useMemo<OrgUnitStats[]>(() => {
+        if (!units || units.length === 0) return [];
 
-                if (result.success) {
-                    const units = result.data;
+        const assignmentsByUnit = new Map<string, Assignment[]>();
+        units.forEach((unit: any) => {
+            assignmentsByUnit.set(unit.id, unit.assignments || []);
+        });
 
-                    // Group assignments by unit
-                    const assignmentsByUnit = new Map<string, Assignment[]>();
-                    units.forEach((unit: OrgUnit) => {
-                        assignmentsByUnit.set(unit.id, unit.assignments || []);
-                    });
+        const buildStats = (unit: any, level: number = 1): OrgUnitStats => {
+            const unitAssignments = assignmentsByUnit.get(unit.id) || [];
+            const employees = unitAssignments.map(a => ({
+                ...a.employee,
+                position: a.position
+            })).filter(Boolean);
+            const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
 
-                    const buildStats = (unit: OrgUnit, level: number = 1): OrgUnitStats => {
-                        const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-                        const employees = unitAssignments.map(a => ({
-                            ...a.employee,
-                            position: a.position
-                        })).filter(Boolean);
-                        const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
+            const children = units.filter((u: any) => u.parent_id === unit.id);
+            const childrenStats = children.map((child: any) => buildStats(child, level + 1));
 
-                        const children = units.filter((u: OrgUnit) => u.parent_id === unit.id);
-                        const childrenStats = children.map((child: OrgUnit) => buildStats(child, level + 1));
-
-                        return {
-                            id: unit.id,
-                            name: unit.name,
-                            code: unit.code,
-                            type: unit.type,
-                            status: unit.status,
-                            level,
-                            employees,
-                            totalEmployees: employees.length,
-                            activeEmployees: activeEmployees.length,
-                            children: childrenStats
-                        };
-                    };
-
-                    // Build stats for root units (level 1 - Trường)
-                    const rootUnits = units.filter((unit: OrgUnit) => !unit.parent_id);
-                    const stats = rootUnits.map((unit: OrgUnit) => buildStats(unit, 1));
-
-                    setOrgUnitStats(stats);
-                } else {
-                    setError(result.error || 'Không thể tải dữ liệu');
-                }
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setError('Lỗi kết nối đến server');
-            } finally {
-                setLoading(false);
-            }
+            return {
+                id: unit.id,
+                name: unit.name,
+                code: unit.code,
+                type: unit.type || '',
+                status: unit.status || '',
+                level,
+                employees,
+                totalEmployees: employees.length,
+                activeEmployees: activeEmployees.length,
+                children: childrenStats
+            };
         };
 
-        fetchData();
-    }, []);
+        const rootUnits = units.filter((unit: any) => !unit.parent_id);
+        return rootUnits.map((unit: any) => buildStats(unit, 1));
+    }, [units]);
+
+    const error = queryError ? (queryError as Error).message : null;
 
     const handleViewFaculty = (orgUnitId: string, orgUnitName: string) => {
         router.push(`${HR_ROUTES.FACULTY}?unitId=${orgUnitId}&unitName=${encodeURIComponent(orgUnitName)}`);

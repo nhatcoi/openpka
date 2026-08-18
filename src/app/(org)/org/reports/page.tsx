@@ -78,166 +78,66 @@ interface UnitWithoutStaff {
   employeeCount: number;
 }
 
+import { useOrgReports, useAllOrgUnits } from '@/features/org';
+
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState('overview');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
 
-  // State for report data
-  const [reportData, setReportData] = useState({
-    overview: {
-      totalUnits: 0,
-      totalEmployees: 0,
-      activeUnits: 0,
-      inactiveUnits: 0,
-      departments: 0,
-      divisions: 0,
-      teams: 0,
-      branches: 0,
-      topUnits: [] as Array<{
-        id: string;
-        name: string;
-        code: string;
-        type: string;
-        employeeCount: number;
-      }>,
-    },
-    byType: [] as UnitTypeStats[],
-    unitsWithoutHead: [] as UnitWithoutHead[],
-    unitsWithoutStaff: [] as UnitWithoutStaff[],
-  });
+  const { data: overviewResult, isLoading: overviewLoading, refetch: refetchOverview } = useOrgReports('overview');
+  const { data: noHeadResult, isLoading: noHeadLoading, refetch: refetchNoHead } = useOrgReports('units-without-head');
+  const { data: noStaffResult, isLoading: noStaffLoading, refetch: refetchNoStaff } = useOrgReports('units-without-staff');
+  const { data: allUnits = [], isLoading: unitsLoading, refetch: refetchUnits } = useAllOrgUnits();
 
-  // API functions
-  const fetchOrgStats = async (): Promise<OrgStats | null> => {
-    try {
-      const response = await fetch('/api/org/reports?type=overview');
-      const result = await response.json();
-      if (result.success) {
-        return {
-          totalUnits: result.data.totalUnits,
-          totalEmployees: result.data.totalEmployees,
-          activeUnits: result.data.activeUnits,
-          inactiveUnits: result.data.inactiveUnits,
-          departments: result.data.unitsWithEmployees,
-          divisions: 0,
-          teams: 0,
-          branches: 0,
-          topUnits: []
-        };
-      }
-      throw new Error(result.error || 'Failed to fetch org stats');
-    } catch (error) {
-      console.error('Error fetching org stats:', error);
-      throw error;
-    }
-  };
+  const loading = overviewLoading || noHeadLoading || noStaffLoading || unitsLoading;
+  const error: string | null = null;
 
-  const fetchUnitsByType = async (): Promise<UnitTypeStats[]> => {
-    try {
-      // Get all units to calculate type distribution
-      const response = await fetch(buildUrl(API_ROUTES.ORG.UNITS, { page: 1, size: 1000, sort: 'name', order: 'asc' }));
-      const result = await response.json();
-      if (result.success) {
-        const units = result.data?.items || result.data || [];
-        const typeCounts: Record<string, number> = {};
-        
-        // Count units by type
-        units.forEach((unit: { type: string | null }) => {
-          const type = unit.type || 'unknown';
-          typeCounts[type] = (typeCounts[type] || 0) + 1;
-        });
+  const reportData = React.useMemo(() => {
+    const orgStats = overviewResult as any;
+    const units = (Array.isArray(allUnits) ? allUnits : (allUnits as any)?.items || []) as Array<{ type: string | null }>;
+    const typeCounts: Record<string, number> = {};
 
-        const total = units.length;
-        
-        // Convert to array with percentages
-        return Object.entries(typeCounts).map(([type, count]) => ({
-          type: type.charAt(0).toUpperCase() + type.slice(1),
-          count,
-          percentage: total > 0 ? Math.round((count / total) * 100 * 10) / 10 : 0,
-        }));
-      }
-      throw new Error(result.error || 'Failed to fetch units');
-    } catch (error) {
-      console.error('Error fetching units by type:', error);
-      throw error;
-    }
-  };
+    units.forEach((unit) => {
+      const type = unit.type || 'unknown';
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
 
-  const fetchUnitsWithoutHead = async (): Promise<UnitWithoutHead[]> => {
-    try {
-      const response = await fetch('/api/org/reports?type=units-without-head');
-      const result = await response.json();
-      if (result.success) {
-        return result.data;
-      }
-      throw new Error(result.error || 'Failed to fetch units without head');
-    } catch (error) {
-      console.error('Error fetching units without head:', error);
-      throw error;
-    }
-  };
+    const total = units.length;
+    const byType: UnitTypeStats[] = Object.entries(typeCounts).map(([type, count]) => ({
+      type: type.charAt(0).toUpperCase() + type.slice(1),
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100 * 10) / 10 : 0,
+    }));
 
-  const fetchUnitsWithoutStaff = async (): Promise<UnitWithoutStaff[]> => {
-    try {
-      const response = await fetch('/api/org/reports?type=units-without-staff');
-      const result = await response.json();
-      if (result.success) {
-        return result.data;
-      }
-      throw new Error(result.error || 'Failed to fetch units without staff');
-    } catch (error) {
-      console.error('Error fetching units without staff:', error);
-      throw error;
-    }
-  };
-
-  const loadReportData = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const [orgStats, unitsByType, unitsWithoutHead, unitsWithoutStaff] = await Promise.all([
-        fetchOrgStats(),
-        fetchUnitsByType(),
-        fetchUnitsWithoutHead(),
-        fetchUnitsWithoutStaff(),
-      ]);
-
-      if (orgStats) {
-        setReportData({
-          overview: {
-            totalUnits: orgStats.totalUnits,
-            totalEmployees: orgStats.totalEmployees,
-            activeUnits: orgStats.activeUnits,
-            inactiveUnits: orgStats.inactiveUnits,
-            departments: orgStats.departments,
-            divisions: orgStats.divisions,
-            teams: orgStats.teams,
-            branches: orgStats.branches,
-            topUnits: orgStats.topUnits,
-          },
-          byType: unitsByType,
-          unitsWithoutHead,
-          unitsWithoutStaff,
-        });
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load report data';
-      setError(errorMessage);
-      setSnackbarOpen(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Load data on component mount
-  useEffect(() => {
-    loadReportData();
-  }, []);
+    return {
+      overview: {
+        totalUnits: orgStats?.totalUnits || 0,
+        totalEmployees: orgStats?.totalEmployees || 0,
+        activeUnits: orgStats?.activeUnits || 0,
+        inactiveUnits: orgStats?.inactiveUnits || 0,
+        departments: orgStats?.unitsWithEmployees || 0,
+        divisions: 0,
+        teams: 0,
+        branches: 0,
+        topUnits: [] as Array<{
+          id: string;
+          name: string;
+          code: string;
+          type: string;
+          employeeCount: number;
+        }>,
+      },
+      byType,
+      unitsWithoutHead: (noHeadResult as UnitWithoutHead[]) || [],
+      unitsWithoutStaff: (noStaffResult as UnitWithoutStaff[]) || [],
+    };
+  }, [overviewResult, allUnits, noHeadResult, noStaffResult]);
 
   const handleRefresh = () => {
-    loadReportData();
+    refetchOverview();
+    refetchNoHead();
+    refetchNoStaff();
+    refetchUnits();
   };
 
   const reportTypes = [

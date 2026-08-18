@@ -86,41 +86,23 @@ interface UserData {
     }>;
 }
 
+import { useCurrentUser } from '@/features/hr';
+
 export default function MePage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [userData, setUserData] = useState<UserData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const { data: userData, isLoading: queryLoading, error: queryError } = useCurrentUser();
 
     useEffect(() => {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
+    }, [session, status, router]);
 
-        fetchUserData();
-    }, [session, status]);
-
-    const fetchUserData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/me');
-            const result = await response.json();
-
-            if (result.success) {
-                setUserData(result.data);
-            } else {
-                setError(result.error || 'Failed to fetch user data');
-            }
-        } catch (err) {
-            console.error('Error fetching user data:', err);
-            setError('Failed to fetch user data');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loading = status === 'loading' || queryLoading;
+    const error = queryError ? (queryError as Error).message : null;
 
     if (status === 'loading' || loading) {
         return (
@@ -160,14 +142,14 @@ export default function MePage() {
     const { user, roles, permissions, employee } = userData;
 
     // Group permissions by resource
-    const permissionsByResource = permissions.reduce((acc, perm) => {
+    const permissionsByResource = (permissions || []).reduce((acc: Record<string, any[]>, perm: any) => {
         const resource = perm.resource || 'other';
         if (!acc[resource]) {
             acc[resource] = [];
         }
         acc[resource].push(perm);
         return acc;
-    }, {} as Record<string, typeof permissions>);
+    }, {});
 
     const formatDate = (value?: string) =>
         value ? new Date(value).toLocaleDateString('vi-VN') : '(trống)';
@@ -330,7 +312,7 @@ export default function MePage() {
                             <Divider sx={{ mb: 2 }} />
                             {roles.length > 0 ? (
                                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    {roles.map((role) => (
+                                    {roles.map((role: any) => (
                                         <Chip
                                             key={role.id}
                                             label={role.name}
@@ -359,13 +341,13 @@ export default function MePage() {
                             <Divider sx={{ mb: 2 }} />
                             {permissions.length > 0 ? (
                                 <Box>
-                                    {Object.entries(permissionsByResource).map(([resource, perms]) => (
+                                    {Object.entries(permissionsByResource).map(([resource, perms]: [string, any]) => (
                                         <Box key={resource} sx={{ mb: 3 }}>
                                             <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
                                                 {resource}
                                             </Typography>
                                             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                                {perms.map((perm) => (
+                                                {(perms || []).map((perm: any) => (
                                                     <Chip
                                                         key={perm.id}
                                                         label={perm.name}
@@ -409,7 +391,7 @@ export default function MePage() {
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {employee.map((emp) => (
+                                            {(employee || []).map((emp: any) => (
                                                 <TableRow key={emp.id}>
                                                     <TableCell>{emp.employee_no || '(trống)'}</TableCell>
                                                     <TableCell>{emp.employment_type || '(trống)'}</TableCell>
@@ -433,7 +415,7 @@ export default function MePage() {
                                                     <TableCell>
                                                         {emp.org_assignments && emp.org_assignments.length > 0
                                                             ? emp.org_assignments
-                                                                .map((oa) => oa.org_unit?.name)
+                                                                .map((oa: any) => oa.org_unit?.name)
                                                                 .filter(Boolean)
                                                                 .join(', ') || '(trống)'
                                                             : '(trống)'}

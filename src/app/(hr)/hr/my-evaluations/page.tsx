@@ -39,54 +39,16 @@ interface EvaluationData {
     };
 }
 
+import { useHrMe, useMyEvaluations } from '@/features/hr';
+
 export default function MyEvaluationsPage() {
     const { data: session } = useSession();
-    const [evaluations, setEvaluations] = useState<EvaluationData[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: hrData, isLoading: hrLoading } = useHrMe();
+    const employeeId = hrData?.Employee?.[0]?.id;
+    const { data: evaluations = [], isLoading: evalLoading, error: queryError } = useMyEvaluations(employeeId);
 
-    useEffect(() => {
-        if (session?.user) {
-            fetchMyEvaluations();
-        } else if (session === null) {
-            // Session is loaded but user is not authenticated
-            setError('Vui lòng đăng nhập để xem đánh giá của bạn');
-            setLoading(false);
-        }
-    }, [session]);
-
-    const fetchMyEvaluations = async () => {
-        try {
-            setLoading(true);
-
-            // Get current user's employee record
-            const employeeResponse = await fetch('/api/hr/me');
-            if (!employeeResponse.ok) {
-                throw new Error('Không thể lấy thông tin nhân viên');
-            }
-
-            const employeeData = await employeeResponse.json();
-            const employeeId = employeeData.data?.Employee?.[0]?.id;
-
-            if (!employeeId) {
-                throw new Error('Không tìm thấy thông tin nhân viên');
-            }
-
-            // Get evaluations for this employee
-            const evaluationsResponse = await fetch(`/api/hr/performance-reviews?employeeId=${employeeId}`);
-            if (!evaluationsResponse.ok) {
-                throw new Error('Không thể lấy thông tin đánh giá');
-            }
-
-            const evaluationsData = await evaluationsResponse.json();
-            setEvaluations(evaluationsData.data || []);
-        } catch (error) {
-            console.error('Error fetching evaluations:', error);
-            setError(error instanceof Error ? error.message : 'Không thể tải thông tin đánh giá');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loading = hrLoading || (!!employeeId && evalLoading);
+    const error = queryError ? (queryError as Error).message : (!session?.user && !hrLoading ? 'Vui lòng đăng nhập để xem đánh giá của bạn' : null);
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -158,7 +120,7 @@ export default function MyEvaluationsPage() {
                 </Card>
             ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {evaluations.map((evaluation) => (
+                    {evaluations.map((evaluation: any) => (
                         <Accordion key={evaluation.id} defaultExpanded>
                             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
@@ -181,7 +143,7 @@ export default function MyEvaluationsPage() {
                                                 />
                                                 <Chip
                                                     label={getScoreLabel(evaluation.score)}
-                                                    color={getScoreColor(evaluation.score) as unknown}
+                                                    color={getScoreColor(evaluation.score) as any}
                                                     size="small"
                                                 />
                                             </>

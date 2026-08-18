@@ -31,14 +31,16 @@ interface UserProfile {
     gender: string;
 }
 
+import { useHrMe } from '@/features/hr';
+
 export default function ProfilePage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
+    const [submitError, setSubmitError] = useState('');
     const [success, setSuccess] = useState('');
-    const [profile, setProfile] = useState<UserProfile | null>(null);
+
+    const { data: hrData, isLoading: loading, error: queryError, refetch } = useHrMe();
 
     const [formData, setFormData] = useState({
         full_name: '',
@@ -49,44 +51,22 @@ export default function ProfilePage() {
         gender: '',
     });
 
+    const user = hrData?.User || null;
+
     useEffect(() => {
-        if (status === 'loading') return;
-
-        if (!session) {
-            signIn();
-            return;
+        if (user) {
+            setFormData({
+                full_name: user.full_name || '',
+                email: user.email || '',
+                phone: user.phone || '',
+                address: user.address || '',
+                dob: user.dob ? user.dob.split('T')[0] : '',
+                gender: user.gender || '',
+            });
         }
+    }, [user]);
 
-        fetchProfile();
-    }, [session, status]);
-
-    const fetchProfile = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/hr/me');
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                const user = result.data.User;
-                setProfile(user);
-                setFormData({
-                    full_name: user.full_name || '',
-                    email: user.email || '',
-                    phone: user.phone || '',
-                    address: user.address || '',
-                    dob: user.dob ? user.dob.split('T')[0] : '',
-                    gender: user.gender || '',
-                });
-            } else {
-                setError(result.error || 'Không thể tải thông tin cá nhân');
-            }
-        } catch (error) {
-            console.error('Error fetching profile:', error);
-            setError('Lỗi khi tải thông tin cá nhân');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = submitError || (queryError ? (queryError as Error).message : '');
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -98,12 +78,12 @@ export default function ProfilePage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setSaving(true);
-        setError('');
+        setSubmitError('');
         setSuccess('');
 
         try {
             if (!session?.user?.id) {
-                setError('Không tìm thấy thông tin người dùng');
+                setSubmitError('Không tìm thấy thông tin người dùng');
                 return;
             }
 
@@ -120,13 +100,13 @@ export default function ProfilePage() {
             if (result.success) {
                 setSuccess('Cập nhật thông tin thành công!');
                 // Refresh profile data
-                await fetchProfile();
+                await refetch();
             } else {
-                setError(result.error || 'Có lỗi xảy ra khi cập nhật thông tin');
+                setSubmitError(result.error || 'Có lỗi xảy ra khi cập nhật thông tin');
             }
-        } catch (error) {
-            console.error('Error updating profile:', error);
-            setError('Lỗi khi cập nhật thông tin');
+        } catch (err) {
+            console.error('Error updating profile:', err);
+            setSubmitError('Lỗi khi cập nhật thông tin');
         } finally {
             setSaving(false);
         }

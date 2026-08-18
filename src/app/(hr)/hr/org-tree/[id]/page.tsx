@@ -63,85 +63,53 @@ export default async function OrgTreeDetailPage({ params }: { params: Promise<{ 
     return <OrgTreeDetailPageClient params={resolvedParams} />;
 }
 
+import { useAllOrgUnits } from '@/features/org';
+
 function OrgTreeDetailPageClient({ params }: { params: { id: string } }) {
-    const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
     const unitName = searchParams.get('name') || 'Đơn vị';
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/org/units');
-                const result = await response.json();
+    const { data: units = [], isLoading: loading, error: queryError } = useAllOrgUnits();
 
-                if (result.success) {
-                    const units = result.data;
+    const orgUnitStats = React.useMemo<OrgUnitStats | null>(() => {
+        if (!units || units.length === 0 || !params.id) return null;
 
-                    // Group assignments by unit
-                    const assignmentsByUnit = new Map<string, Assignment[]>();
-                    units.forEach((unit: OrgUnit) => {
-                        assignmentsByUnit.set(unit.id, unit.assignments || []);
-                    });
+        const assignmentsByUnit = new Map<string, Assignment[]>();
+        units.forEach((unit: any) => {
+            assignmentsByUnit.set(unit.id, unit.assignments || []);
+        });
 
-                    // Calculate level for each unit
-                    const calculateLevel = (unit: OrgUnit, visited: Set<string> = new Set()): number => {
-                        if (visited.has(unit.id)) return 1; // Prevent infinite loop
-                        visited.add(unit.id);
+        const buildStats = (unit: any, level: number = 1): OrgUnitStats => {
+            const unitAssignments = assignmentsByUnit.get(unit.id) || [];
+            const employees = unitAssignments.map(a => ({
+                ...a.employee,
+                position: a.position
+            })).filter(Boolean);
+            const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
 
-                        if (!unit || !unit.parent_id) return 1; // Root level
-                        return 1 + calculateLevel(unit.parent_id, visited);
-                    };
+            const children = units.filter((u: any) => u.parent_id === unit.id);
+            const childrenStats = children.map((child: any) => buildStats(child, level + 1));
 
-                    const buildStats = (unit: OrgUnit, level: number = 1): OrgUnitStats => {
-                        const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-                        const employees = unitAssignments.map(a => ({
-                            ...a.employee,
-                            position: a.position
-                        })).filter(Boolean);
-                        const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
-
-                        const children = units.filter(u => u.parent_id === unit.id);
-                        const childrenStats = children.map(child => buildStats(child, level + 1));
-
-                        return {
-                            id: unit.id,
-                            name: unit.name,
-                            code: unit.code,
-                            type: unit.type,
-                            status: unit.status,
-                            level,
-                            employees,
-                            totalEmployees: employees.length,
-                            activeEmployees: activeEmployees.length,
-                            children: childrenStats
-                        };
-                    };
-
-                    // Find the specific unit
-                    const targetUnit = units.find((unit: OrgUnit) => unit.id === params.id);
-                    if (targetUnit) {
-                        const stats = buildStats(targetUnit, 1);
-                        setOrgUnitStats(stats);
-                    } else {
-                        setError('Không tìm thấy đơn vị');
-                    }
-                } else {
-                    setError(result.error || 'Không thể tải dữ liệu');
-                }
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setError('Lỗi kết nối đến server');
-            } finally {
-                setLoading(false);
-            }
+            return {
+                id: unit.id,
+                name: unit.name,
+                code: unit.code,
+                type: unit.type || '',
+                status: unit.status || '',
+                level,
+                employees,
+                totalEmployees: employees.length,
+                activeEmployees: activeEmployees.length,
+                children: childrenStats
+            };
         };
 
-        fetchData();
-    }, [params.id]);
+        const targetUnit = units.find((u: any) => u.id === params.id);
+        return targetUnit ? buildStats(targetUnit, 1) : null;
+    }, [units, params.id]);
+
+    const error = queryError ? (queryError as Error).message : (!loading && !orgUnitStats ? 'Không tìm thấy đơn vị' : null);
 
     const handleViewEmployees = (unitId: string, unitName: string) => {
         router.push(`/hr/org-tree/${unitId}/employees?name=${encodeURIComponent(unitName)}`);
@@ -224,7 +192,7 @@ function OrgTreeDetailPageClient({ params }: { params: { id: string } }) {
 
             <Grid container spacing={3}>
                 {/* Current unit info */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -250,7 +218,7 @@ function OrgTreeDetailPageClient({ params }: { params: { id: string } }) {
 
                 {/* Children units */}
                 {orgUnitStats.children.length > 0 && (
-                    <Grid item xs={12} md={6}>
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" component="h2" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -258,7 +226,7 @@ function OrgTreeDetailPageClient({ params }: { params: { id: string } }) {
                                 </Typography>
                                 <Grid container spacing={2}>
                                     {orgUnitStats.children.map((child) => (
-                                        <Grid item xs={12} key={child.id}>
+                                        <Grid size={{ xs: 12 }} key={child.id}>
                                             <Card variant="outlined">
                                                 <CardContent sx={{ p: 2 }}>
                                                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>

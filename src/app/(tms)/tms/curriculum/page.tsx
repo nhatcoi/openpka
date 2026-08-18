@@ -43,6 +43,7 @@ import {
   getCurriculumStatusColor,
   getCurriculumStatusLabel,
 } from '@/constants/curriculum';
+import { useCurriculum } from '@/features/tms';
 import {
   ProgramDetail,
   ProgramBlockItem,
@@ -257,7 +258,7 @@ const renderCurriculumStructure = (structure: CurriculumStructure) => {
   return (
     <Grid container spacing={2}>
       {structure.semesters.map((semester) => (
-        <Grid key={semester.id} item xs={12} md={6}>
+        <Grid key={semester.id} size={{ xs: 12, md: 6 }}>
           <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
             <Stack spacing={1.5} sx={{ height: '100%' }}>
               <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ xs: 'flex-start', md: 'center' }}>
@@ -287,15 +288,24 @@ const renderCurriculumStructure = (structure: CurriculumStructure) => {
 };
 
 export default function CurriculumPage(): JSX.Element {
-  const [programs, setPrograms] = useState<CurriculumProgramSummary[]>([]);
-  const [programsLoading, setProgramsLoading] = useState<boolean>(false);
-  const [programsError, setProgramsError] = useState<string | null>(null);
+  const { data: curriculumData, isLoading: programsLoading, error: curriculumQueryError, refetch: refetchPrograms } = useCurriculum(100);
+  const programs = useMemo<CurriculumProgramSummary[]>(() => {
+    return ((curriculumData as any)?.items || curriculumData || []) as CurriculumProgramSummary[];
+  }, [curriculumData]);
+  const programsError = curriculumQueryError ? (curriculumQueryError as Error).message : null;
+
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
   const [detail, setDetail] = useState<CurriculumDetailState | null>(null);
   const [detailLoading, setDetailLoading] = useState<boolean>(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
+
+  useEffect(() => {
+    if (!selectedProgramId && programs.length > 0) {
+      setSelectedProgramId(programs[0].id);
+    }
+  }, [programs, selectedProgramId]);
 
   const programOptions = useMemo(() => {
     const options = buildProgramOptions(programs);
@@ -327,27 +337,8 @@ export default function CurriculumPage(): JSX.Element {
   }, [programs]);
 
   const fetchPrograms = useCallback(async () => {
-    try {
-      setProgramsLoading(true);
-      setProgramsError(null);
-      const response = await fetch('/api/tms/curriculum?limit=100');
-      const result = (await response.json()) as ApiResponse<{ items: CurriculumProgramSummary[] }>;
-
-      if (!response.ok || !result.success || !result.data) {
-        throw new Error(result.error || 'Không thể tải danh sách chương trình');
-      }
-
-      setPrograms(result.data.items);
-      if (!selectedProgramId && result.data.items.length > 0) {
-        setSelectedProgramId(result.data.items[0].id);
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải danh sách chương trình';
-      setProgramsError(message);
-    } finally {
-      setProgramsLoading(false);
-    }
-  }, [selectedProgramId]);
+    await refetchPrograms();
+  }, [refetchPrograms]);
 
   const fetchDetail = useCallback(async (programId: string) => {
     if (!programId) return;
@@ -483,7 +474,7 @@ export default function CurriculumPage(): JSX.Element {
             )}
 
             <Grid container spacing={2}>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
                   <Stack spacing={1} alignItems="flex-start">
                     <SchoolIcon color="primary" />
@@ -494,7 +485,7 @@ export default function CurriculumPage(): JSX.Element {
                   </Stack>
                 </Paper>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
                   <Stack spacing={1} alignItems="flex-start">
                     <TimelineIcon color="success" />
@@ -505,7 +496,7 @@ export default function CurriculumPage(): JSX.Element {
                   </Stack>
                 </Paper>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Paper variant="outlined" sx={{ p: 2, height: '100%' }}>
                   <Stack spacing={1} alignItems="flex-start">
                     <CheckCircleIcon color="info" />

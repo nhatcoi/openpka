@@ -109,3 +109,17 @@ export function useParentUnits() {
   });
 }
 
+// Hook để lấy toàn bộ đơn vị tổ chức (dùng cho cây đơn vị và phòng ban)
+export function useAllOrgUnits() {
+  return useQuery({
+    queryKey: ['org', 'units', 'all'],
+    queryFn: async () => {
+      const response = await fetch('/api/org/units');
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Failed to fetch units');
+      return (result.data || []) as OrgUnit[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+

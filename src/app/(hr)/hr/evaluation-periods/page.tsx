@@ -55,10 +55,14 @@ interface EvaluationUrl {
     createdAt: string;
 }
 
+import { useEvaluationPeriods, useCreateEvaluationPeriod } from '@/features/hr';
+
 export default function EvaluationPeriodsPage() {
-    const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: periodsData = [], isLoading: loading, error: queryError, refetch: fetchPeriods } = useEvaluationPeriods();
+    const periods = (periodsData || []) as EvaluationPeriod[];
+    const { mutateAsync: createPeriodMutation } = useCreateEvaluationPeriod();
+
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [createDialogOpen, setCreateDialogOpen] = useState(false);
     const [urlsDialogOpen, setUrlsDialogOpen] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
@@ -74,54 +78,26 @@ export default function EvaluationPeriodsPage() {
         endDate: ''
     });
 
-    useEffect(() => {
-        fetchPeriods();
-    }, []);
-
-    const fetchPeriods = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/hr/evaluation-periods', {
-                credentials: 'include',
-            });
-            if (!response.ok) {
-                throw new Error('Failed to fetch evaluation periods');
-            }
-            const data = await response.json();
-            setPeriods(data.data || []);
-        } catch (error) {
-            console.error('Error fetching periods:', error);
-            setError(error instanceof Error ? error.message : 'Không thể tải danh sách kỳ đánh giá');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = submitError || (queryError ? (queryError as Error).message : null);
 
     const handleCreatePeriod = async () => {
         try {
-            const response = await fetch('/api/hr/evaluation-periods', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
+            setSubmitError(null);
+            const result = await createPeriodMutation({
+                name: formData.period,
+                start_date: formData.startDate,
+                end_date: formData.endDate,
+                description: formData.description,
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to create evaluation period');
-            }
-
-            const result = await response.json();
             setCreateDialogOpen(false);
             setFormData({ period: '', description: '', startDate: '', endDate: '' });
-            fetchPeriods();
 
             // Show success message
-            alert(`Tạo kỳ đánh giá thành công! Đã tạo ${result.lecturerCount} đánh giá cho giảng viên.`);
-        } catch (error) {
-            console.error('Error creating period:', error);
-            setError(error instanceof Error ? error.message : 'Không thể tạo kỳ đánh giá');
+            alert(`Tạo kỳ đánh giá thành công! Đã tạo ${result?.lecturerCount || ''} đánh giá cho giảng viên.`);
+        } catch (err: any) {
+            console.error('Error creating period:', err);
+            setSubmitError(err instanceof Error ? err.message : 'Không thể tạo kỳ đánh giá');
         }
     };
 
@@ -142,7 +118,7 @@ export default function EvaluationPeriodsPage() {
             setUrlsDialogOpen(true);
         } catch (error) {
             console.error('Error generating URLs:', error);
-            setError(error instanceof Error ? error.message : 'Không thể tạo URL đánh giá');
+            setSubmitError(error instanceof Error ? error.message : 'Không thể tạo URL đánh giá');
         } finally {
             setUrlsLoading(false);
         }
@@ -212,7 +188,7 @@ export default function EvaluationPeriodsPage() {
                     <Button
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        onClick={fetchPeriods}
+                        onClick={() => { fetchPeriods(); }}
                         sx={{ mr: 2 }}
                     >
                         Làm mới
@@ -236,7 +212,7 @@ export default function EvaluationPeriodsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setSubmitError(null)}>
                     {error}
                 </Alert>
             )}

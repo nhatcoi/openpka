@@ -59,85 +59,53 @@ interface OrgUnitStats {
     children: OrgUnitStats[];
 }
 
+import { useAllOrgUnits } from '@/features/org';
+
 export default function OrgTreeEmployeesPage({ params }: { params: { id: string } }) {
-    const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
     const unitName = searchParams.get('name') || 'Đơn vị';
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/org/units');
-                const result = await response.json();
+    const { data: units = [], isLoading: loading, error: queryError } = useAllOrgUnits();
 
-                if (result.success) {
-                    const units = result.data;
+    const orgUnitStats = React.useMemo<OrgUnitStats | null>(() => {
+        if (!units || units.length === 0 || !params.id) return null;
 
-                    // Group assignments by unit
-                    const assignmentsByUnit = new Map<string, Assignment[]>();
-                    units.forEach((unit: OrgUnit) => {
-                        assignmentsByUnit.set(unit.id, unit.assignments || []);
-                    });
+        const assignmentsByUnit = new Map<string, Assignment[]>();
+        units.forEach((unit: any) => {
+            assignmentsByUnit.set(unit.id, unit.assignments || []);
+        });
 
-                    // Calculate level for each unit
-                    const calculateLevel = (unit: OrgUnit, visited: Set<string> = new Set()): number => {
-                        if (visited.has(unit.id)) return 1; // Prevent infinite loop
-                        visited.add(unit.id);
+        const buildStats = (unit: any, level: number = 1): OrgUnitStats => {
+            const unitAssignments = assignmentsByUnit.get(unit.id) || [];
+            const employees = unitAssignments.map(a => ({
+                ...a.employee,
+                position: a.position
+            })).filter(Boolean);
+            const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
 
-                        if (!unit || !unit.parent_id) return 1; // Root level
-                        return 1 + calculateLevel(unit.parent_id, visited);
-                    };
+            const children = units.filter((u: any) => u.parent_id === unit.id);
+            const childrenStats = children.map((child: any) => buildStats(child, level + 1));
 
-                    const buildStats = (unit: OrgUnit, level: number = 1): OrgUnitStats => {
-                        const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-                        const employees = unitAssignments.map(a => ({
-                            ...a.employee,
-                            position: a.position
-                        })).filter(Boolean);
-                        const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
-
-                        const children = units.filter(u => u.parent_id === unit.id);
-                        const childrenStats = children.map(child => buildStats(child, level + 1));
-
-                        return {
-                            id: unit.id,
-                            name: unit.name,
-                            code: unit.code,
-                            type: unit.type,
-                            status: unit.status,
-                            level,
-                            employees,
-                            totalEmployees: employees.length,
-                            activeEmployees: activeEmployees.length,
-                            children: childrenStats
-                        };
-                    };
-
-                    // Find the specific unit
-                    const targetUnit = units.find((unit: OrgUnit) => unit.id === params.id);
-                    if (targetUnit) {
-                        const stats = buildStats(targetUnit, 1);
-                        setOrgUnitStats(stats);
-                    } else {
-                        setError('Không tìm thấy đơn vị');
-                    }
-                } else {
-                    setError(result.error || 'Không thể tải dữ liệu');
-                }
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setError('Lỗi kết nối đến server');
-            } finally {
-                setLoading(false);
-            }
+            return {
+                id: unit.id,
+                name: unit.name,
+                code: unit.code,
+                type: unit.type || '',
+                status: unit.status || '',
+                level,
+                employees,
+                totalEmployees: employees.length,
+                activeEmployees: activeEmployees.length,
+                children: childrenStats
+            };
         };
 
-        fetchData();
-    }, [params.id]);
+        const targetUnit = units.find((u: any) => u.id === params.id);
+        return targetUnit ? buildStats(targetUnit, 1) : null;
+    }, [units, params.id]);
+
+    const error = queryError ? (queryError as Error).message : (!loading && !orgUnitStats ? 'Không tìm thấy đơn vị' : null);
 
     const handleBack = () => {
         router.push(`/hr/org-tree/${params.id}?name=${encodeURIComponent(unitName)}`);
@@ -192,23 +160,23 @@ export default function OrgTreeEmployeesPage({ params }: { params: { id: string 
 
         // Create tree structure with main leader as root
         const treeData = {
-            name: mainLeader.User?.full_name || 'N/A',
+            name: mainLeader.user?.full_name || (mainLeader as any).User?.full_name || 'N/A',
             attributes: {
                 id: mainLeader.id,
                 position: mainLeader.position?.title || mainLeader.employment_type || 'Trưởng khoa',
                 employee_no: mainLeader.employee_no || '',
-                email: mainLeader.User?.email || '',
+                email: mainLeader.user?.email || (mainLeader as any).User?.email || '',
                 status: mainLeader.status || '',
                 type: 'leader',
                 totalEmployees: employees.length,
             },
             children: sortedEmployees.slice(1).map(emp => ({
-                name: emp.User?.full_name || 'N/A',
+                name: emp.user?.full_name || (emp as any).User?.full_name || 'N/A',
                 attributes: {
                     id: emp.id,
                     position: emp.position?.title || emp.employment_type || 'Giảng viên',
                     employee_no: emp.employee_no || '',
-                    email: emp.User?.email || '',
+                    email: emp.user?.email || (emp as any).User?.email || '',
                     status: emp.status || '',
                     type: 'employee',
                 },
@@ -243,7 +211,7 @@ export default function OrgTreeEmployeesPage({ params }: { params: { id: string 
         );
     }
 
-    const employeeTreeData = createEmployeeTree(orgUnitStats.Employee);
+    const employeeTreeData = createEmployeeTree(orgUnitStats.employees);
 
     return (
         <Box sx={{ p: 3, backgroundColor: '#fafafa', minHeight: '100vh' }}>
@@ -291,7 +259,7 @@ export default function OrgTreeEmployeesPage({ params }: { params: { id: string 
                     nodeSize={{ x: 300, y: 150 }}
                     renderCustomNodeElement={(rd3tProps) => {
                         const { nodeDatum } = rd3tProps;
-                        const isRoot = !nodeDatum.parent;
+                        const isRoot = !(nodeDatum as any).parent;
                         const isLeader = nodeDatum.attributes?.type === 'leader';
 
                         // Different sizes based on position

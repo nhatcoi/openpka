@@ -60,82 +60,54 @@ interface OrgUnitStats {
     children: OrgUnitStats[];
 }
 
+import { useAllOrgUnits } from '@/features/org';
+
 function FacultyPageContent() {
-    const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
     const router = useRouter();
     const searchParams = useSearchParams();
     const unitId = searchParams.get('unitId');
     const unitName = searchParams.get('unitName') || 'Đơn vị';
 
-    useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch('/api/org/units');
-                const result = await response.json();
+    const { data: units = [], isLoading: loading, error: queryError } = useAllOrgUnits();
 
-                if (result.success) {
-                    const units = result.data;
+    const orgUnitStats = React.useMemo<OrgUnitStats | null>(() => {
+        if (!units || units.length === 0 || !unitId) return null;
 
-                    // Group assignments by unit
-                    const assignmentsByUnit = new Map<string, Assignment[]>();
-                    units.forEach((unit: OrgUnit) => {
-                        assignmentsByUnit.set(unit.id, unit.assignments || []);
-                    });
+        const assignmentsByUnit = new Map<string, Assignment[]>();
+        units.forEach((unit: any) => {
+            assignmentsByUnit.set(unit.id, unit.assignments || []);
+        });
 
-                    const buildStats = (unit: OrgUnit, level: number = 1): OrgUnitStats => {
-                        const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-                        const employees = unitAssignments.map(a => ({
-                            ...a.employee,
-                            position: a.position
-                        })).filter(Boolean);
-                        const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
+        const buildStats = (unit: any, level: number = 1): OrgUnitStats => {
+            const unitAssignments = assignmentsByUnit.get(unit.id) || [];
+            const employees = unitAssignments.map(a => ({
+                ...a.employee,
+                position: a.position
+            })).filter(Boolean);
+            const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
 
-                        const children = units.filter((u: OrgUnit) => u.parent_id === unit.id);
-                        const childrenStats = children.map((child: OrgUnit) => buildStats(child, level + 1));
+            const children = units.filter((u: any) => u.parent_id === unit.id);
+            const childrenStats = children.map((child: any) => buildStats(child, level + 1));
 
-                        return {
-                            id: unit.id,
-                            name: unit.name,
-                            code: unit.code,
-                            type: unit.type,
-                            status: unit.status,
-                            level,
-                            employees,
-                            totalEmployees: employees.length,
-                            activeEmployees: activeEmployees.length,
-                            children: childrenStats
-                        };
-                    };
-
-                    // Find the specific unit
-                    const targetUnit = units.find((unit: OrgUnit) => unit.id === unitId);
-                    if (targetUnit) {
-                        const stats = buildStats(targetUnit, 1);
-                        setOrgUnitStats(stats);
-                    } else {
-                        setError('Không tìm thấy đơn vị');
-                    }
-                } else {
-                    setError(result.error || 'Không thể tải dữ liệu');
-                }
-            } catch (err) {
-                console.error('Error fetching data:', err);
-                setError('Lỗi kết nối đến server');
-            } finally {
-                setLoading(false);
-            }
+            return {
+                id: unit.id,
+                name: unit.name,
+                code: unit.code,
+                type: unit.type || '',
+                status: unit.status || '',
+                level,
+                employees,
+                totalEmployees: employees.length,
+                activeEmployees: activeEmployees.length,
+                children: childrenStats
+            };
         };
 
-        if (unitId) {
-            fetchData();
-        } else {
-            setError('Thiếu thông tin đơn vị');
-            setLoading(false);
-        }
-    }, [unitId]);
+        const targetUnit = units.find((u: any) => u.id === unitId);
+        return targetUnit ? buildStats(targetUnit, 1) : null;
+    }, [units, unitId]);
+
+    const error = queryError ? (queryError as Error).message : (!loading && !orgUnitStats && unitId ? 'Không tìm thấy đơn vị' : null);
 
     const handleBack = () => {
         router.push(HR_ROUTES.UNIVERSITY_OVERVIEW);
@@ -190,23 +162,23 @@ function FacultyPageContent() {
 
         // Create tree structure with main leader as root
         const treeData = {
-            name: mainLeader.User?.full_name || 'N/A',
+            name: mainLeader.user?.full_name || (mainLeader as any).User?.full_name || 'N/A',
             attributes: {
                 id: mainLeader.id,
                 position: mainLeader.position?.title || mainLeader.employment_type || 'Trưởng khoa',
                 employee_no: mainLeader.employee_no || '',
-                email: mainLeader.User?.email || '',
+                email: mainLeader.user?.email || (mainLeader as any).User?.email || '',
                 status: mainLeader.status || '',
                 type: 'leader',
                 totalEmployees: employees.length,
             },
             children: sortedEmployees.slice(1).map(emp => ({
-                name: emp.User?.full_name || 'N/A',
+                name: emp.user?.full_name || (emp as any).User?.full_name || 'N/A',
                 attributes: {
                     id: emp.id,
                     position: emp.position?.title || emp.employment_type || 'Giảng viên',
                     employee_no: emp.employee_no || '',
-                    email: emp.User?.email || '',
+                    email: emp.user?.email || (emp as any).User?.email || '',
                     status: emp.status || '',
                     type: 'employee',
                 },
@@ -241,7 +213,7 @@ function FacultyPageContent() {
         );
     }
 
-    const employeeTreeData = createEmployeeTree(orgUnitStats.Employee);
+    const employeeTreeData = createEmployeeTree(orgUnitStats.employees);
 
     return (
         <Box sx={{ p: 3, backgroundColor: '#fafafa', minHeight: '100vh' }}>
@@ -249,38 +221,64 @@ function FacultyPageContent() {
                 <Breadcrumbs sx={{ mb: 2 }}>
                     <Link
                         color="inherit"
-                        href="/hr/university-overview"
-                        onClick={(e) => { e.preventDefault(); handleBack(); }}
+                        href="#"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            handleBack();
+                        }}
                         sx={{ cursor: 'pointer' }}
                     >
-                        Tổng quan Đại học
+                        Tổng quan trường
                     </Link>
                     <Link
                         color="inherit"
-                        href="/hr/org-structure"
-                        onClick={(e) => { e.preventDefault(); handleBackToOrgStructure(); }}
+                        href="#"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            handleBackToOrgStructure();
+                        }}
                         sx={{ cursor: 'pointer' }}
                     >
-                        Cơ cấu Tổ chức
+                        Cơ cấu tổ chức
                     </Link>
-                    <Typography color="text.primary">Giảng viên</Typography>
+                    <Typography color="text.primary">
+                        {orgUnitStats.name}
+                    </Typography>
                 </Breadcrumbs>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Button
-                        startIcon={<ArrowBackIcon />}
-                        onClick={handleBack}
-                        variant="outlined"
-                    >
-                        Quay lại
-                    </Button>
-                    <Typography variant="h4" component="h1" sx={{ color: '#1976d2' }}>
-                        Giảng viên: {unitName}
-                    </Typography>
+                <Box display="flex" alignItems="center" justifyContent="space-between">
+                    <Box display="flex" alignItems="center" gap={2}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<ArrowBackIcon />}
+                            onClick={handleBackToOrgStructure}
+                            size="small"
+                        >
+                            Quay lại
+                        </Button>
+                        <Box>
+                            <Typography variant="h4" component="h1" fontWeight="bold">
+                                {orgUnitStats.name}
+                            </Typography>
+                            <Typography variant="subtitle1" color="text.secondary">
+                                Mã: {orgUnitStats.code} | Loại: {orgUnitStats.type} | Trạng thái: {orgUnitStats.status}
+                            </Typography>
+                        </Box>
+                    </Box>
                 </Box>
             </Box>
 
-            <Box sx={{ width: '100%', height: '600px', overflow: 'auto' }}>
+            {/* Tree View */}
+            <Box
+                sx={{
+                    width: '100%',
+                    height: '600px',
+                    backgroundColor: 'white',
+                    borderRadius: 2,
+                    boxShadow: 1,
+                    overflow: 'hidden'
+                }}
+            >
                 <Tree
                     data={employeeTreeData}
                     orientation="vertical"
@@ -289,7 +287,7 @@ function FacultyPageContent() {
                     nodeSize={{ x: 300, y: 150 }}
                     renderCustomNodeElement={(rd3tProps) => {
                         const { nodeDatum } = rd3tProps;
-                        const isRoot = !nodeDatum.parent;
+                        const isRoot = !(nodeDatum as any).parent;
                         const isLeader = nodeDatum.attributes?.type === 'leader';
 
                         // Different sizes based on position
