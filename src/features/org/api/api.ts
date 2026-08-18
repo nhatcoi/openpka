@@ -6,7 +6,7 @@ export interface OrgUnit {
   id: string;
   parent_id: string | null;
   type?: string | null;
-  code?: string | null;
+  code: string;
   name: string;
   created_at?: string;
   updated_at?: string;
@@ -18,6 +18,7 @@ export interface OrgUnit {
   level?: number | null;
   is_active?: boolean;
   children?: OrgUnit[];
+  employees?: any[];
   assignments?: any[];
   OrgAssignment?: any[];
 }
@@ -80,13 +81,60 @@ export interface OrgStats {
   teams: number;
   branches: number;
   topUnits: {
-    id: string;
+    id: string | number;
     name: string;
     code: string;
-    type: string;
-    employeeCount: number;
+    type?: string;
+    employeeCount?: number;
+    _count?: { OrgAssignment: number };
   }[];
 }
+
+export interface OrgTreeNodeData {
+  id: string;
+  name: string;
+  code: string;
+  type?: string | null;
+  status?: string | null;
+  children?: OrgTreeNodeData[];
+  parent_id: string | null;
+}
+
+export interface RecentActivity {
+  id: string;
+  description: string;
+  timestamp: string;
+  unitName?: string;
+}
+
+export interface TopUnit {
+  id: string | number;
+  name: string;
+  code: string;
+  employeeCount: number;
+}
+
+export interface JobPosition {
+  id: string;
+  title: string;
+  code?: string;
+}
+
+export interface OrgAssignment {
+  id: string;
+  employee_id: string;
+  org_unit_id: string;
+  job_position_id?: string;
+  start_date: string;
+  end_date?: string;
+  assignment_type: string;
+  is_primary: boolean;
+  allocation: string;
+  Employee?: any;
+  OrgUnit?: any;
+  JobPosition?: any;
+}
+
 
 export interface OrgUnitsResponse {
   success: boolean;

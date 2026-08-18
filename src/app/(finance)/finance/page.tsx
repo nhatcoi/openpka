@@ -36,59 +36,16 @@ import {
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material'
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider'
-
-type ProgramOption = {
-  id: string
-  code: string | null
-  name_vi: string | null
-  name_en: string | null
-  total_credits: number | null
-  status: string
-}
-
-type TuitionRate = {
-  id: string
-  academicYear: string
-  perCreditFee: number
-  currency: string
-  totalCredits: number
-  minTuition: number
-  updatedAt: string
-  major: { id: string; name: string }
-  program: { id: string | null; name: string | null } | null
-}
-
-type MinTuitionRow = {
-  tuitionRateId: string
-  academicYear: string
-  majorId: string
-  majorName: string | null
-  programId: string | null
-  programName: string | null
-  totalCreditsMin: number | null
-  perCreditFee: number
-  minTuition: number
-  currency: string
-}
-
-type ToastState = { open: boolean; message: string; severity: 'success' | 'error' | 'info' }
+import { usePrograms } from '@/features/tms'
+import {
+  ProgramOption,
+  TuitionRate,
+  MinTuitionRow,
+  ToastState,
+  buildYearOptions,
+} from '@/features/finance'
 
 const PRIMARY_GRADIENT = 'linear-gradient(135deg, #0f172a 0%, #0c4a6e 100%)'
-
-const getCurrentAcademicYear = () => {
-  const now = new Date()
-  const startYear = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1
-  return `${startYear}-${startYear + 1}`
-}
-
-const buildYearOptions = (range = 5) => {
-  const current = getCurrentAcademicYear()
-  const [start] = current.split('-').map(Number)
-  return Array.from({ length: range }, (_, idx) => {
-    const yearStart = start - idx
-    return `${yearStart}-${yearStart + 1}`
-  })
-}
 
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, { cache: 'no-store', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } })
@@ -98,8 +55,6 @@ async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>
 }
-
-import { usePrograms } from '@/features/tms'
 
 export default function FinancePage() {
   const confirmDialog = useConfirmDialog()

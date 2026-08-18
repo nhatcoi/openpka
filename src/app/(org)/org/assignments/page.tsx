@@ -47,62 +47,8 @@ import {
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
-
-// Types
-interface OrgAssignment {
-  id: string;
-  employee_id: string;
-  org_unit_id: string;
-  job_position_id?: string;
-  start_date: string;
-  end_date?: string;
-  assignment_type: string;
-  is_primary: boolean;
-  allocation: string;
-  Employee: {
-    id: string;
-    employee_no: string;
-    User: {
-      id: string;
-      full_name: string;
-      email: string;
-    };
-  };
-  OrgUnit: {
-    id: string;
-    name: string;
-    code: string;
-    type: string;
-  };
-  JobPosition?: {
-    id: string;
-    title: string;
-    code: string;
-  };
-}
-
-interface Employee {
-  id: string;
-  employee_no: string;
-  User: {
-    id: string;
-    full_name: string;
-    email: string;
-  };
-}
-
-interface OrgUnit {
-  id: string;
-  name: string;
-  code: string;
-  type: string;
-}
-
-interface JobPosition {
-  id: string;
-  title: string;
-  code: string;
-}
+import { OrgAssignment, OrgUnit, JobPosition } from '@/features/org';
+import { Employee } from '@/features/hr';
 
 export default function AssignmentsPage() {
   const { data: session } = useSession();
@@ -500,7 +446,7 @@ export default function AssignmentsPage() {
             {/* Employee Selection */}
             <Autocomplete
               options={employees || []}
-              getOptionLabel={(option) => `${option.User.full_name} (${option.employee_no})`}
+              getOptionLabel={(option) => `${option.User?.full_name || option.user?.full_name || 'N/A'} (${option.employee_no || ''})`}
               value={(employees || []).find(emp => emp.id === formData.employee_id) || null}
               onChange={(event, newValue) => {
                 setFormData(prev => ({ ...prev, employee_id: newValue?.id || '' }));
@@ -517,10 +463,10 @@ export default function AssignmentsPage() {
                 <Box component="li" {...props}>
                   <Box>
                     <Typography variant="body2" fontWeight="bold">
-                      {option.User.full_name}
+                      {option.User?.full_name || option.user?.full_name || 'N/A'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {option.employee_no} • {option.User.email}
+                      {option.employee_no} • {option.User?.email || option.user?.email || ''}
                     </Typography>
                   </Box>
                 </Box>

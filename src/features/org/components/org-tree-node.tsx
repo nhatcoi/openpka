@@ -14,7 +14,7 @@ import {
   Business as BusinessIcon,
   People as PeopleIcon,
 } from '@mui/icons-material';
-import { type OrgUnit } from '@/features/org/api/use-org-units';
+import { type OrgUnit } from '../api/api';
 
 interface OrgTreeNodeProps {
   unit: OrgUnit;

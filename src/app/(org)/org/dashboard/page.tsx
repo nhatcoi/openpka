@@ -31,33 +31,7 @@ import {
   Settings as SettingsIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
-
-interface RecentActivity {
-  id: string;
-  description: string;
-  timestamp: string;
-  unitName?: string;
-}
-
-interface TopUnit {
-  id: string | number;
-  name: string;
-  code: string;
-  employeeCount: number;
-}
-
-interface OrgStats {
-  totalUnits: number;
-  totalEmployees: number;
-  activeUnits: number;
-  inactiveUnits: number;
-  topUnits?: Array<{
-    id: number;
-    name: string;
-    code: string;
-    _count?: { OrgAssignment: number };
-  }>;
-}
+import { OrgStats, RecentActivity, TopUnit } from '@/features/org';
 
 const MOCK_ACTIVITIES: RecentActivity[] = [
   {
@@ -199,7 +173,7 @@ export default function OrgDashboardPage() {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         {statCards.map((card) => (
-          <Grid item xs={12} sm={6} md={3} key={card.title}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={card.title}>
             <Card variant="outlined">
               <CardContent>
                 <Stack direction="row" spacing={2} alignItems="center">
@@ -225,7 +199,7 @@ export default function OrgDashboardPage() {
         </Typography>
         <Grid container spacing={2}>
           {quickActions.map((action) => (
-            <Grid item xs={12} sm={6} md={3} key={action.title}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={action.title}>
               <Button
                 variant="outlined"
                 fullWidth
@@ -248,7 +222,7 @@ export default function OrgDashboardPage() {
       </Paper>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper variant="outlined" sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
               Đơn vị có nhiều nhân viên nhất
@@ -278,7 +252,7 @@ export default function OrgDashboardPage() {
             </List>
           </Paper>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper variant="outlined" sx={{ p: 3 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
               <Typography variant="h6" fontWeight={600}>

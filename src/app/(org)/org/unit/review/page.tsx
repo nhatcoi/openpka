@@ -142,8 +142,8 @@ export default function OrgUnitReviewPage(): JSX.Element {
     severity: 'success',
   });
   const [processIndex, setProcessIndex] = useState(0);
-  const [focusedStatus, setFocusedStatus] = useState<OrgUnitStatus>('DRAFT');
-  const [focusedStage, setFocusedStage] = useState<OrgUnitWorkflowStage>('DRAFT');
+  const [focusedStatus, setFocusedStatus] = useState<OrgUnitStatus>(OrgUnitStatus.DRAFT);
+  const [focusedStage, setFocusedStage] = useState<OrgUnitWorkflowStage>(OrgUnitWorkflowStage.DRAFT);
   const [historyEntries, setHistoryEntries] = useState<ApprovalHistoryEntry[]>([]);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createFormData, setCreateFormData] = useState<CreateOrgUnitFormData>({
@@ -158,9 +158,9 @@ export default function OrgUnitReviewPage(): JSX.Element {
   const [createLoading, setCreateLoading] = useState(false);
 
   const { data: parentUnitsResponse } = useParentUnits();
-  const { data: typesStatusesResponse } = useOrgTypesStatuses();
+  const { types = [], statuses = [] } = useOrgTypesStatuses();
 
-  const parentUnits = useMemo(() => {
+  const parentUnits = useMemo<Array<{ id: string; name: string; code: string }>>(() => {
     if (!parentUnitsResponse?.data) return [];
     const items = Array.isArray(parentUnitsResponse.data) 
       ? parentUnitsResponse.data 
@@ -173,9 +173,8 @@ export default function OrgUnitReviewPage(): JSX.Element {
   }, [parentUnitsResponse]);
 
   const typeOptions = useMemo(() => {
-    if (!typesStatusesResponse) return [];
-    return convertTypesToOptions(typesStatusesResponse);
-  }, [typesStatusesResponse]);
+    return convertTypesToOptions(types);
+  }, [types]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -242,8 +241,8 @@ export default function OrgUnitReviewPage(): JSX.Element {
   const updateProcessContext = (status?: string) => {
     if (!status) {
       setProcessIndex(0);
-      setFocusedStatus('DRAFT');
-      setFocusedStage('DRAFT');
+      setFocusedStatus(OrgUnitStatus.DRAFT);
+      setFocusedStage(OrgUnitWorkflowStage.DRAFT);
       return;
     }
 
@@ -255,15 +254,15 @@ export default function OrgUnitReviewPage(): JSX.Element {
 
   const mapApprovalActionToStatus = (action: string): OrgUnitStatus => {
     const normalized = action.toUpperCase();
-    if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return 'DRAFT';
-    if (normalized.includes('APPROVE')) return 'APPROVED';
-    if (normalized.includes('REJECT')) return 'REJECTED';
-    if (normalized.includes('PUBLISH') || normalized.includes('ACTIVATE')) return 'ACTIVE';
-    if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return 'REVIEWING';
-    if (normalized.includes('SUSPEND')) return 'SUSPENDED';
-    if (normalized.includes('CANCEL')) return 'DRAFT';
-    if (normalized.includes('ARCHIVE')) return 'ARCHIVED';
-    return 'DRAFT';
+    if (normalized.includes('REQUEST') || normalized.includes('EDIT')) return OrgUnitStatus.DRAFT;
+    if (normalized.includes('APPROVE')) return OrgUnitStatus.APPROVED;
+    if (normalized.includes('REJECT')) return OrgUnitStatus.REJECTED;
+    if (normalized.includes('PUBLISH') || normalized.includes('ACTIVATE')) return OrgUnitStatus.ACTIVE;
+    if (normalized.includes('SUBMIT') || normalized.includes('REVIEW')) return OrgUnitStatus.REVIEWING;
+    if (normalized.includes('SUSPEND')) return OrgUnitStatus.SUSPENDED;
+    if (normalized.includes('CANCEL')) return OrgUnitStatus.DRAFT;
+    if (normalized.includes('ARCHIVE')) return OrgUnitStatus.ARCHIVED;
+    return OrgUnitStatus.DRAFT;
   };
 
   const openDetailDialog = async (row: ReviewRow) => {
@@ -628,7 +627,7 @@ export default function OrgUnitReviewPage(): JSX.Element {
           key="archive"
           size="small"
           variant="outlined"
-          color="default"
+          color="inherit"
           startIcon={<ArchiveIcon />}
           onClick={(e) => {
             e.stopPropagation();
@@ -679,7 +678,7 @@ export default function OrgUnitReviewPage(): JSX.Element {
           key="archive"
           size="small"
           variant="outlined"
-          color="default"
+          color="inherit"
           startIcon={<ArchiveIcon />}
           onClick={(e) => {
             e.stopPropagation();

@@ -25,30 +25,7 @@ import { API_ROUTES } from '@/constants/routes';
 import { buildUrl } from '@/lib/api/api-handler';
 import { buildTree } from '@/utils/tree-utils';
 import { useRouter } from 'next/navigation';
-
-interface OrgUnit {
-  id: string;
-  parent_id: string | null;
-  type: string | null;
-  code: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-  description: string | null;
-  status: string | null;
-  effective_from: string | null;
-  effective_to: string | null;
-}
-
-interface OrgTreeNode {
-  id: string;
-  name: string;
-  code: string;
-  type: string | null;
-  status: string | null;
-  children: OrgTreeNode[];
-  parent_id: string | null;
-}
+import { OrgUnit, OrgTreeNodeData as OrgTreeNode } from '@/features/org';
 
 export default function OrgDiagramPage() {
   const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
@@ -75,23 +52,8 @@ export default function OrgDiagramPage() {
         setOrgUnits(data);
         
         // Build tree structure for diagram
-        const normalizedData = data.map(unit => ({
-          ...unit,
-          id: parseInt(unit.id, 10),
-          parent_id: unit.parent_id ? parseInt(unit.parent_id, 10) : null,
-        }));
-        
-        const tree = buildTree(normalizedData);
-        
-        // Convert back to string IDs and add children structure
-        const convertedTree = tree.map(unit => ({
-          ...unit,
-          id: unit.id.toString(),
-          parent_id: unit.parent_id?.toString() || null,
-          children: (unit as { children?: unknown[] }).children || [],
-        }));
-        
-        setTreeData(convertedTree);
+        const tree = buildTree<any>(data as any) as OrgTreeNode[];
+        setTreeData(tree);
       } else {
         setError('Failed to fetch org units');
       }
@@ -106,10 +68,15 @@ export default function OrgDiagramPage() {
   React.useEffect(() => {
     fetchOrgUnitsData();
     
+    // Auto refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchOrgUnitsData();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
-  // Refresh function
-  const refetch = () => {
+  const handleRefresh = () => {
     fetchOrgUnitsData();
   };
 
@@ -121,7 +88,7 @@ export default function OrgDiagramPage() {
 
   // Component to render a single node
   const OrgChartNode = ({ node, level = 0 }: { node: OrgTreeNode; level?: number }) => {
-    const getTypeColor = (type: string | null) => {
+    const getTypeColor = (type?: string | null) => {
       switch (type?.toLowerCase()) {
         case 'u': return '#1976d2'; // University
         case 's': return '#2e7d32'; // School
@@ -133,7 +100,7 @@ export default function OrgDiagramPage() {
       }
     };
 
-    const getStatusColor = (status: string | null) => {
+    const getStatusColor = (status?: string | null) => {
       switch (status?.toLowerCase()) {
         case 'active': return '#4caf50';
         case 'inactive': return '#f44336';
@@ -381,7 +348,7 @@ export default function OrgDiagramPage() {
               <Button
                 variant="contained"
                 startIcon={<RefreshIcon />}
-                onClick={() => refetch()}
+                onClick={handleRefresh}
                 disabled={loading}
                 sx={{ backgroundColor: '#2e4c92' }}
               >

@@ -19,80 +19,18 @@ import {
   Refresh as RefreshIcon,
   AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
-import { OrgTreeNode } from '@/features/org/components/org-tree-node';
+import { OrgTreeNode, OrgUnit, useAllOrgUnits } from '@/features/org';
 import { buildTree } from '@/utils/tree-utils';
-import { API_ROUTES } from '@/constants/routes';
-import { buildUrl } from '@/lib/api/api-handler';
-
-interface OrgUnit {
-  id: string;
-  parent_id: string | null;
-  type: string | null;
-  code: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-  description: string | null;
-  status: string | null;
-  effective_from: string | null;
-  effective_to: string | null;
-}
 
 export default function OrgTreePage() {
-  const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: orgUnits = [], isLoading: loading, error: queryError, refetch } = useAllOrgUnits();
+  const error = queryError ? (queryError as Error).message : null;
 
-  const fetchOrgUnitsData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await fetch(buildUrl(API_ROUTES.ORG.UNITS, {
-        status: 'ACTIVE',
-        page: 1,
-        size: 1000
-      }));
-
-
-      const result = await response.json();
-      
-      if (result.success) {
-        setOrgUnits(result.data.items || []);
-      } else {
-        setError('Failed to fetch org units');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch org units');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    fetchOrgUnitsData();
-  }, []);
-
-  const refetch = () => {
-    fetchOrgUnitsData();
-  };
-
-
-
-  // Build cấu trúc cây từ mảng flat
-  const normalizedOrgUnits = orgUnits.map(unit => ({
-    ...unit,
-    id: parseInt(unit.id, 10),
-    parent_id: unit.parent_id ? parseInt(unit.parent_id, 10) : null,
-  }));
-
-  const treeData = buildTree(normalizedOrgUnits);
-
-  const convertedTreeData = treeData.map(unit => ({
-    ...unit,
-    id: unit.id.toString(),
-    parent_id: unit.parent_id?.toString() || null,
-  }));
+  // Build tree structure from flat array
+  const treeData = React.useMemo<OrgUnit[]>(() => {
+    if (!orgUnits.length) return [];
+    return buildTree<any>(orgUnits as any) as OrgUnit[];
+  }, [orgUnits]);
 
   return (
     <Box>
@@ -158,7 +96,7 @@ export default function OrgTreePage() {
             </Alert>
           )}
 
-          {!loading && !error && convertedTreeData.length === 0 && (
+          {!loading && !error && treeData.length === 0 && (
             <Box sx={{ textAlign: 'center', py: 4 }}>
               <ApartmentIcon sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -170,10 +108,10 @@ export default function OrgTreePage() {
             </Box>
           )}
 
-          {!loading && !error && convertedTreeData.length > 0 && (
+          {!loading && !error && treeData.length > 0 && (
             <Box>
               {/* Tree View - hiển thị cây hiện tại */}
-              {convertedTreeData.map((unit) => (
+              {treeData.map((unit) => (
                 <OrgTreeNode key={unit.id} unit={unit} level={0} />
               ))}
             </Box>

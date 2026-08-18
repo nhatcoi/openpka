@@ -41,18 +41,7 @@ import {
   Search as SearchIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-
-interface OrgUnitType {
-  id: string;
-  code: string;
-  name: string;
-  description?: string | null;
-  color: string;
-  is_active: boolean;
-  sort_order: number;
-  created_at: string;
-  updated_at: string;
-}
+import { OrgUnitType } from '@/features/org';
 
 export default function OrgTypePage() {
   const [types, setTypes] = useState<OrgUnitType[]>([]);

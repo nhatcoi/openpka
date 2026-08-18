@@ -41,18 +41,7 @@ import {
   Search as SearchIcon,
   Close as CloseIcon,
 } from '@mui/icons-material';
-
-interface OrgUnitStatus {
-  id: string;
-  code: string;
-  name: string;
-  description?: string | null;
-  color: string;
-  is_active: boolean;
-  workflow_step: number;
-  created_at: string;
-  updated_at: string;
-}
+import { OrgUnitStatus } from '@/features/org';
 
 export default function OrgStatusPage() {
   const [statuses, setStatuses] = useState<OrgUnitStatus[]>([]);

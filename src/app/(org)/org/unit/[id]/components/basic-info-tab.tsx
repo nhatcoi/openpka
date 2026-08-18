@@ -118,13 +118,13 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
   // useEffect removed - will fetch on demand
 
   // Helper functions to get type and status names
-  const getTypeName = (typeCode: string | null) => {
+  const getTypeName = (typeCode?: string | null) => {
     if (!typeCode) return 'Chưa xác định';
     const type = orgUnitTypes.find(t => t.value === typeCode);
     return type ? type.label : typeCode; // Show code if no data available yet
   };
 
-  const getStatusName = (statusCode: string | null) => {
+  const getStatusName = (statusCode?: string | null) => {
     if (!statusCode) return 'Chưa xác định';
     const status = orgUnitStatuses.find(s => s.value === statusCode);
     return status ? status.label : statusCode; // Show code if no data available yet
@@ -577,7 +577,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                     Ngày tạo
                   </Typography>
                   <Typography variant="body1">
-                    {new Date(unit.created_at).toLocaleString('vi-VN')}
+                    {unit.created_at ? new Date(unit.created_at).toLocaleString('vi-VN') : 'N/A'}
                   </Typography>
                 </Box>
 
@@ -586,7 +586,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
                     Cập nhật lần cuối
                   </Typography>
                   <Typography variant="body1">
-                    {new Date(unit.updated_at).toLocaleString('vi-VN')}
+                    {unit.updated_at ? new Date(unit.updated_at).toLocaleString('vi-VN') : 'N/A'}
                   </Typography>
                 </Box>
 

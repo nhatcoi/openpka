@@ -58,8 +58,8 @@ export const convertStatusesToOptions = (statuses: OrgUnitStatus[]): DropdownOpt
 /**
  * Get type name from API data
  */
-export const getTypeNameFromApi = (typeCode: string | null, types: OrgUnitType[]): string => {
-  if (!typeCode) return typeCode || '';
+export const getTypeNameFromApi = (typeCode?: string | null, types: OrgUnitType[] = []): string => {
+  if (!typeCode) return '';
   
   const type = types.find(t => t.code === typeCode);
   return type?.name || typeCode;
@@ -68,8 +68,8 @@ export const getTypeNameFromApi = (typeCode: string | null, types: OrgUnitType[]
 /**
  * Get status name from API data
  */
-export const getStatusNameFromApi = (statusCode: string | null, statuses: OrgUnitStatus[]): string => {
-  if (!statusCode) return statusCode || '';
+export const getStatusNameFromApi = (statusCode?: string | null, statuses: OrgUnitStatus[] = []): string => {
+  if (!statusCode) return '';
   
   const status = statuses.find(s => s.code === statusCode);
   return status?.name || statusCode;

@@ -1,5 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { fetcher, queryKeys } from '@/lib/api/fetcher';
+import { OrgUnit } from './api';
+
+export type { OrgUnit };
 
 export interface Employee {
   id: string;
@@ -9,25 +12,6 @@ export interface Employee {
   phone?: string;
   position?: string;
   status?: string;
-}
-
-
-
-export interface OrgUnit {
-  id: string; // Changed to string due to BigInt serialization
-  parent_id: string | null; // Changed to string due to BigInt serialization
-  type: string | null;
-  code: string;
-  name: string;
-  created_at: string;
-  updated_at: string;
-  description: string | null;
-  status: string | null;
-  effective_from: string | null;
-  effective_to: string | null;
-  parent?: OrgUnit;
-  children?: OrgUnit[];
-  employees?: Employee[];
 }
 
 export interface OrgUnitsResponse {
