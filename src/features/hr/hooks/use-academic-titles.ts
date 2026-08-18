@@ -95,3 +95,67 @@ export function useEmployeeAcademicTitles() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useCreateEmployeeAcademicTitle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create employee academic title');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-academic-titles'] });
+    },
+  });
+}
+
+export function useUpdateEmployeeAcademicTitle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES_BY_ID(id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update employee academic title');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-academic-titles'] });
+    },
+  });
+}
+
+export function useDeleteEmployeeAcademicTitle() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES_BY_ID(id), {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete employee academic title');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-academic-titles'] });
+    },
+  });
+}

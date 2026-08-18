@@ -44,50 +44,31 @@ import {
     Person as PersonIcon,
     Star as StarIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface User {
-    id: string;
-    username: string;
-    email: string | null;
-    full_name: string;
-    dob: string | null;
-    gender: string | null;
-    phone: string | null;
-    address: string | null;
-}
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    hired_at: string | null;
-    terminated_at: string | null;
-    User: User | null;
-}
-
-interface PerformanceReview {
-    id: string;
-    employee_id: string;
-    review_period: string | null;
-    score: string | null;
-    comments: string | null;
-    created_at: string;
-    updated_at: string;
-    Employee: Employee | null;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    usePerformanceReviews,
+    useCreatePerformanceReview,
+    useUpdatePerformanceReview,
+    useDeletePerformanceReview,
+    useEmployeeSearch,
+    PerformanceReview,
+    HrSearchBar
+} from '@/features/hr';
 
 function PerformanceReviewsPageContent() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [performanceReviews, setPerformanceReviews] = useState<PerformanceReview[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+
+    const { data: performanceReviews = [], isLoading: reviewsLoading, error: queryError } = usePerformanceReviews();
+    const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+    const { mutateAsync: createPerformanceReview } = useCreatePerformanceReview();
+    const { mutateAsync: updatePerformanceReview } = useUpdatePerformanceReview();
+    const { mutateAsync: deletePerformanceReview } = useDeletePerformanceReview();
+
+    const loading = reviewsLoading || employeesLoading;
+    const [actionError, setActionError] = useState('');
     const [actionLoading, setActionLoading] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingReview, setEditingReview] = useState<PerformanceReview | null>(null);
@@ -103,10 +84,8 @@ function PerformanceReviewsPageContent() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
-    }, [session, status, router, searchParams]);
+    }, [session, status, router]);
 
     useEffect(() => {
         // Check for employee_id in URL params and pre-fill form data
@@ -119,41 +98,7 @@ function PerformanceReviewsPageContent() {
         }
     }, [searchParams]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-
-            // Check for employee_id in URL params
-            const employeeId = searchParams.get('employee_id');
-
-            const [performanceReviewsRes, employeesRes] = await Promise.all([
-                fetch(employeeId ? `${API_ROUTES.HR.PERFORMANCE_REVIEWS}?employee_id=${employeeId}` : API_ROUTES.HR.PERFORMANCE_REVIEWS),
-                fetch(API_ROUTES.HR.EMPLOYEES)
-            ]);
-
-            const [performanceReviewsResult, employeesResult] = await Promise.all([
-                performanceReviewsRes.json(),
-                employeesRes.json()
-            ]);
-
-            if (performanceReviewsResult.success) {
-                setPerformanceReviews(performanceReviewsResult.data);
-            } else {
-                setError(performanceReviewsResult.error || 'Không thể tải danh sách đánh giá');
-            }
-
-            if (employeesResult.success) {
-                setEmployees(employeesResult.data);
-            } else {
-                setError(employeesResult.error || 'Không thể tải danh sách nhân viên');
-            }
-        } catch (error) {
-            console.error('Error fetching data:', error);
-            setError('Lỗi khi tải dữ liệu');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : '');
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -167,38 +112,22 @@ function PerformanceReviewsPageContent() {
         setActionLoading('submit');
 
         try {
-            const url = editingReview
-                ? API_ROUTES.HR.PERFORMANCE_REVIEWS_BY_ID(editingReview.id)
-                : API_ROUTES.HR.PERFORMANCE_REVIEWS;
-
-            const method = editingReview ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                setOpenDialog(false);
-                setEditingReview(null);
-                setFormData({
-                    employee_id: '',
-                    review_period: '',
-                    score: '',
-                    comments: '',
-                });
+            setActionError('');
+            if (editingReview) {
+                await updatePerformanceReview({ id: editingReview.id, data: formData });
             } else {
-                setError(result.error || 'Không thể lưu đánh giá');
+                await createPerformanceReview(formData);
             }
-        } catch (error) {
-            console.error('Error saving performance review:', error);
-            setError('Lỗi khi lưu đánh giá');
+            setOpenDialog(false);
+            setEditingReview(null);
+            setFormData({
+                employee_id: searchParams.get('employee_id') || '',
+                review_period: '',
+                score: '',
+                comments: '',
+            });
+        } catch (err: any) {
+            setActionError(err.message || 'Không thể lưu đánh giá');
         } finally {
             setActionLoading(null);
         }
@@ -209,7 +138,7 @@ function PerformanceReviewsPageContent() {
         setFormData({
             employee_id: review.employee_id,
             review_period: review.review_period || '',
-            score: review.score || '',
+            score: review.score ? String(review.score) : '',
             comments: review.comments || '',
         });
         setOpenDialog(true);
@@ -218,29 +147,21 @@ function PerformanceReviewsPageContent() {
     const handleDelete = async (reviewId: string, employeeName: string) => {
         const confirmed = await confirmDialog({
             title: 'Xóa đánh giá',
-            message: `Bạn có chắc chắn muốn xóa đánh giá của ${employeeName}?`,
+            message: `Bạn có chắc chắn muốn xóa đánh giá của nhân viên "${employeeName}"?`,
             confirmText: 'Xóa',
             cancelText: 'Hủy',
             destructive: true,
         });
-        if (!confirmed) return;
+        if (!confirmed) {
+            return;
+        }
 
         try {
             setActionLoading(`delete-${reviewId}`);
-            const response = await fetch(API_ROUTES.HR.PERFORMANCE_REVIEWS_BY_ID(reviewId), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-            } else {
-                setError(result.error || 'Không thể xóa đánh giá');
-            }
-        } catch (error) {
-            console.error('Error deleting performance review:', error);
-            setError('Lỗi khi xóa đánh giá');
+            setActionError('');
+            await deletePerformanceReview(reviewId);
+        } catch (err: any) {
+            setActionError(err.message || 'Không thể xóa đánh giá');
         } finally {
             setActionLoading(null);
         }
@@ -257,17 +178,19 @@ function PerformanceReviewsPageContent() {
         });
     };
 
-    const getScoreColor = (score: string | null) => {
+    const getScoreColor = (score?: string | number | null) => {
         if (!score) return 'default';
-        const numScore = parseFloat(score);
+        const numScore = typeof score === 'number' ? score : parseFloat(score);
+        if (isNaN(numScore)) return 'default';
         if (numScore >= 4.0) return 'success';
         if (numScore >= 3.0) return 'warning';
         return 'error';
     };
 
-    const getScoreLabel = (score: string | null) => {
+    const getScoreLabel = (score?: string | number | null) => {
         if (!score) return 'Chưa đánh giá';
-        const numScore = parseFloat(score);
+        const numScore = typeof score === 'number' ? score : parseFloat(score);
+        if (isNaN(numScore)) return 'Chưa đánh giá';
         if (numScore >= 4.5) return 'Xuất sắc';
         if (numScore >= 4.0) return 'Tốt';
         if (numScore >= 3.0) return 'Đạt';
@@ -278,12 +201,12 @@ function PerformanceReviewsPageContent() {
     const filteredPerformanceReviews = useMemo(() => {
         if (!searchTerm.trim()) return performanceReviews;
         const term = searchTerm.trim().toLowerCase();
-        return performanceReviews.filter((review) => {
+        return (performanceReviews as PerformanceReview[]).filter((review: PerformanceReview) => {
             const values = [
                 review.Employee?.User?.full_name,
                 review.Employee?.employee_no,
                 review.review_period,
-                review.score,
+                review.score ? String(review.score) : null,
                 review.comments,
             ];
             return values.some((value) => value?.toLowerCase().includes(term));
@@ -368,7 +291,7 @@ function PerformanceReviewsPageContent() {
                     </TableHead>
                     <TableBody>
                         {filteredPerformanceReviews.length > 0 ? (
-                            filteredPerformanceReviews.map((review) => (
+                            filteredPerformanceReviews.map((review: PerformanceReview) => (
                                 <TableRow key={review.id}>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -396,7 +319,7 @@ function PerformanceReviewsPageContent() {
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                             <Rating
-                                                value={review.score ? parseFloat(review.score) : 0}
+                                                value={review.score ? (typeof review.score === 'number' ? review.score : parseFloat(review.score) || 0) : 0}
                                                 precision={0.1}
                                                 readOnly
                                                 size="small"
@@ -421,7 +344,7 @@ function PerformanceReviewsPageContent() {
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        {new Date(review.created_at).toLocaleDateString('vi-VN')}
+                                        {review.created_at ? new Date(review.created_at).toLocaleDateString('vi-VN') : '-'}
                                     </TableCell>
                                 </TableRow>
                             ))

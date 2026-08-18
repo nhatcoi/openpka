@@ -44,41 +44,30 @@ import {
     Layers,
 } from 'lucide-react';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Role {
-    id: string;
-    code: string;
-    name: string;
-}
-
-interface Permission {
-    id: string;
-    code?: string;
-    name: string;
-    resource?: string;
-    description?: string;
-}
-
-interface RolePermission {
-    id: string;
-    role_id: string;
-    permission_id: string;
-    roles?: Role;
-    Role?: Role;
-    permissions?: Permission;
-    Permission?: Permission;
-}
+import {
+    useRolePermissions,
+    useCreateRolePermission,
+    useDeleteRolePermission,
+    useRoles,
+    usePermissions,
+    Role,
+    Permission,
+    RolePermission
+} from '@/features/hr';
 
 export default function RolePermissionsPage() {
     const { data: session, status } = useSession();
-  const confirmDialog = useConfirmDialog();
+    const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [permissions, setPermissions] = useState<Permission[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: rolePermissions = [], isLoading: rolePermsLoading, error: queryError } = useRolePermissions();
+    const { data: roles = [], isLoading: rolesLoading } = useRoles();
+    const { data: permissions = [], isLoading: permsLoading } = usePermissions();
+    const { mutateAsync: createRolePermission } = useCreateRolePermission();
+    const { mutateAsync: deleteRolePermission } = useDeleteRolePermission();
+
+    const loading = rolePermsLoading || rolesLoading || permsLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [openBulkDialog, setOpenBulkDialog] = useState(false);
     const [dialogMode, setDialogMode] = useState<'single' | 'bulk'>('single');
@@ -100,74 +89,20 @@ export default function RolePermissionsPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-
-            // Fetch role permissions, roles, and permissions in parallel
-            const [rolePermissionsRes, rolesRes, permissionsRes] = await Promise.all([
-                fetch(API_ROUTES.HR.ROLE_PERMISSIONS),
-                fetch(API_ROUTES.HR.ROLES),
-                fetch(API_ROUTES.HR.PERMISSIONS)
-            ]);
-
-            const [rolePermissionsResult, rolesResult, permissionsResult] = await Promise.all([
-                rolePermissionsRes.json(),
-                rolesRes.json(),
-                permissionsRes.json()
-            ]);
-
-            if (rolePermissionsResult.success) {
-                setRolePermissions(rolePermissionsResult.data);
-            } else {
-                setError(rolePermissionsResult.error || 'Failed to fetch role permissions');
-            }
-
-            if (rolesResult.success) {
-                setRoles(rolesResult.data);
-            } else {
-                setError(rolesResult.error || 'Failed to fetch roles');
-            }
-
-            if (permissionsResult.success) {
-                setPermissions(permissionsResult.data);
-            } else {
-                setError(permissionsResult.error || 'Failed to fetch permissions');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await fetch(API_ROUTES.HR.ROLE_PERMISSIONS, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setOpenDialog(false);
-                setFormData({ role_id: '', permission_id: '' });
-                fetchData();
-            } else {
-                setError(result.error || 'Failed to create role permission');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await createRolePermission(formData);
+            setOpenDialog(false);
+            setFormData({ role_id: '', permission_id: '' });
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi gán quyền');
         }
     };
 
@@ -175,7 +110,7 @@ export default function RolePermissionsPage() {
         e.preventDefault();
         try {
             if (!bulkFormData.role_id || (!bulkFormData.selected_resource && !bulkFormData.assign_full)) {
-                setError('Vui lòng chọn vai trò và resource hoặc chọn gán full');
+                setActionError('Vui lòng chọn vai trò và resource hoặc chọn gán full');
                 return;
             }
 
@@ -191,42 +126,27 @@ export default function RolePermissionsPage() {
                 // Gán các permissions đã chọn
                 permissionsToAssign = bulkFormData.selected_permissions;
             } else {
-                setError('Vui lòng chọn ít nhất một quyền hạn');
+                setActionError('Vui lòng chọn ít nhất một quyền hạn');
                 return;
             }
 
-            // Gán nhiều permissions cùng lúc
-            const promises = permissionsToAssign.map(permissionId =>
-                fetch(API_ROUTES.HR.ROLE_PERMISSIONS, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        role_id: bulkFormData.role_id,
-                        permission_id: permissionId
-                    }),
-                })
-            );
-
-            const results = await Promise.all(promises);
-            const jsonResults = await Promise.all(results.map(r => r.json()));
-
-            const failed = jsonResults.filter(r => !r.success);
-            if (failed.length > 0) {
-                setError(`Không thể gán ${failed.length} quyền hạn`);
-            } else {
-                setOpenBulkDialog(false);
-                setBulkFormData({
-                    role_id: '',
-                    selected_resource: '',
-                    selected_permissions: [],
-                    assign_full: false
+            setActionError(null);
+            for (const permissionId of permissionsToAssign) {
+                await createRolePermission({
+                    role_id: bulkFormData.role_id,
+                    permission_id: permissionId
                 });
-                fetchData();
             }
-        } catch (err) {
-            setError('Network error occurred');
+
+            setOpenBulkDialog(false);
+            setBulkFormData({
+                role_id: '',
+                selected_resource: '',
+                selected_permissions: [],
+                assign_full: false
+            });
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi gán nhiều quyền');
         }
     };
 
@@ -244,24 +164,13 @@ export default function RolePermissionsPage() {
         }
 
         try {
-            // Delete all role permissions for this role
+            setActionError(null);
             const rolePermissionsToDelete = rolePermissions.filter(rp => rp.role_id === rolePermission.role_id);
-
             for (const rp of rolePermissionsToDelete) {
-                const response = await fetch(API_ROUTES.HR.ROLE_PERMISSIONS_BY_ID(rp.id), {
-                    method: 'DELETE',
-                });
-
-                const result = await response.json();
-                if (!result.success) {
-                    setError(result.error || 'Failed to delete role permission');
-                    return;
-                }
+                await deleteRolePermission(rp.id);
             }
-
-            fetchData();
-        } catch (err) {
-            setError('Network error occurred');
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa phân quyền');
         }
     };
 
@@ -394,7 +303,7 @@ export default function RolePermissionsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}

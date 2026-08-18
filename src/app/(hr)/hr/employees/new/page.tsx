@@ -24,10 +24,12 @@ import {
     Save as SaveIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
+import { useCreateEmployee } from '@/features/hr';
 
 export default function NewEmployeePage() {
     const router = useRouter();
     const { data: session, status } = useSession();
+    const { mutateAsync: createEmployee } = useCreateEmployee();
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -90,26 +92,14 @@ export default function NewEmployeePage() {
             }
 
             // Create employee
-            const employeeResponse = await fetch(API_ROUTES.HR.EMPLOYEES, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    user_id: userResult.data.id,
-                    employee_no: formData.employee_no,
-                    employment_type: formData.employment_type,
-                    status: formData.status,
-                    hired_at: formData.hired_at,
-                    terminated_at: formData.terminated_at,
-                }),
+            await createEmployee({
+                user_id: userResult.data.id,
+                employee_no: formData.employee_no,
+                employment_type: formData.employment_type,
+                status: formData.status,
+                hired_at: formData.hired_at,
+                terminated_at: formData.terminated_at,
             });
-
-            const employeeResult = await employeeResponse.json();
-
-            if (!employeeResult.success) {
-                throw new Error(employeeResult.error || 'Failed to create employee');
-            }
 
             setSuccess('Tạo nhân viên mới thành công!');
             setTimeout(() => {

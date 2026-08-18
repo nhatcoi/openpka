@@ -167,7 +167,7 @@ export default function UniversityOverviewPage() {
 
             <Grid container spacing={3}>
                 {orgUnitStats.map((unit) => (
-                    <Grid item xs={12} sm={6} md={4} key={unit.id}>
+                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={unit.id}>
                         <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <CardContent sx={{ flexGrow: 1 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>

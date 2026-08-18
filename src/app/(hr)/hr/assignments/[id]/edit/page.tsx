@@ -23,24 +23,9 @@ import {
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { API_ROUTES, HR_ROUTES } from '@/constants/routes';
-
-interface Option {
-  id: string;
-  label: string;
-}
-
-interface AssignmentDetail {
-  id: string;
-  employee_id: string;
-  org_unit_id: string;
-  position_id?: string | null;
-  is_primary: boolean;
-  assignment_type: string;
-  allocation: string | null;
-  start_date: string;
-  end_date?: string | null;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import { useAssignment, useUpdateAssignment, useEmployeeSearch, useJobPositions } from '@/features/hr';
+import { useAllOrgUnits } from '@/features/org';
 
 const ASSIGNMENT_TYPES = [
   { value: 'admin', label: 'Hành chính' },
@@ -50,13 +35,17 @@ const ASSIGNMENT_TYPES = [
 
 export default function AssignmentEditPage() {
   const params = useParams();
+  const id = params?.id as string;
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
-  const [employees, setEmployees] = useState<Option[]>([]);
-  const [orgUnits, setOrgUnits] = useState<Option[]>([]);
-  const [positions, setPositions] = useState<Option[]>([]);
+  const { data: assignment, isLoading: assignmentLoading, error: assignmentError } = useAssignment(id);
+  const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+  const { data: orgUnits = [], isLoading: orgUnitsLoading } = useAllOrgUnits();
+  const { data: positions = [], isLoading: positionsLoading } = useJobPositions();
+  const { mutateAsync: updateAssignment } = useUpdateAssignment();
+
+  const loading = assignmentLoading || employeesLoading || orgUnitsLoading || positionsLoading;
   const [formData, setFormData] = useState({
     employee_id: '',
     org_unit_id: '',
@@ -67,95 +56,33 @@ export default function AssignmentEditPage() {
     start_date: '',
     end_date: '',
   });
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
       signIn();
-      return;
     }
-    if (params.id) {
-      void fetchInitialData(params.id as string);
-    }
-  }, [session, status, params.id]);
+  }, [session, status]);
 
-  const fetchInitialData = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [assignmentRes, employeesRes, orgUnitsRes, positionsRes] = await Promise.all([
-        fetch(API_ROUTES.HR.ASSIGNMENTS_BY_ID(id), { credentials: 'include' }),
-        fetch(API_ROUTES.HR.EMPLOYEES, { credentials: 'include' }),
-        fetch(API_ROUTES.HR.ORG_UNITS_MINI, { credentials: 'include' }),
-        fetch(API_ROUTES.HR.POSITIONS, { credentials: 'include' }),
-      ]);
-
-      if (!assignmentRes.ok) {
-        const err = await assignmentRes.json();
-        throw new Error(err.error || 'Không thể tải phân công');
-      }
-
-      const [assignmentData, employeesData, orgUnitsData, positionsData] = await Promise.all([
-        assignmentRes.json(),
-        employeesRes.json(),
-        orgUnitsRes.json(),
-        positionsRes.json(),
-      ]);
-
-      if (!assignmentData.success) {
-        throw new Error(assignmentData.error || 'Không thể tải phân công');
-      }
-
-      setAssignment(assignmentData.data);
+  useEffect(() => {
+    if (assignment) {
       setFormData({
-        employee_id: assignmentData.data.employee_id || '',
-        org_unit_id: assignmentData.data.org_unit_id || '',
-        position_id: assignmentData.data.position_id || '',
-        assignment_type: assignmentData.data.assignment_type || 'admin',
-        is_primary: !!assignmentData.data.is_primary,
-        allocation: assignmentData.data.allocation || '1.0',
-        start_date: assignmentData.data.start_date?.substring(0, 10) || '',
-        end_date: assignmentData.data.end_date?.substring(0, 10) || '',
+        employee_id: assignment.employee_id || '',
+        org_unit_id: assignment.org_unit_id || '',
+        position_id: assignment.position_id || '',
+        assignment_type: assignment.assignment_type || 'admin',
+        is_primary: !!assignment.is_primary,
+        allocation: assignment.allocation ? String(assignment.allocation) : '1.0',
+        start_date: assignment.start_date ? assignment.start_date.substring(0, 10) : '',
+        end_date: assignment.end_date ? assignment.end_date.substring(0, 10) : '',
       });
-
-      if (employeesData.success) {
-        setEmployees(
-          employeesData.data.map((emp: any) => ({
-            id: emp.id.toString(),
-            label: `${emp.User?.full_name || 'N/A'} (${emp.employee_no || emp.id})`,
-          }))
-        );
-      }
-
-      if (orgUnitsData.success && Array.isArray(orgUnitsData.data)) {
-        setOrgUnits(
-          orgUnitsData.data.map((unit: any) => ({
-            id: unit.id?.toString(),
-            label: unit.name,
-          }))
-        );
-      }
-
-      if (positionsData.success && Array.isArray(positionsData.data)) {
-        setPositions(
-          positionsData.data.map((pos: any) => ({
-            id: pos.id?.toString(),
-            label: pos.title || pos.name || `Vị trí ${pos.id}`,
-          }))
-        );
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [assignment]);
+
+  const error = actionError || (assignmentError ? (assignmentError as Error).message : null);
 
   const handleChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({
@@ -167,23 +94,19 @@ export default function AssignmentEditPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!assignment) return;
-    setError(null);
+    setActionError(null);
     setSuccessMessage(null);
 
     if (!formData.employee_id || !formData.org_unit_id || !formData.start_date) {
-      setError('Vui lòng chọn nhân viên, đơn vị và ngày bắt đầu');
+      setActionError('Vui lòng chọn nhân viên, đơn vị và ngày bắt đầu');
       return;
     }
 
     try {
       setSaving(true);
-      const response = await fetch(API_ROUTES.HR.ASSIGNMENTS_BY_ID(assignment.id), {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
+      await updateAssignment({
+        id: assignment.id,
+        data: {
           employee_id: formData.employee_id,
           org_unit_id: formData.org_unit_id,
           position_id: formData.position_id || null,
@@ -192,13 +115,8 @@ export default function AssignmentEditPage() {
           allocation: parseFloat(formData.allocation || '1'),
           start_date: formData.start_date,
           end_date: formData.end_date || null,
-        }),
+        },
       });
-
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể cập nhật phân công');
-      }
 
       setSuccessMessage('Cập nhật phân công thành công');
       setTimeout(() => {
@@ -206,13 +124,32 @@ export default function AssignmentEditPage() {
       }, 800);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Không thể cập nhật phân công');
+      setActionError(err instanceof Error ? err.message : 'Không thể cập nhật phân công');
     } finally {
       setSaving(false);
     }
   };
 
-  const employeeOptions = useMemo(() => employees, [employees]);
+  const employeeOptions = useMemo(() => {
+    return employees.map((emp: any) => ({
+      id: emp.id.toString(),
+      label: `${emp.User?.full_name || emp.user?.full_name || 'N/A'} (${emp.employee_no || emp.id})`,
+    }));
+  }, [employees]);
+
+  const orgUnitOptions = useMemo(() => {
+    return (orgUnits as any[]).map((unit: any) => ({
+      id: unit.id?.toString(),
+      label: unit.name,
+    }));
+  }, [orgUnits]);
+
+  const positionOptions = useMemo(() => {
+    return (positions as any[]).map((pos: any) => ({
+      id: pos.id?.toString(),
+      label: pos.title || pos.name || `Vị trí ${pos.id}`,
+    }));
+  }, [positions]);
 
   if (status === 'loading' || loading) {
     return (
@@ -249,7 +186,7 @@ export default function AssignmentEditPage() {
       </Paper>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
           {error}
         </Alert>
       )}
@@ -286,7 +223,7 @@ export default function AssignmentEditPage() {
                   label="Đơn vị"
                   onChange={(event) => handleChange('org_unit_id', event.target.value)}
                 >
-                  {orgUnits.map((unit) => (
+                  {orgUnitOptions.map((unit) => (
                     <MenuItem key={unit.id} value={unit.id}>
                       {unit.label}
                     </MenuItem>
@@ -302,7 +239,7 @@ export default function AssignmentEditPage() {
                   onChange={(event) => handleChange('position_id', event.target.value)}
                 >
                   <MenuItem value="">-- Không chọn --</MenuItem>
-                  {positions.map((position) => (
+                  {positionOptions.map((position) => (
                     <MenuItem key={position.id} value={position.id}>
                       {position.label}
                     </MenuItem>

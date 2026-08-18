@@ -39,32 +39,17 @@ import {
     School as SchoolIcon,
     Person as PersonIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Employee {
-    id: string;
-    employee_no: string;
-    user?: {
-        id: string;
-        full_name: string;
-    };
-}
-
-interface AcademicTitle {
-    id: string;
-    code: string;
-    title: string;
-}
-
-interface EmployeeAcademicTitle {
-    id: string;
-    employee_id: string;
-    academic_title_id: string;
-    awarded_date: string;
-    employees?: Employee;
-    academic_titles?: AcademicTitle;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    useEmployeeAcademicTitles,
+    useCreateEmployeeAcademicTitle,
+    useUpdateEmployeeAcademicTitle,
+    useDeleteEmployeeAcademicTitle,
+    useAcademicTitles,
+    useEmployeeSearch,
+    EmployeeAcademicTitle,
+    HrSearchBar
+} from '@/features/hr';
 
 function EmployeeAcademicTitlesPageContent() {
     const { data: session, status } = useSession();
@@ -72,11 +57,15 @@ function EmployeeAcademicTitlesPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const [employeeAcademicTitles, setEmployeeAcademicTitles] = useState<EmployeeAcademicTitle[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [academicTitles, setAcademicTitles] = useState<AcademicTitle[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: employeeAcademicTitles = [], isLoading: recordsLoading, error: queryError } = useEmployeeAcademicTitles();
+    const { data: academicTitles = [], isLoading: titlesLoading } = useAcademicTitles();
+    const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+    const { mutateAsync: createEmployeeAcademicTitle } = useCreateEmployeeAcademicTitle();
+    const { mutateAsync: updateEmployeeAcademicTitle } = useUpdateEmployeeAcademicTitle();
+    const { mutateAsync: deleteEmployeeAcademicTitle } = useDeleteEmployeeAcademicTitle();
+
+    const loading = recordsLoading || titlesLoading || employeesLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTitle, setEditingTitle] = useState<EmployeeAcademicTitle | null>(null);
     const [formData, setFormData] = useState({
@@ -100,47 +89,10 @@ function EmployeeAcademicTitlesPageContent() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
-    }, [session, status, router, searchParams]);
+    }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const employeeId = searchParams.get('employee_id');
-
-            const [employeeAcademicTitlesRes, employeesRes, academicTitlesRes] = await Promise.all([
-                fetch(employeeId ? `${API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES}?employee_id=${employeeId}` : API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES),
-                fetch(API_ROUTES.HR.EMPLOYEES),
-                fetch(API_ROUTES.HR.ACADEMIC_TITLES)
-            ]);
-
-            const [employeeAcademicTitlesResult, employeesResult, academicTitlesResult] = await Promise.all([
-                employeeAcademicTitlesRes.json(),
-                employeesRes.json(),
-                academicTitlesRes.json()
-            ]);
-
-            if (employeeAcademicTitlesResult.success) {
-                setEmployeeAcademicTitles(employeeAcademicTitlesResult.data);
-            } else {
-                setError(employeeAcademicTitlesResult.error || 'Failed to fetch employee academic titles');
-            }
-
-            if (employeesResult.success) {
-                setEmployees(employeesResult.data);
-            }
-
-            if (academicTitlesResult.success) {
-                setAcademicTitles(academicTitlesResult.data);
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -155,7 +107,7 @@ function EmployeeAcademicTitlesPageContent() {
             setFormData({
                 employee_id: title.employee_id,
                 academic_title_id: title.academic_title_id,
-                awarded_date: title.awarded_date,
+                awarded_date: (title.awarded_date || title.issued_date || '').split('T')[0],
             });
         } else {
             setEditingTitle(null);
@@ -184,30 +136,15 @@ function EmployeeAcademicTitlesPageContent() {
         e.preventDefault();
 
         try {
-            const url = editingTitle
-                ? API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES_BY_ID(editingTitle.id)
-                : API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES;
-
-            const method = editingTitle ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
+            setActionError(null);
+            if (editingTitle) {
+                await updateEmployeeAcademicTitle({ id: editingTitle.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save employee academic title');
+                await createEmployeeAcademicTitle(formData);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu học hàm học vị');
         }
     };
 
@@ -224,19 +161,10 @@ function EmployeeAcademicTitlesPageContent() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.EMPLOYEE_ACADEMIC_TITLES_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-            } else {
-                setError(result.error || 'Failed to delete employee academic title');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteEmployeeAcademicTitle(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa học hàm học vị');
         }
     };
 
@@ -327,7 +255,7 @@ function EmployeeAcademicTitlesPageContent() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -363,7 +291,10 @@ function EmployeeAcademicTitlesPageContent() {
                                     </TableCell>
                                     <TableCell>
                                         <Typography variant="body2">
-                                            {new Date(title.awarded_date).toLocaleDateString('vi-VN')}
+                                            {title.awarded_date || title.issued_date
+                                                ? new Date(title.awarded_date || title.issued_date || '').toLocaleDateString('vi-VN')
+                                                : '-'
+                                            }
                                         </Typography>
                                     </TableCell>
                                     <TableCell align="center">

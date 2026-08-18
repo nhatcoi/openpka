@@ -23,97 +23,24 @@ import {
     School as SchoolIcon,
     Assessment as AssessmentIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    hired_at: string | null;
-    terminated_at: string | null;
-    user: {
-        id: string;
-        username: string;
-        email: string | null;
-        full_name: string;
-        dob: string | null;
-        gender: string | null;
-        phone: string | null;
-        address: string | null;
-    } | null;
-    assignments: {
-        id: string;
-        org_unit_id: string;
-        position_id: string | null;
-        is_primary: boolean;
-        assignment_type: string;
-        start_date: string;
-        end_date: string | null;
-        allocation: string | null;
-        org_unit: {
-            id: string;
-            name: string;
-            type: string;
-            description: string | null;
-        } | null;
-        job_positions: {
-            id: string;
-            title: string;
-            code: string;
-            grade: string | null;
-        } | null;
-    }[];
-    employments?: {
-        id: string;
-        contract_no: string;
-        contract_type: string;
-        start_date: string;
-        end_date: string | null;
-        fte: number;
-        salary_band: string;
-    }[];
-}
+import { HR_ROUTES } from '@/constants/routes';
+import { useEmployee } from '@/features/hr';
 
 export default function EmployeeDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { data: session, status } = useSession();
-    const [employee, setEmployee] = useState<Employee | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+    const employeeId = params?.id as string;
+    const { data: employee, isLoading: loading, error: queryError } = useEmployee(employeeId);
 
     useEffect(() => {
         if (status === 'loading') return;
-
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
+    }, [session, status, router]);
 
-        if (params.id) {
-            fetchEmployee(params.id as string);
-        }
-    }, [session, status, params.id, router]);
-
-    const fetchEmployee = async (employeeId: string) => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employeeId));
-            const result = await response.json();
-
-            if (result.success) {
-                setEmployee(result.data);
-            } else {
-                setError('Không thể tải thông tin nhân viên');
-            }
-        } catch (error) {
-            console.error('Error fetching employee:', error);
-            setError('Lỗi khi tải thông tin nhân viên');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = queryError ? (queryError as Error).message : '';
 
     if (status === 'loading' || loading) {
         return (
@@ -148,7 +75,7 @@ export default function EmployeeDetailPage() {
         );
     }
 
-    const primaryAssignment = employee.OrgAssignment?.find(a => a.is_primary);
+    const primaryAssignment = employee.OrgAssignment?.find((a: any) => a.is_primary);
 
     return (
         <Box sx={{ p: 3 }}>
@@ -179,7 +106,7 @@ export default function EmployeeDetailPage() {
 
             <Grid container spacing={3}>
                 {/* Thông tin cơ bản */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" color="primary" gutterBottom>
@@ -231,8 +158,8 @@ export default function EmployeeDetailPage() {
                     </Card>
                 </Grid>
 
-                {/* Thông tin nhân viên */}
-                <Grid item xs={12} md={6}>
+                {/* Thông tin vị trí & đơn vị */}
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" color="success.main" gutterBottom>
@@ -282,8 +209,8 @@ export default function EmployeeDetailPage() {
                     </Card>
                 </Grid>
 
-                {/* Thông tin cá nhân */}
-                <Grid item xs={12} md={6}>
+                {/* Thông tin liênệu */}
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" color="info.main" gutterBottom>
@@ -320,7 +247,7 @@ export default function EmployeeDetailPage() {
                 </Grid>
 
                 {/* Thông tin công việc */}
-                <Grid item xs={12} md={6}>
+                <Grid size={{ xs: 12, md: 6 }}>
                     <Card>
                         <CardContent>
                             <Typography variant="h6" color="warning.main" gutterBottom>
@@ -364,8 +291,8 @@ export default function EmployeeDetailPage() {
                     </Card>
                 </Grid>
 
-                {/* Hợp đồng lao động */}
-                <Grid item xs={12}>
+                {/* Lịch sử hợp đồng lao động */}
+                <Grid size={{ xs: 12 }}>
                     <Card>
                         <CardContent>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -413,7 +340,7 @@ export default function EmployeeDetailPage() {
                 </Grid>
 
                 {/* Đánh giá hiệu suất */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                     <Card>
                         <CardContent>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -436,7 +363,7 @@ export default function EmployeeDetailPage() {
                 </Grid>
 
                 {/* Học hàm học vị */}
-                <Grid item xs={12}>
+                <Grid size={{ xs: 12 }}>
                     <Card>
                         <CardContent>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -458,8 +385,8 @@ export default function EmployeeDetailPage() {
                     </Card>
                 </Grid>
 
-                {/* Đào tạo */}
-                <Grid item xs={12}>
+                {/* Lịch sử đào tạo */}
+                <Grid size={{ xs: 12 }}>
                     <Card>
                         <CardContent>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
@@ -481,8 +408,8 @@ export default function EmployeeDetailPage() {
                     </Card>
                 </Grid>
 
-                {/* Bằng cấp */}
-                <Grid item xs={12}>
+                {/* Bằng cấp chứng chỉ */}
+                <Grid size={{ xs: 12 }}>
                     <Card>
                         <CardContent>
                             <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>

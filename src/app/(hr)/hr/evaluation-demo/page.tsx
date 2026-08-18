@@ -80,7 +80,7 @@ export default function EvaluationDemoPage() {
                         Hướng dẫn sử dụng
                     </Typography>
                     <Grid container spacing={2}>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="body1" gutterBottom>
                                 <strong>1. Tạo kỳ đánh giá:</strong>
                             </Typography>
@@ -90,7 +90,7 @@ export default function EvaluationDemoPage() {
                                 - Điền thông tin kỳ đánh giá
                             </Typography>
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="body1" gutterBottom>
                                 <strong>2. Tạo URL đánh giá:</strong>
                             </Typography>
@@ -100,7 +100,7 @@ export default function EvaluationDemoPage() {
                                 - Copy và gửi URL cho người đánh giá
                             </Typography>
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="body1" gutterBottom>
                                 <strong>3. Đánh giá:</strong>
                             </Typography>
@@ -110,7 +110,7 @@ export default function EvaluationDemoPage() {
                                 - Gửi đánh giá
                             </Typography>
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid size={{ xs: 12, md: 6 }}>
                             <Typography variant="body1" gutterBottom>
                                 <strong>4. Xem kết quả:</strong>
                             </Typography>
@@ -225,7 +225,7 @@ export default function EvaluationDemoPage() {
                         Tính năng chính
                     </Typography>
                     <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
+                        <Grid size={{ xs: 12, md: 4 }}>
                             <Typography variant="subtitle1" gutterBottom>
                                 🔒 Bảo mật & Ẩn danh
                             </Typography>
@@ -236,7 +236,7 @@ export default function EvaluationDemoPage() {
                                 - Giảng viên chỉ thấy kết quả đánh giá
                             </Typography>
                         </Grid>
-                        <Grid item xs={12} md={4}>
+                        <Grid size={{ xs: 12, md: 4 }}>
                             <Typography variant="subtitle1" gutterBottom>
                                 📊 Đánh giá
                             </Typography>
@@ -246,7 +246,7 @@ export default function EvaluationDemoPage() {
                                 - Lưu trữ lịch sử đánh giá
                             </Typography>
                         </Grid>
-                        <Grid item xs={12} md={4}>
+                        <Grid size={{ xs: 12, md: 4 }}>
                             <Typography variant="subtitle1" gutterBottom>
                                 📈 Báo cáo
                             </Typography>

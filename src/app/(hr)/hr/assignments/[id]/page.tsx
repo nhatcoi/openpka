@@ -22,34 +22,9 @@ import PersonIcon from '@mui/icons-material/Person';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import PercentIcon from '@mui/icons-material/Percent';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { API_ROUTES, HR_ROUTES } from '@/constants/routes';
-
-interface AssignmentDetail {
-  id: string;
-  employee_id: string;
-  org_unit_id: string;
-  position_id?: string | null;
-  is_primary: boolean;
-  assignment_type: string;
-  allocation: string | null;
-  start_date: string;
-  end_date?: string | null;
-  Employee?: {
-    User?: {
-      full_name: string;
-      email?: string | null;
-      phone?: string | null;
-    } | null;
-    employee_no?: string | null;
-  } | null;
-  OrgUnit?: {
-    name?: string | null;
-    code?: string | null;
-  } | null;
-  JobPosition?: {
-    title?: string | null;
-  } | null;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import { useAssignment, useDeleteAssignment } from '@/features/hr';
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 const formatDate = (value?: string | null) => {
   if (!value) return 'Không xác định';
@@ -59,63 +34,43 @@ const formatDate = (value?: string | null) => {
 export default function AssignmentDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const id = params?.id as string;
   const { data: session, status } = useSession();
+  const confirmDialog = useConfirmDialog();
 
-  const [assignment, setAssignment] = useState<AssignmentDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: assignment, isLoading: loading, error: queryError } = useAssignment(id);
+  const { mutateAsync: deleteAssignment } = useDeleteAssignment();
+  const [actionError, setActionError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
       signIn();
-      return;
     }
+  }, [session, status]);
 
-    if (params.id) {
-      void fetchAssignment(params.id as string);
-    }
-  }, [session, status, params.id]);
-
-  const fetchAssignment = async (id: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(API_ROUTES.HR.ASSIGNMENTS_BY_ID(id), {
-        credentials: 'include',
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể tải phân công');
-      }
-      setAssignment(result.data);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'Không thể tải phân công');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const error = actionError || (queryError ? (queryError as Error).message : null);
 
   const handleDelete = async () => {
     if (!assignment) return;
-    if (!confirm('Bạn có chắc muốn xóa phân công này?')) return;
+    const confirmed = await confirmDialog({
+      title: 'Xóa phân công',
+      message: 'Bạn có chắc chắn muốn xóa phân công này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      destructive: true,
+    });
+    if (!confirmed) return;
 
     try {
       setDeleting(true);
-      const response = await fetch(API_ROUTES.HR.ASSIGNMENTS_BY_ID(assignment.id), {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Không thể xóa phân công');
-      }
+      setActionError(null);
+      await deleteAssignment(assignment.id);
       router.push(HR_ROUTES.ASSIGNMENTS);
     } catch (err) {
       console.error(err);
-      setError(err instanceof Error ? err.message : 'Không thể xóa phân công');
+      setActionError(err instanceof Error ? err.message : 'Không thể xóa phân công');
     } finally {
       setDeleting(false);
     }
@@ -149,6 +104,14 @@ export default function AssignmentDetailPage() {
     );
   }
 
+  const employeeName = assignment.Employee?.User?.full_name || assignment.employee?.user?.full_name || 'N/A';
+  const employeeNo = assignment.Employee?.employee_no || assignment.employee?.employee_no || assignment.employee_id;
+  const employeeEmail = assignment.Employee?.User?.email || assignment.employee?.user?.email || 'N/A';
+  const employeePhone = assignment.Employee?.User?.phone || assignment.employee?.user?.phone || 'N/A';
+  const orgUnitName = assignment.OrgUnit?.name || assignment.org_unit?.name || 'N/A';
+  const orgUnitCode = assignment.OrgUnit?.code || assignment.org_unit?.code || assignment.org_unit_id;
+  const jobPositionTitle = assignment.JobPosition?.title || assignment.position?.title || assignment.Position?.title || 'Không có';
+
   return (
     <Box sx={{ p: 3 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
@@ -176,7 +139,7 @@ export default function AssignmentDetailPage() {
       </Box>
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -184,22 +147,22 @@ export default function AssignmentDetailPage() {
                 <Typography variant="h6">Nhân viên</Typography>
               </Box>
               <Typography variant="body1" fontWeight="medium">
-                {assignment.Employee?.User?.full_name || 'N/A'}
+                {employeeName}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Mã NV: {assignment.Employee?.employee_no || assignment.employee_id}
+                Mã NV: {employeeNo}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Email: {assignment.Employee?.User?.email || 'N/A'}
+                Email: {employeeEmail}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                SĐT: {assignment.Employee?.User?.phone || 'N/A'}
+                SĐT: {employeePhone}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -207,32 +170,32 @@ export default function AssignmentDetailPage() {
                 <Typography variant="h6">Đơn vị</Typography>
               </Box>
               <Typography variant="body1" fontWeight="medium">
-                {assignment.OrgUnit?.name || 'N/A'}
+                {orgUnitName}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Mã đơn vị: {assignment.OrgUnit?.code || assignment.org_unit_id}
+                Mã đơn vị: {orgUnitCode}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Chức vụ: {assignment.JobPosition?.title || 'Không có'}
+                Chức vụ: {jobPositionTitle}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Chi tiết phân công
               </Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography variant="body2" color="text.secondary">
                     Loại phân công
                   </Typography>
                   <Chip label={assignment.assignment_type} color="primary" variant="outlined" />
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography variant="body2" color="text.secondary">
                     Tỷ lệ phân bổ
                   </Typography>
@@ -240,12 +203,12 @@ export default function AssignmentDetailPage() {
                     <PercentIcon fontSize="small" color="action" />
                     <Typography variant="body1">
                       {assignment.allocation
-                        ? `${(parseFloat(assignment.allocation) * 100).toFixed(0)}%`
+                        ? `${(parseFloat(String(assignment.allocation)) * 100).toFixed(0)}%`
                         : '100%'}
                     </Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography variant="body2" color="text.secondary">
                     Phân công chính
                   </Typography>
@@ -255,7 +218,7 @@ export default function AssignmentDetailPage() {
                     variant="outlined"
                   />
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography variant="body2" color="text.secondary">
                     Ngày bắt đầu
                   </Typography>
@@ -264,7 +227,7 @@ export default function AssignmentDetailPage() {
                     <Typography variant="body1">{formatDate(assignment.start_date)}</Typography>
                   </Box>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                   <Typography variant="body2" color="text.secondary">
                     Ngày kết thúc
                   </Typography>

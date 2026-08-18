@@ -38,56 +38,33 @@ import {
     School as SchoolIcon,
     Person as PersonIcon
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Qualification {
-    id: string;
-    code: string;
-    title: string;
-}
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    user: {
-        full_name: string;
-        username: string;
-    } | null;
-}
-
-interface EmployeeQualification {
-    id: string;
-    employee_id: string;
-    qualification_id: string;
-    major_field: string;
-    institution: string;
-    awarded_date: string;
-    employees: {
-        id: string;
-        employee_no: string | null;
-        user: {
-            full_name: string;
-            username: string;
-        } | null;
-    } | null;
-    qualifications: {
-        id: string;
-        code: string;
-        title: string;
-    } | null;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    useEmployeeQualifications,
+    useCreateEmployeeQualification,
+    useUpdateEmployeeQualification,
+    useDeleteEmployeeQualification,
+    useQualifications,
+    useEmployeeSearch,
+    EmployeeQualification,
+    HrSearchBar
+} from '@/features/hr';
 
 function EmployeeQualificationsPageContent() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [employeeQualifications, setEmployeeQualifications] = useState<EmployeeQualification[]>([]);
-    const [qualifications, setQualifications] = useState<Qualification[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const { data: employeeQualifications = [], isLoading: recordsLoading, error: queryError } = useEmployeeQualifications();
+    const { data: qualifications = [], isLoading: qualificationsLoading } = useQualifications();
+    const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+    const { mutateAsync: createEmployeeQualification } = useCreateEmployeeQualification();
+    const { mutateAsync: updateEmployeeQualification } = useUpdateEmployeeQualification();
+    const { mutateAsync: deleteEmployeeQualification } = useDeleteEmployeeQualification();
+
+    const loading = recordsLoading || qualificationsLoading || employeesLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingRecord, setEditingRecord] = useState<EmployeeQualification | null>(null);
     const [formData, setFormData] = useState({
@@ -104,10 +81,8 @@ function EmployeeQualificationsPageContent() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
-    }, [session, status, router, searchParams]);
+    }, [session, status, router]);
 
     useEffect(() => {
         // Check for employee_id in URL params and pre-fill form data
@@ -120,40 +95,7 @@ function EmployeeQualificationsPageContent() {
         }
     }, [searchParams]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-
-            // Check for employee_id in URL params
-            const employeeId = searchParams.get('employee_id');
-
-            const [qualificationsRes, employeesRes, employeeQualificationsRes] = await Promise.all([
-                fetch(API_ROUTES.HR.QUALIFICATIONS),
-                fetch(API_ROUTES.HR.EMPLOYEES),
-                fetch(employeeId ? `${API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS}?employee_id=${employeeId}` : API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS)
-            ]);
-
-            const [qualificationsResult, employeesResult, employeeQualificationsResult] = await Promise.all([
-                qualificationsRes.json(),
-                employeesRes.json(),
-                employeeQualificationsRes.json()
-            ]);
-
-            if (qualificationsResult.success) {
-                setQualifications(qualificationsResult.data);
-            }
-            if (employeesResult.success) {
-                setEmployees(employeesResult.data);
-            }
-            if (employeeQualificationsResult.success) {
-                setEmployeeQualifications(employeeQualificationsResult.data);
-            }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleOpenDialog = (record?: EmployeeQualification) => {
         if (record) {
@@ -161,14 +103,14 @@ function EmployeeQualificationsPageContent() {
             setFormData({
                 employee_id: record.employee_id,
                 qualification_id: record.qualification_id,
-                major_field: record.major_field,
-                institution: record.institution,
-                awarded_date: record.awarded_date.split('T')[0] // Convert to YYYY-MM-DD format
+                major_field: record.major_field || record.field_of_study || '',
+                institution: record.institution || record.issued_by || '',
+                awarded_date: (record.awarded_date || record.issued_date || '').split('T')[0]
             });
         } else {
             setEditingRecord(null);
             setFormData({
-                employee_id: '',
+                employee_id: searchParams.get('employee_id') || '',
                 qualification_id: '',
                 major_field: '',
                 institution: '',
@@ -182,7 +124,7 @@ function EmployeeQualificationsPageContent() {
         setOpenDialog(false);
         setEditingRecord(null);
         setFormData({
-            employee_id: '',
+            employee_id: searchParams.get('employee_id') || '',
             qualification_id: '',
             major_field: '',
             institution: '',
@@ -193,37 +135,21 @@ function EmployeeQualificationsPageContent() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.employee_id || !formData.qualification_id || !formData.major_field || !formData.institution || !formData.awarded_date) {
-            setError('Vui lòng điền đầy đủ thông tin');
+            setActionError('Vui lòng điền đầy đủ thông tin');
             return;
         }
 
         try {
             setSaving(true);
-            const url = editingRecord
-                ? API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS_BY_ID(editingRecord.id)
-                : API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS;
-
-            const method = editingRecord ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
-                setError(null);
+            setActionError(null);
+            if (editingRecord) {
+                await updateEmployeeQualification({ id: editingRecord.id, data: formData });
             } else {
-                setError(result.error || 'Lỗi khi lưu thông tin');
+                await createEmployeeQualification(formData);
             }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu thông tin');
         } finally {
             setSaving(false);
         }
@@ -242,20 +168,10 @@ function EmployeeQualificationsPageContent() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                setError(null);
-            } else {
-                setError(result.error || 'Lỗi khi xóa thông tin');
-            }
-        } catch (error) {
-            setError('Lỗi kết nối đến server');
+            setActionError(null);
+            await deleteEmployeeQualification(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa thông tin');
         }
     };
 
@@ -333,7 +249,7 @@ function EmployeeQualificationsPageContent() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -375,17 +291,20 @@ function EmployeeQualificationsPageContent() {
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2">
-                                                {record.major_field}
+                                                {record.major_field || record.field_of_study || '-'}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2">
-                                                {record.institution}
+                                                {record.institution || record.issued_by || '-'}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2">
-                                                {new Date(record.awarded_date).toLocaleDateString('vi-VN')}
+                                                {record.awarded_date || record.issued_date
+                                                    ? new Date(record.awarded_date || record.issued_date || '').toLocaleDateString('vi-VN')
+                                                    : '-'
+                                                }
                                             </Typography>
                                         </TableCell>
                                         <TableCell>

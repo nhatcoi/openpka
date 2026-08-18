@@ -38,42 +38,30 @@ import {
     MoreVert as MoreVertIcon,
     Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface User {
-    id: string;
-    full_name: string;
-    email: string;
-}
-
-interface Role {
-    id: string;
-    code: string;
-    name: string;
-}
-
-interface UserRole {
-    id: string;
-    user_id: string;
-    role_id: string;
-    users_user_role_user_idTousers: User | null;
-    users_user_role_assigned_byTousers: User | null;
-    roles: Role;
-    assigned_at: string;
-    expires_at: string | null;
-    is_active: boolean;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    useUserRoles,
+    useCreateUserRole,
+    useDeleteUserRole,
+    useRoles,
+    useUsers,
+    UserRole,
+    Role
+} from '@/features/hr';
 
 export default function UserRolesPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [userRoles, setUserRoles] = useState<UserRole[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: userRoles = [], isLoading: userRolesLoading, error: queryError } = useUserRoles();
+    const { data: roles = [], isLoading: rolesLoading } = useRoles();
+    const { data: users = [], isLoading: usersLoading } = useUsers();
+    const { mutateAsync: createUserRole } = useCreateUserRole();
+    const { mutateAsync: deleteUserRole } = useDeleteUserRole();
+
+    const loading = userRolesLoading || rolesLoading || usersLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [formData, setFormData] = useState({
         user_id: '',
@@ -87,81 +75,29 @@ export default function UserRolesPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-
-            // Fetch user roles, users, and roles in parallel
-            const [userRolesRes, usersRes, rolesRes] = await Promise.all([
-                fetch(API_ROUTES.HR.USER_ROLES),
-                fetch(API_ROUTES.HR.USERS),
-                fetch(API_ROUTES.HR.ROLES)
-            ]);
-
-            const [userRolesResult, usersResult, rolesResult] = await Promise.all([
-                userRolesRes.json(),
-                usersRes.json(),
-                rolesRes.json()
-            ]);
-
-            if (userRolesResult.success) {
-                setUserRoles(userRolesResult.data);
-            } else {
-                setError(userRolesResult.error || 'Failed to fetch user roles');
-            }
-
-            if (usersResult.success) {
-                setUsers(usersResult.data);
-            } else {
-                setError(usersResult.error || 'Failed to fetch users');
-            }
-
-            if (rolesResult.success) {
-                setRoles(rolesResult.data);
-            } else {
-                setError(rolesResult.error || 'Failed to fetch roles');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const response = await fetch(API_ROUTES.HR.USER_ROLES, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setOpenDialog(false);
-                setFormData({ user_id: '', role_id: '' });
-                fetchData();
-            } else {
-                setError(result.error || 'Failed to create user role');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await createUserRole(formData);
+            setOpenDialog(false);
+            setFormData({ user_id: '', role_id: '' });
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi phân quyền người dùng');
         }
     };
 
     const handleDelete = async (userRole: UserRole) => {
+        const userName = userRole.User?.full_name || userRole.users_user_role_user_idTousers?.full_name || 'người dùng này';
+        const roleName = userRole.Role?.name || userRole.roles?.name || 'vai trò';
         const confirmed = await confirmDialog({
             title: 'Xóa phân quyền người dùng',
-            message: `Bạn có chắc chắn muốn xóa phân quyền "${userRole.users_user_role_user_idTousers?.full_name || 'N/A'}" - "${userRole.Role?.name || 'N/A'}"?`,
+            message: `Bạn có chắc chắn muốn xóa phân quyền "${userName}" - "${roleName}"?`,
             confirmText: 'Xóa',
             cancelText: 'Hủy',
             destructive: true,
@@ -171,19 +107,10 @@ export default function UserRolesPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.USER_ROLES_BY_ID(userRole.id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                fetchData();
-            } else {
-                setError(result.error || 'Failed to delete user role');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteUserRole(userRole.id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa phân quyền');
         }
     };
 
@@ -204,7 +131,6 @@ export default function UserRolesPage() {
 
     const handleViewDetails = () => {
         if (selectedUserRole) {
-            // TODO: Navigate to user role details page
             console.log('View details for user role:', selectedUserRole.id);
         }
         handleMenuClose();
@@ -237,7 +163,7 @@ export default function UserRolesPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}

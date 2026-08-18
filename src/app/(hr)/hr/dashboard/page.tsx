@@ -32,6 +32,7 @@ import {
     Business as BusinessIcon,
 } from '@mui/icons-material';
 import { API_ROUTES, HR_ROUTES } from '@/constants/routes';
+import { useHrStats } from '@/features/hr';
 
 interface OrgUnit {
     id: string;
@@ -83,199 +84,25 @@ interface OrgUnitStats {
 export default function HRDashboardPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats[]>([]);
-    const [orgStats, setOrgStats] = useState<{
-        totalUnits: number;
-        activeUnits: number;
-        inactiveUnits: number;
-        totalEmployees: number;
-    } | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
+
+    const { data: hrStatsData, isLoading: loading, error: queryError } = useHrStats();
+    const [actionError, setActionError] = useState('');
 
     useEffect(() => {
         if (status === 'loading') return;
-
         if (!session) {
             void signIn();
-            return;
         }
-
-        void fetchData();
     }, [session, status]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
+    const error = actionError || (queryError ? (queryError as Error).message : '');
 
-            // Use consolidated org stats API
-            const response = await fetch(API_ROUTES.ORG.STATS);
-            const result = await response.json();
-            if (result?.success && result?.data) {
-                const d = result.data;
-                setOrgStats({
-                    totalUnits: Number(d.totalUnits) || 0,
-                    activeUnits: Number(d.activeUnits) || 0,
-                    inactiveUnits: Number(d.inactiveUnits) || 0,
-                    totalEmployees: Number(d.totalEmployees) || 0,
-                });
-            } else {
-                setError('Không thể tải dữ liệu thống kê');
-            }
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-            setError('Lỗi khi tải dữ liệu thống kê');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const totalUnits = hrStatsData?.totalUnits || 0;
+    const activeUnits = hrStatsData?.activeUnits || 0;
+    const totalEmployees = hrStatsData?.totalEmployees || 0;
+    const activeEmployees = hrStatsData?.activeEmployees || 0;
 
-    const buildOrgUnitStats = (units: OrgUnit[], assignments: Assignment[]): OrgUnitStats[] => {
-        // Create a map for quick lookup
-        const unitMap = new Map<string, OrgUnit>();
-        units.forEach(unit => unitMap.set(unit.id, unit));
-
-        // Group assignments by org unit
-        const assignmentsByUnit = new Map<string, Assignment[]>();
-        assignments.forEach(assignment => {
-            if (!assignmentsByUnit.has(assignment.org_unit_id)) {
-                assignmentsByUnit.set(assignment.org_unit_id, []);
-            }
-            assignmentsByUnit.get(assignment.org_unit_id)!.push(assignment);
-        });
-
-        // Build hierarchical structure
-        const buildStats = (unit: OrgUnit, level: number = 1): OrgUnitStats => {
-            const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-            const employees = unitAssignments.map(a => a.employee).filter(Boolean);
-            const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE');
-
-            // Find children
-            const children = units.filter(u => u.parent_id === unit.id);
-            const childrenStats = children.map(child => buildStats(child, level + 1));
-
-            // Add level to unit object
-            const unitWithLevel = { ...unit, level };
-
-            return {
-                orgUnit: unitWithLevel,
-                totalEmployees: employees.length,
-                activeEmployees: activeEmployees.length,
-                employees: employees,
-                children: childrenStats
-            };
-        };
-
-        // Start with root units (no parent)
-        const rootUnits = units.filter(unit => !unit.parent_id);
-        return rootUnits.map(unit => buildStats(unit));
-    };
-
-    const getTotalStats = () => {
-        if (orgStats) {
-            return {
-                totalEmployees: orgStats.totalEmployees,
-                activeEmployees: orgStats.totalEmployees, // active assignments counted
-                totalUnits: orgStats.totalUnits,
-                activeUnits: orgStats.activeUnits,
-            };
-        }
-        // Fallback to zeros
-        return { totalEmployees: 0, activeEmployees: 0, totalUnits: 0, activeUnits: 0 };
-    };
-
-
-    const renderOrgUnitCard = (stats: OrgUnitStats, level: number = 0) => {
-        const { orgUnit, totalEmployees, activeEmployees, employees, children } = stats;
-
-        return (
-            <Accordion key={orgUnit.id} sx={{ ml: level * 2 }}>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                        <BusinessIcon color="primary" />
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Typography variant="h6">
-                                {orgUnit.name}
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                <Chip
-                                    label={`Cấp ${orgUnit.level}`}
-                                    color="primary"
-                                    size="small"
-                                />
-                                <Chip
-                                    label={`${totalEmployees} giảng viên`}
-                                    color="secondary"
-                                    size="small"
-                                />
-                                <Chip
-                                    label={`${activeEmployees} hoạt động`}
-                                    color="success"
-                                    size="small"
-                                />
-                            </Box>
-                        </Box>
-                    </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {/* Employee List */}
-                        {employees.length > 0 && (
-                            <Box>
-                                <Typography variant="subtitle1" gutterBottom>
-                                    Danh sách giảng viên:
-                                </Typography>
-                                <List dense>
-                                    {employees.map((employee, index) => (
-                                        <ListItem key={employee.id} divider={index < employees.length - 1}>
-                                            <ListItemAvatar>
-                                                <Avatar sx={{ bgcolor: 'primary.main' }}>
-                                                    <PeopleIcon />
-                                                </Avatar>
-                                            </ListItemAvatar>
-                                            <ListItemText
-                                                primary={employee.user?.full_name || 'N/A'}
-                                                secondary={
-                                                    <Box>
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            {employee.employee_no && `Mã: ${employee.employee_no}`}
-                                                        </Typography>
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            {employee.employment_type && `Loại: ${employee.employment_type}`}
-                                                        </Typography>
-                                                        <Chip
-                                                            label={employee.status || 'N/A'}
-                                                            color={employee.status === 'ACTIVE' ? 'success' : 'default'}
-                                                            size="small"
-                                                            sx={{ mt: 0.5 }}
-                                                        />
-                                                    </Box>
-                                                }
-                                            />
-                                        </ListItem>
-                                    ))}
-                                </List>
-                            </Box>
-                        )}
-
-                        {/* Children Units */}
-                        {children.length > 0 && (
-                            <Box>
-                                <Typography variant="subtitle1" gutterBottom>
-                                    Các đơn vị con:
-                                </Typography>
-                                {children.map(child => renderOrgUnitCard(child, level + 1))}
-                            </Box>
-                        )}
-                    </Box>
-                </AccordionDetails>
-            </Accordion>
-        );
-    };
-
-    if (status === 'loading' || loading) {
+    if (loading) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
                 <CircularProgress />
@@ -283,29 +110,21 @@ export default function HRDashboardPage() {
         );
     }
 
-    if (!session) {
-        return null;
-    }
-
-    if (error) {
-        return (
-            <Alert severity="error" sx={{ mb: 2 }}>
-                {error}
-            </Alert>
-        );
-    }
-
-    const { totalEmployees, activeEmployees, totalUnits, activeUnits } = getTotalStats();
-
     return (
         <Box>
             <Typography variant="h4" component="h1" gutterBottom>
                 Thống kê giảng viên theo cơ cấu tổ chức
             </Typography>
 
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>
+                    {error}
+                </Alert>
+            )}
+
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -323,7 +142,7 @@ export default function HRDashboardPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -341,7 +160,7 @@ export default function HRDashboardPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -359,7 +178,7 @@ export default function HRDashboardPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

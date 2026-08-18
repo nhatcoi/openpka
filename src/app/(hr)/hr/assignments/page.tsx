@@ -26,78 +26,14 @@ import {
     Delete as DeleteIcon,
     Visibility as ViewIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-// Types
-interface Assignment {
-    id: string;
-    employee_id: string;
-    org_unit_id: string;
-    position_id?: string;
-    is_primary: boolean;
-    assignment_type: string;
-    allocation: string;
-    start_date: string;
-    end_date?: string;
-    employee?: {
-        id: string;
-        employee_no?: string;
-        user?: {
-            full_name: string;
-            email?: string;
-        };
-    };
-    org_unit?: {
-        id: string;
-        name: string;
-        code: string;
-    };
-}
-
-interface Employee {
-    id: string;
-    name?: string;
-    User?: {
-        id: string;
-        full_name: string;
-        email?: string;
-    };
-    user?: {
-        full_name: string;
-        email?: string;
-    };
-}
-
-interface OrgUnit {
-    id: string;
-    name: string;
-}
-
-// Helper functions
-const parseOrgUnitsFromResponse = (result: any): OrgUnit[] => {
-    if (!result) return [];
-
-    // Handle paginated response format
-    let unitsArray: any[] = [];
-    
-    if (result.success && result.data) {
-        if (Array.isArray(result.data)) {
-            unitsArray = result.data;
-        } else if (result.data.items && Array.isArray(result.data.items)) {
-            unitsArray = result.data.items;
-        }
-    } else if (result.items && Array.isArray(result.items)) {
-        unitsArray = result.items;
-    } else if (Array.isArray(result)) {
-        unitsArray = result;
-    }
-
-    return unitsArray.map((unit: any) => ({
-        id: unit.id,
-        name: unit.name || unit.code || `Unit ${unit.id}`,
-    }));
-};
+import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    useAssignments,
+    useDeleteAssignment,
+    Assignment,
+    HrSearchBar
+} from '@/features/hr';
 
 const formatDate = (dateString: string): string => {
     try {
@@ -107,123 +43,55 @@ const formatDate = (dateString: string): string => {
     }
 };
 
-const formatAllocation = (allocation: string): string => {
+const formatAllocation = (allocation: string | number): string => {
     try {
-        return `${(parseFloat(allocation) * 100).toFixed(0)}%`;
+        const val = typeof allocation === 'number' ? allocation : parseFloat(allocation);
+        return isNaN(val) ? String(allocation) : `${(val * 100).toFixed(0)}%`;
     } catch {
-        return allocation;
+        return String(allocation);
     }
 };
 
 export default function AssignmentsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    
-    // State
-    const [assignments, setAssignments] = useState<Assignment[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [orgUnits, setOrgUnits] = useState<OrgUnit[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string>('');
+    const confirmDialog = useConfirmDialog();
+
+    const { data: assignments = [], isLoading: loading, error: queryError } = useAssignments();
+    const { mutateAsync: deleteAssignment } = useDeleteAssignment();
+
+    const [actionError, setActionError] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Fetch data on mount
     useEffect(() => {
         if (status === 'loading') return;
-
         if (!session) {
-            signIn();
-            return;
+            router.push('/auth/signin');
         }
+    }, [session, status, router]);
 
-        void fetchAllData();
-    }, [session, status]);
-
-    // Fetch all required data
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            setError('');
-
-            await Promise.all([
-                fetchAssignments(),
-                fetchEmployees(),
-                fetchOrgUnits(),
-            ]);
-        } catch (err) {
-            console.error('Error fetching data:', err);
-            setError('Lỗi khi tải dữ liệu');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchAssignments = async () => {
-        try {
-            const response = await fetch(API_ROUTES.HR.ASSIGNMENTS);
-            const result = await response.json();
-
-            if (result.success) {
-                setAssignments(Array.isArray(result.data) ? result.data : []);
-            } else {
-                setError('Không thể tải danh sách phân công');
-            }
-        } catch (err) {
-            console.error('Error fetching assignments:', err);
-            setError('Lỗi khi tải danh sách phân công');
-        }
-    };
-
-    const fetchEmployees = async () => {
-        try {
-            const response = await fetch(API_ROUTES.HR.EMPLOYEES);
-            const result = await response.json();
-            
-            if (result.success) {
-                setEmployees(Array.isArray(result.data) ? result.data : []);
-            }
-        } catch (err) {
-            console.error('Error fetching employees:', err);
-            // Don't set error for employees, it's not critical
-        }
-    };
-
-    const fetchOrgUnits = async () => {
-        try {
-            const response = await fetch(API_ROUTES.ORG.UNITS);
-            const result = await response.json();
-            const units = parseOrgUnitsFromResponse(result);
-            setOrgUnits(units);
-        } catch (err) {
-            console.error('Error fetching org units:', err);
-            setOrgUnits([]); // Ensure it's always an array
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : '');
 
     // Handlers
     const handleDelete = useCallback(async (id: string) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa phân công này?')) {
+        const confirmed = await confirmDialog({
+            title: 'Xóa phân công',
+            message: 'Bạn có chắc chắn muốn xóa phân công này?',
+            confirmText: 'Xóa',
+            cancelText: 'Hủy',
+            destructive: true,
+        });
+        if (!confirmed) {
             return;
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.ASSIGNMENTS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setAssignments(prev => prev.filter(assignment => assignment.id !== id));
-                setError(''); // Clear any previous errors
-            } else {
-                setError(result.error || 'Có lỗi xảy ra khi xóa phân công');
-            }
-        } catch (err) {
-            console.error('Error deleting assignment:', err);
-            setError('Lỗi khi xóa phân công');
+            setActionError('');
+            await deleteAssignment(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa phân công');
         }
-    }, []);
+    }, [confirmDialog, deleteAssignment]);
 
     const handleView = useCallback((id: string) => {
         router.push(HR_ROUTES.ASSIGNMENTS_DETAIL(id));
@@ -233,34 +101,17 @@ export default function AssignmentsPage() {
         router.push(HR_ROUTES.ASSIGNMENTS_EDIT(id));
     }, [router]);
 
-    // Helper functions
     const getEmployeeName = useCallback((assignment: Assignment): string => {
-        // Priority: assignment.employee data > employees lookup
-        if (assignment.employee?.user?.full_name) {
-            return assignment.employee.user.full_name;
-        }
-
-        if (!Array.isArray(employees)) {
-            return `Employee ${assignment.employee_id}`;
-        }
-
-        const employee = employees.find(emp => emp.id === assignment.employee_id);
-        return employee?.User?.full_name || employee?.user?.full_name || employee?.name || `Employee ${assignment.employee_id}`;
-    }, [employees]);
+        if (assignment.Employee?.User?.full_name) return assignment.Employee.User.full_name;
+        if (assignment.employee?.user?.full_name) return assignment.employee.user.full_name;
+        return `Employee ${assignment.employee_id}`;
+    }, []);
 
     const getOrgUnitName = useCallback((assignment: Assignment): string => {
-        // Priority: assignment.org_unit data > orgUnits lookup
-        if (assignment.org_unit?.name) {
-            return assignment.org_unit.name;
-        }
-
-        if (!Array.isArray(orgUnits)) {
-            return `Unit ${assignment.org_unit_id}`;
-        }
-
-        const orgUnit = orgUnits.find(unit => unit.id === assignment.org_unit_id);
-        return orgUnit?.name || `Unit ${assignment.org_unit_id}`;
-    }, [orgUnits]);
+        if (assignment.OrgUnit?.name) return assignment.OrgUnit.name;
+        if (assignment.org_unit?.name) return assignment.org_unit.name;
+        return `Unit ${assignment.org_unit_id}`;
+    }, []);
 
     // Computed values
     const filteredAssignments = useMemo(() => {
@@ -268,7 +119,7 @@ export default function AssignmentsPage() {
             return assignments;
         }
         const term = searchTerm.trim().toLowerCase();
-        return assignments.filter((assignment) => {
+        return (assignments as Assignment[]).filter((assignment: Assignment) => {
             const values = [
                 getEmployeeName(assignment),
                 getOrgUnitName(assignment),
@@ -323,7 +174,7 @@ export default function AssignmentsPage() {
 
             {/* Error message */}
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>
                     {error}
                 </Alert>
             )}
@@ -346,7 +197,7 @@ export default function AssignmentsPage() {
                         </TableHead>
                         <TableBody>
                             {filteredAssignments.length > 0 ? (
-                                filteredAssignments.map((assignment) => (
+                                (filteredAssignments as Assignment[]).map((assignment: Assignment) => (
                                     <TableRow key={assignment.id} hover>
                                         <TableCell>{getEmployeeName(assignment)}</TableCell>
                                         <TableCell>{getOrgUnitName(assignment)}</TableCell>

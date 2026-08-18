@@ -223,7 +223,7 @@ export default function ReportsPage() {
 
         return units.map(unit => {
             const unitAssignments = assignmentsByUnit.get(unit.id) || [];
-            const employees = unitAssignments.map(a => a.employee).filter(Boolean);
+            const employees = unitAssignments.map(a => a.employee).filter((emp): emp is Employee => Boolean(emp));
 
             const activeEmployees = employees.filter(emp => emp.status === 'ACTIVE').length;
             const inactiveEmployees = employees.filter(emp => emp.status !== 'ACTIVE').length;
@@ -353,7 +353,7 @@ export default function ReportsPage() {
 
             {/* Summary Cards */}
             <Grid container spacing={3} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -371,7 +371,7 @@ export default function ReportsPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -389,7 +389,7 @@ export default function ReportsPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -407,7 +407,7 @@ export default function ReportsPage() {
                     </Card>
                 </Grid>
 
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Card>
                         <CardContent>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

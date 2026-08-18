@@ -41,58 +41,29 @@ import {
 import { useSession } from 'next-auth/react';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 import { useRouter } from 'next/navigation';
-
-interface LeaveRequest {
-    id: string;
-    leave_type: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    reason?: string;
-    created_at: string;
-    updated_at: string;
-    employees: {
-        user: {
-            id: string;
-            full_name: string;
-            email: string;
-        };
-    };
-}
-
-const LEAVE_TYPES = [
-    { value: 'ANNUAL', label: 'Nghỉ phép năm' },
-    { value: 'SICK', label: 'Nghỉ ốm' },
-    { value: 'PERSONAL', label: 'Nghỉ cá nhân' },
-    { value: 'MATERNITY', label: 'Nghỉ thai sản' },
-    // { value: 'PATERNITY', label: 'Nghỉ thai sản (nam)' },
-    { value: 'STUDY', label: 'Nghỉ học tập' },
-    { value: 'EMERGENCY', label: 'Nghỉ khẩn cấp' }
-];
-
-const STATUS_COLORS = {
-    PENDING: 'warning',
-    APPROVED: 'success',
-    REJECTED: 'error',
-    CANCELLED: 'default'
-} as const;
-
-const STATUS_LABELS = {
-    PENDING: 'Chờ duyệt',
-    APPROVED: 'Đã duyệt',
-    REJECTED: 'Từ chối',
-    CANCELLED: 'Đã hủy'
-} as const;
+import {
+    useLeaveRequests,
+    useCreateLeaveRequest,
+    useApproveLeaveRequest,
+    useDeleteLeaveRequest,
+    LeaveRequest,
+    LEAVE_TYPES,
+    LEAVE_STATUS_LABELS,
+    LEAVE_STATUS_COLORS
+} from '@/features/hr';
 
 export default function LeaveRequestsPage() {
-    const { data: session } = useSession();
+    const { data: session, status: authStatus } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
-    const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+
+    const { data: leaveRequests = [], isLoading: loading, error: queryError } = useLeaveRequests();
+    const { mutateAsync: createLeaveRequest } = useCreateLeaveRequest();
+    const { mutateAsync: approveLeaveRequest } = useApproveLeaveRequest();
+    const { mutateAsync: deleteLeaveRequest } = useDeleteLeaveRequest();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
     const [statusFilter, setStatusFilter] = useState('');
     const [leaveTypeFilter, setLeaveTypeFilter] = useState('');
     const [startDateFilter, setStartDateFilter] = useState('');
@@ -118,56 +89,22 @@ export default function LeaveRequestsPage() {
     });
 
     useEffect(() => {
-        fetchLeaveRequests();
-    }, [page, statusFilter, leaveTypeFilter, startDateFilter, endDateFilter]);
-
-    const fetchLeaveRequests = async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: '10'
-            });
-
-            if (statusFilter) params.append('status', statusFilter);
-            if (leaveTypeFilter) params.append('leave_type', leaveTypeFilter);
-            if (startDateFilter) params.append('start_date', startDateFilter);
-            if (endDateFilter) params.append('end_date', endDateFilter);
-
-            const response = await fetch(`/api/hr/leave-requests?${params}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch leave requests');
-            }
-
-            const data = await response.json();
-            setLeaveRequests(data.data);
-            setTotalPages(data.pagination.totalPages);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
-        } finally {
-            setLoading(false);
+        if (authStatus === 'loading') return;
+        if (!session) {
+            router.push('/auth/signin');
         }
-    };
+    }, [session, authStatus, router]);
+
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleCreateRequest = async () => {
         try {
-            const response = await fetch('/api/hr/leave-requests', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to create leave request');
-            }
-
+            setActionError(null);
+            await createLeaveRequest(formData as any);
             setCreateDialogOpen(false);
             setFormData({ leave_type: '', start_date: '', end_date: '', reason: '' });
-            fetchLeaveRequests();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi tạo đơn xin nghỉ');
         }
     };
 
@@ -175,23 +112,16 @@ export default function LeaveRequestsPage() {
         if (!selectedRequest) return;
 
         try {
-            const response = await fetch(`/api/hr/leave-requests/${selectedRequest.id}/approve`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(approveData),
+            setActionError(null);
+            await approveLeaveRequest({
+                id: selectedRequest.id,
+                action: approveData.action,
+                comment: approveData.comment
             });
-
-            if (!response.ok) {
-                throw new Error('Failed to approve/reject request');
-            }
-
             setApproveDialogOpen(false);
             setApproveData({ action: 'APPROVED', comment: '' });
-            fetchLeaveRequests();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi duyệt đơn xin nghỉ');
         }
     };
 
@@ -206,17 +136,10 @@ export default function LeaveRequestsPage() {
         if (!confirmed) return;
 
         try {
-            const response = await fetch(`/api/hr/leave-requests/${id}`, {
-                method: 'DELETE',
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to delete leave request');
-            }
-
-            fetchLeaveRequests();
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
+            setActionError(null);
+            await deleteLeaveRequest(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa đơn xin nghỉ');
         }
     };
 
@@ -241,13 +164,30 @@ export default function LeaveRequestsPage() {
         setApproveDialogOpen(true);
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN');
+    const formatDate = (dateString?: string | null) => {
+        if (!dateString) return '-';
+        try {
+            return new Date(dateString).toLocaleDateString('vi-VN');
+        } catch {
+            return String(dateString);
+        }
     };
 
     const getLeaveTypeLabel = (type: string) => {
         return LEAVE_TYPES.find(t => t.value === type)?.label || type;
     };
+
+    const filteredLeaveRequests = leaveRequests.filter((request: LeaveRequest) => {
+        if (statusFilter && request.status !== statusFilter) return false;
+        if (leaveTypeFilter && request.leave_type !== leaveTypeFilter) return false;
+        if (startDateFilter && request.start_date < startDateFilter) return false;
+        if (endDateFilter && request.end_date > endDateFilter) return false;
+        return true;
+    });
+
+    const pageSize = 10;
+    const totalPages = Math.ceil(filteredLeaveRequests.length / pageSize) || 1;
+    const paginatedRequests = filteredLeaveRequests.slice((page - 1) * pageSize, page * pageSize);
 
     if (loading) {
         return (
@@ -273,7 +213,7 @@ export default function LeaveRequestsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -282,7 +222,7 @@ export default function LeaveRequestsPage() {
             <Card sx={{ mb: 3 }}>
                 <CardContent>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Trạng thái</InputLabel>
                                 <Select
@@ -298,7 +238,7 @@ export default function LeaveRequestsPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Loại nghỉ</InputLabel>
                                 <Select
@@ -315,7 +255,7 @@ export default function LeaveRequestsPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={2}>
+                        <Grid size={{ xs: 12, sm: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Từ ngày"
@@ -325,7 +265,7 @@ export default function LeaveRequestsPage() {
                                 InputLabelProps={{ shrink: true }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={2}>
+                        <Grid size={{ xs: 12, sm: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Đến ngày"
@@ -357,18 +297,18 @@ export default function LeaveRequestsPage() {
                         <TableBody>
                             {leaveRequests.map((request) => (
                                 <TableRow key={request.id}>
-                                    <TableCell>{request.Employee.User.full_name}</TableCell>
+                                    <TableCell>{request.Employee?.User?.full_name || request.employees?.user?.full_name || 'N/A'}</TableCell>
                                     <TableCell>{getLeaveTypeLabel(request.leave_type)}</TableCell>
                                     <TableCell>{formatDate(request.start_date)}</TableCell>
                                     <TableCell>{formatDate(request.end_date)}</TableCell>
                                     <TableCell>
                                         <Chip
-                                            label={STATUS_LABELS[request.status as keyof typeof STATUS_LABELS]}
-                                            color={STATUS_COLORS[request.status as keyof typeof STATUS_COLORS]}
+                                            label={LEAVE_STATUS_LABELS[request.status] || request.status}
+                                            color={LEAVE_STATUS_COLORS[request.status] || 'default'}
                                             size="small"
                                         />
                                     </TableCell>
-                                    <TableCell>{formatDate(request.created_at)}</TableCell>
+                                    <TableCell>{request.created_at ? formatDate(request.created_at) : '-'}</TableCell>
                                     <TableCell>
                                         <IconButton
                                             size="small"
@@ -501,14 +441,14 @@ export default function LeaveRequestsPage() {
                             <Box>
                                 <Typography variant="subtitle2">Trạng thái:</Typography>
                                 <Chip
-                                    label={STATUS_LABELS[selectedRequest.status as keyof typeof STATUS_LABELS]}
-                                    color={STATUS_COLORS[selectedRequest.status as keyof typeof STATUS_COLORS]}
+                                    label={LEAVE_STATUS_LABELS[selectedRequest.status] || selectedRequest.status}
+                                    color={LEAVE_STATUS_COLORS[selectedRequest.status] || 'default'}
                                     size="small"
                                 />
                             </Box>
                             <Box>
                                 <Typography variant="subtitle2">Ngày tạo:</Typography>
-                                <Typography>{formatDate(selectedRequest.created_at)}</Typography>
+                                <Typography>{selectedRequest.created_at ? formatDate(selectedRequest.created_at) : '-'}</Typography>
                             </Box>
                             {selectedRequest.reason && (
                                 <Box>

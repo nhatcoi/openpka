@@ -95,3 +95,67 @@ export function useEmployeeTrainings() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useCreateEmployeeTraining() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_TRAININGS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create employee training');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-trainings'] });
+    },
+  });
+}
+
+export function useUpdateEmployeeTraining() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_TRAININGS_BY_ID(id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update employee training');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-trainings'] });
+    },
+  });
+}
+
+export function useDeleteEmployeeTraining() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_TRAININGS_BY_ID(id), {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete employee training');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-trainings'] });
+    },
+  });
+}

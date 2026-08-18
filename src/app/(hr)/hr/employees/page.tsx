@@ -28,62 +28,16 @@ import {
     Assessment as AssessmentIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Employee {
-    id: string
-    employee_no: string | null
-    employment_type: string | null
-    status: string | null
-    hired_at: string | null
-    user: {
-        username: string
-        email: string | null
-        full_name: string
-        phone: string | null
-        address: string | null
-    } | null
-    assignments: {
-        id: string
-        org_unit_id: string
-        position_id: string | null
-        is_primary: boolean
-        assignment_type: string
-        start_date: string
-        end_date: string | null
-        allocation: string | null
-        org_unit: {
-            id: string
-            name: string
-            type: string
-            description: string | null
-        } | null
-        job_positions: {
-            id: string
-            title: string
-            code: string
-            grade: string | null
-        } | null
-    }[]
-    employments?: {
-        id: string
-        contract_no: string
-        contract_type: string
-        start_date: string
-        end_date: string | null
-        fte: number
-        salary_band: string
-    }[]
-}
+import { HR_ROUTES } from '@/constants/routes';
+import { useEmployees, useDeleteEmployee, HrSearchBar } from '@/features/hr';
 
 export default function EmployeesPage() {
     const { data: session, status } = useSession()
     const router = useRouter()
     const confirmDialog = useConfirmDialog()
-    const [employees, setEmployees] = useState<Employee[]>([])
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState('')
+    const { data: employees = [], isLoading: loading, error: queryError } = useEmployees();
+    const { mutateAsync: deleteEmployee } = useDeleteEmployee();
+    const [actionError, setActionError] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState('')
 
@@ -92,30 +46,10 @@ export default function EmployeesPage() {
 
         if (!session) {
             void signIn()
-            return
         }
-
-        void fetchEmployees()
     }, [session, status])
 
-    const fetchEmployees = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.EMPLOYEES);
-            const result = await response.json();
-
-            if (result.success) {
-                setEmployees(result.data);
-            } else {
-                setError('Không thể tải danh sách nhân viên');
-            }
-        } catch (error) {
-            console.error('Error fetching employees:', error);
-            setError('Lỗi khi tải danh sách nhân viên');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : '')
 
     const handleDeleteEmployee = async (employeeId: string, employeeName: string) => {
         const confirmed = await confirmDialog({
@@ -129,20 +63,11 @@ export default function EmployeesPage() {
 
         try {
             setActionLoading(`delete-${employeeId}`);
-            const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employeeId), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchEmployees();
-            } else {
-                setError(result.error || 'Không thể xóa nhân viên');
-            }
-        } catch (error) {
-            console.error('Error deleting employee:', error);
-            setError('Lỗi khi xóa nhân viên');
+            setActionError(null);
+            await deleteEmployee(employeeId);
+        } catch (err: any) {
+            console.error('Error deleting employee:', err);
+            setActionError(err.message || 'Lỗi khi xóa nhân viên');
         } finally {
             setActionLoading(null);
         }

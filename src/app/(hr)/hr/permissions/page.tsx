@@ -47,41 +47,26 @@ import {
     GraduationCap,
     Package,
 } from 'lucide-react';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Permission {
-    id: string;
-    code?: string;
-    name: string;
-    description?: string;
-    resource?: string;
-    action?: string;
-    RolePermission?: Array<{
-        id: string;
-        roles: {
-            id: string;
-            code: string;
-            name: string;
-        };
-    }>;
-    role_permission?: Array<{
-        id: string;
-        roles: {
-            id: string;
-            code: string;
-            name: string;
-        };
-    }>;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    usePermissions,
+    useCreatePermission,
+    useUpdatePermission,
+    useDeletePermission,
+    Permission
+} from '@/features/hr';
 
 export default function PermissionsPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [permissions, setPermissions] = useState<Permission[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: permissions = [], isLoading: loading, error: queryError } = usePermissions();
+    const { mutateAsync: createPermission } = useCreatePermission();
+    const { mutateAsync: updatePermission } = useUpdatePermission();
+    const { mutateAsync: deletePermission } = useDeletePermission();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingPermission, setEditingPermission] = useState<Permission | null>(null);
     const [formData, setFormData] = useState({
@@ -99,57 +84,25 @@ export default function PermissionsPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.PERMISSIONS);
-            const result = await response.json();
-
-            if (result.success) {
-                setPermissions(result.data);
-            } else {
-                setError(result.error || 'Failed to fetch permissions');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const url = editingPermission
-                ? API_ROUTES.HR.PERMISSIONS_BY_ID(editingPermission.id)
-                : API_ROUTES.HR.PERMISSIONS;
-            const method = editingPermission ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setOpenDialog(false);
-                setEditingPermission(null);
-                setFormData({ code: '', name: '', description: '', resource: '', action: '' });
-                fetchData();
+            setActionError(null);
+            if (editingPermission) {
+                await updatePermission({ id: editingPermission.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save permission');
+                await createPermission(formData as any);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            setOpenDialog(false);
+            setEditingPermission(null);
+            setFormData({ code: '', name: '', description: '', resource: '', action: '' });
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu quyền');
         }
     };
 
@@ -166,19 +119,10 @@ export default function PermissionsPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.PERMISSIONS_BY_ID(permission.id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                fetchData();
-            } else {
-                setError(result.error || 'Failed to delete permission');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deletePermission(permission.id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa quyền');
         }
     };
 
@@ -332,7 +276,7 @@ export default function PermissionsPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}

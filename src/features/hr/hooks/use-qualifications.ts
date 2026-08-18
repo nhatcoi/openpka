@@ -95,3 +95,67 @@ export function useEmployeeQualifications() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useCreateEmployeeQualification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: any) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create employee qualification');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-qualifications'] });
+    },
+  });
+}
+
+export function useUpdateEmployeeQualification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS_BY_ID(id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update employee qualification');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-qualifications'] });
+    },
+  });
+}
+
+export function useDeleteEmployeeQualification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(API_ROUTES.HR.EMPLOYEE_QUALIFICATIONS_BY_ID(id), {
+        method: 'DELETE',
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete employee qualification');
+      }
+      return result.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hr', 'employee-qualifications'] });
+    },
+  });
+}

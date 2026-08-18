@@ -26,64 +26,22 @@ import {
     CircularProgress
 } from '@mui/material';
 import { useSession } from 'next-auth/react';
-
-interface LeaveRequest {
-    id: string;
-    leave_type: string;
-    start_date: string;
-    end_date: string;
-    status: string;
-    reason?: string;
-    created_at: string;
-    updated_at: string;
-    employees: {
-        user: {
-            id: string;
-            full_name: string;
-            email: string;
-        };
-        assignments: Array<{
-            org_unit: {
-                name: string;
-            };
-            job_positions: {
-                title: string;
-            };
-        }>;
-    };
-}
-
-const LEAVE_TYPES = [
-    { value: 'ANNUAL', label: 'Nghỉ phép năm' },
-    { value: 'SICK', label: 'Nghỉ ốm' },
-    { value: 'PERSONAL', label: 'Nghỉ cá nhân' },
-    { value: 'MATERNITY', label: 'Nghỉ thai sản' },
-    { value: 'PATERNITY', label: 'Nghỉ thai sản (nam)' },
-    { value: 'STUDY', label: 'Nghỉ học tập' },
-    { value: 'EMERGENCY', label: 'Nghỉ khẩn cấp' }
-];
-
-const STATUS_COLORS = {
-    PENDING: 'warning',
-    APPROVED: 'success',
-    REJECTED: 'error',
-    CANCELLED: 'default'
-} as const;
-
-const STATUS_LABELS = {
-    PENDING: 'Chờ duyệt',
-    APPROVED: 'Đã duyệt',
-    REJECTED: 'Từ chối',
-    CANCELLED: 'Đã hủy'
-} as const;
+import { useRouter } from 'next/navigation';
+import {
+    useLeaveRequests,
+    LeaveRequest,
+    LEAVE_TYPES,
+    LEAVE_STATUS_LABELS,
+    LEAVE_STATUS_COLORS
+} from '@/features/hr';
 
 export default function LeaveRequestHistoryPage() {
-    const { data: session } = useSession();
-    const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: session, status: authStatus } = useSession();
+    const router = useRouter();
+
+    const { data: leaveRequests = [], isLoading: loading, error: queryError } = useLeaveRequests();
+    const [actionError, setActionError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
 
     // Filters
     const [filters, setFilters] = useState({
@@ -94,35 +52,13 @@ export default function LeaveRequestHistoryPage() {
     });
 
     useEffect(() => {
-        fetchLeaveRequestHistory();
-    }, [page, filters]);
-
-    const fetchLeaveRequestHistory = async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: '10'
-            });
-
-            Object.entries(filters).forEach(([key, value]) => {
-                if (value) params.append(key, value);
-            });
-
-            const response = await fetch(`/api/hr/leave-requests?${params}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch leave request history');
-            }
-
-            const data = await response.json();
-            setLeaveRequests(data.data);
-            setTotalPages(data.pagination.totalPages);
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
-        } finally {
-            setLoading(false);
+        if (authStatus === 'loading') return;
+        if (!session) {
+            router.push('/auth/signin');
         }
-    };
+    }, [session, authStatus, router]);
+
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleFilterChange = (key: string, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }));
@@ -139,8 +75,13 @@ export default function LeaveRequestHistoryPage() {
         setPage(1);
     };
 
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('vi-VN');
+    const formatDate = (dateString?: string | null) => {
+        if (!dateString) return '-';
+        try {
+            return new Date(dateString).toLocaleDateString('vi-VN');
+        } catch {
+            return String(dateString);
+        }
     };
 
     const getLeaveTypeLabel = (type: string) => {
@@ -154,6 +95,18 @@ export default function LeaveRequestHistoryPage() {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
         return `${diffDays} ngày`;
     };
+
+    const filteredLeaveRequests = leaveRequests.filter((request: LeaveRequest) => {
+        if (filters.status && request.status !== filters.status) return false;
+        if (filters.leave_type && request.leave_type !== filters.leave_type) return false;
+        if (filters.start_date && request.start_date < filters.start_date) return false;
+        if (filters.end_date && request.end_date > filters.end_date) return false;
+        return true;
+    });
+
+    const pageSize = 10;
+    const totalPages = Math.ceil(filteredLeaveRequests.length / pageSize) || 1;
+    const paginatedRequests = filteredLeaveRequests.slice((page - 1) * pageSize, page * pageSize);
 
     if (loading) {
         return (
@@ -170,7 +123,7 @@ export default function LeaveRequestHistoryPage() {
             </Typography>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -179,7 +132,7 @@ export default function LeaveRequestHistoryPage() {
             <Card sx={{ mb: 3 }}>
                 <CardContent>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={3}>
+                        <Grid size={{ xs: 12, sm: 3 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Trạng thái</InputLabel>
                                 <Select
@@ -195,7 +148,7 @@ export default function LeaveRequestHistoryPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={3}>
+                        <Grid size={{ xs: 12, sm: 3 }}>
                             <FormControl fullWidth>
                                 <InputLabel>Loại nghỉ</InputLabel>
                                 <Select
@@ -212,7 +165,7 @@ export default function LeaveRequestHistoryPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={2}>
+                        <Grid size={{ xs: 12, sm: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Từ ngày"
@@ -222,7 +175,7 @@ export default function LeaveRequestHistoryPage() {
                                 InputLabelProps={{ shrink: true }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={2}>
+                        <Grid size={{ xs: 12, sm: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Đến ngày"
@@ -232,7 +185,7 @@ export default function LeaveRequestHistoryPage() {
                                 InputLabelProps={{ shrink: true }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={2}>
+                        <Grid size={{ xs: 12, sm: 2 }}>
                             <Button
                                 fullWidth
                                 variant="outlined"
@@ -263,21 +216,27 @@ export default function LeaveRequestHistoryPage() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {leaveRequests.map((request) => {
+                            {paginatedRequests.map((request) => {
+                                const employeeName = request.Employee?.User?.full_name || request.employees?.user?.full_name || 'N/A';
+                                const employeeEmail = request.Employee?.User?.email || request.employees?.user?.email || '';
+                                const orgUnitName = request.Employee?.OrgAssignment?.[0]?.OrgUnit?.name || request.employees?.assignments?.[0]?.org_unit?.name || 'N/A';
+
                                 return (
                                     <TableRow key={request.id}>
                                         <TableCell>
                                             <Box>
                                                 <Typography variant="body2" fontWeight="medium">
-                                                    {request.Employee.User.full_name}
+                                                    {employeeName}
                                                 </Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {request.Employee.User.email}
-                                                </Typography>
+                                                {employeeEmail && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        {employeeEmail}
+                                                    </Typography>
+                                                )}
                                             </Box>
                                         </TableCell>
                                         <TableCell>
-                                            {request.Employee.OrgAssignment[0]?.OrgUnit.name || 'N/A'}
+                                            {orgUnitName}
                                         </TableCell>
                                         <TableCell>{getLeaveTypeLabel(request.leave_type)}</TableCell>
                                         <TableCell>
@@ -295,8 +254,8 @@ export default function LeaveRequestHistoryPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Chip
-                                                label={STATUS_LABELS[request.status as keyof typeof STATUS_LABELS]}
-                                                color={STATUS_COLORS[request.status as keyof typeof STATUS_COLORS]}
+                                                label={LEAVE_STATUS_LABELS[request.status] || request.status}
+                                                color={LEAVE_STATUS_COLORS[request.status] || 'default'}
                                                 size="small"
                                             />
                                         </TableCell>
@@ -309,9 +268,11 @@ export default function LeaveRequestHistoryPage() {
                                                     <Typography variant="body2">
                                                         {request.status === 'APPROVED' ? 'Đã duyệt' : 'Đã từ chối'}
                                                     </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {formatDate(request.updated_at)}
-                                                    </Typography>
+                                                    {request.updated_at && (
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {formatDate(request.updated_at)}
+                                                        </Typography>
+                                                    )}
                                                 </Box>
                                             )}
                                         </TableCell>

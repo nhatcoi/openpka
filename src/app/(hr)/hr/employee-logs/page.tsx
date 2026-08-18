@@ -75,8 +75,10 @@ interface EmployeeLog {
     ip_address?: string;
     user_agent?: string;
     created_at: string;
-    employees?: Employee;
-    users?: User;
+    employees?: any;
+    Employee?: any;
+    users?: any;
+    User?: any;
 }
 
 const ACTIONS = [
@@ -93,24 +95,21 @@ const ACTIONS = [
 const ENTITY_TYPES = [
     'employee',
     'user',
-    'qualification',
-    'employment',
-    'performance_review',
     'academic_title',
+    'qualification',
     'training',
-    'org_unit',
     'assignment',
 ];
 
-const ACTION_COLORS = {
+const ACTION_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
     CREATE: 'success',
-    UPDATE: 'warning',
+    UPDATE: 'info',
     DELETE: 'error',
-    VIEW: 'info',
+    VIEW: 'default',
     LOGIN: 'primary',
     LOGOUT: 'secondary',
-    EXPORT: 'info',
-    IMPORT: 'warning',
+    EXPORT: 'warning',
+    IMPORT: 'info',
 };
 
 export default function EmployeeLogsPage() {
@@ -313,7 +312,7 @@ export default function EmployeeLogsPage() {
                         Bộ lọc
                     </Typography>
                     <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <TextField
                                 fullWidth
                                 label="ID Nhân viên"
@@ -322,7 +321,7 @@ export default function EmployeeLogsPage() {
                                 size="small"
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <FormControl fullWidth size="small">
                                 <InputLabel>Hành động</InputLabel>
                                 <Select
@@ -339,7 +338,7 @@ export default function EmployeeLogsPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <FormControl fullWidth size="small">
                                 <InputLabel>Loại thực thể</InputLabel>
                                 <Select
@@ -356,7 +355,7 @@ export default function EmployeeLogsPage() {
                                 </Select>
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <TextField
                                 fullWidth
                                 label="ID Người thực hiện"
@@ -365,7 +364,7 @@ export default function EmployeeLogsPage() {
                                 size="small"
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Từ ngày"
@@ -376,7 +375,7 @@ export default function EmployeeLogsPage() {
                                 size="small"
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={2}>
+                        <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                             <TextField
                                 fullWidth
                                 label="Đến ngày"
@@ -447,7 +446,7 @@ export default function EmployeeLogsPage() {
                                     <TableCell>
                                         <Chip
                                             label={log.action}
-                                            color={ACTION_COLORS[log.action as keyof typeof ACTION_COLORS] as string || 'default'}
+                                            color={ACTION_COLORS[log.action] || 'default'}
                                             variant="outlined"
                                             size="small"
                                         />

@@ -10,6 +10,7 @@ export interface EmployeeSummary {
   updated_at?: string;
   User?: {
     id: string;
+    username?: string;
     full_name: string;
     email: string;
     phone?: string | null;
@@ -33,6 +34,24 @@ export interface EmployeeSummary {
       title: string;
       code: string;
     } | null;
+  }>;
+  Employment?: Array<{
+    id: string;
+    contract_no: string;
+    contract_type: string;
+    start_date: string;
+    end_date?: string | null;
+    fte: number;
+    salary_band: string;
+  }>;
+  employments?: Array<{
+    id: string;
+    contract_no: string;
+    contract_type: string;
+    start_date: string;
+    end_date?: string | null;
+    fte: number;
+    salary_band: string;
   }>;
 }
 
@@ -133,12 +152,15 @@ export interface EmployeeTraining {
   id: string;
   employee_id: string;
   training_id: string;
-  completion_date: string | null;
+  completion_date?: string | null;
   status: string;
   result?: string | null;
   score?: number | null;
+  certificate_url?: string | null;
   Employee?: any;
   Training?: Training;
+  employees?: any;
+  trainings?: Training;
 }
 
 export interface Qualification {
@@ -152,10 +174,15 @@ export interface EmployeeQualification {
   employee_id: string;
   qualification_id: string;
   field_of_study?: string | null;
+  major_field?: string | null;
   issued_by?: string | null;
+  institution?: string | null;
   issued_date?: string | null;
+  awarded_date?: string | null;
   Employee?: any;
   Qualification?: Qualification;
+  employees?: any;
+  qualifications?: Qualification;
 }
 
 export interface AcademicTitle {
@@ -171,8 +198,12 @@ export interface EmployeeAcademicTitle {
   decision_no?: string | null;
   decision_date?: string | null;
   field_of_study?: string | null;
+  issued_date?: string | null;
+  awarded_date?: string | null;
   Employee?: any;
   AcademicTitle?: AcademicTitle;
+  employees?: any;
+  academic_titles?: AcademicTitle;
 }
 
 export interface Employment {
@@ -193,6 +224,14 @@ export interface Role {
   name: string;
   code: string;
   description?: string | null;
+  RolePermission?: any[];
+  role_permission?: any[];
+  UserRole?: any[];
+  user_role?: any[];
+  _count?: {
+    RolePermission?: number;
+    UserRole?: number;
+  };
 }
 
 export interface Permission {
@@ -202,6 +241,8 @@ export interface Permission {
   resource?: string | null;
   action?: string | null;
   description?: string | null;
+  RolePermission?: any[];
+  role_permission?: any[];
 }
 
 export interface RolePermission {
@@ -209,7 +250,9 @@ export interface RolePermission {
   role_id: string;
   permission_id: string;
   Role?: Role;
+  roles?: Role;
   Permission?: Permission;
+  permissions?: Permission;
 }
 
 export interface UserRole {
@@ -217,7 +260,11 @@ export interface UserRole {
   user_id: string;
   role_id: string;
   User?: any;
+  users?: any;
+  users_user_role_user_idTousers?: any;
+  users_user_role_assigned_byTousers?: any;
   Role?: Role;
+  roles?: Role;
 }
 
 export interface LeaveRequest {
@@ -230,4 +277,40 @@ export interface LeaveRequest {
   status: string;
   approved_by?: string | null;
   Employee?: any;
+  employees?: any;
+  created_at?: string;
+  updated_at?: string;
+  comments?: string | null;
 }
+
+export interface Assignment {
+  id: string;
+  employee_id: string;
+  org_unit_id: string;
+  position_id?: string | null;
+  is_primary?: boolean;
+  assignment_type: string;
+  allocation: string | number;
+  start_date: string;
+  end_date?: string | null;
+  Employee?: any;
+  employee?: any;
+  OrgUnit?: any;
+  org_unit?: any;
+  Position?: any;
+  position?: any;
+}
+
+export interface PerformanceReview {
+  id: string;
+  employee_id: string;
+  review_period?: string | null;
+  score?: string | number | null;
+  comments?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  Employee?: any;
+  employee?: any;
+}
+
+

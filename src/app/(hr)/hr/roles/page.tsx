@@ -38,37 +38,20 @@ import {
     MoreVert as MoreVertIcon,
     Visibility as VisibilityIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Role {
-    id: string;
-    code: string;
-    name: string;
-    role_permission: Array<{
-        id: string;
-        permissions: {
-            id: string;
-            code: string;
-            name: string;
-        };
-    }>;
-    user_role: Array<{
-        id: string;
-        users: {
-            id: string;
-            full_name: string;
-        };
-    }>;
-}
+import { HR_ROUTES } from '@/constants/routes';
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole, Role } from '@/features/hr';
 
 export default function RolesPage() {
     const { data: session, status } = useSession();
     const confirmDialog = useConfirmDialog();
     const router = useRouter();
 
-    const [roles, setRoles] = useState<Role[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: roles = [], isLoading: loading, error: queryError } = useRoles();
+    const { mutateAsync: createRole } = useCreateRole();
+    const { mutateAsync: updateRole } = useUpdateRole();
+    const { mutateAsync: deleteRole } = useDeleteRole();
+
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingRole, setEditingRole] = useState<Role | null>(null);
     const [formData, setFormData] = useState({
@@ -83,57 +66,25 @@ export default function RolesPage() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
     }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.ROLES);
-            const result = await response.json();
-
-            if (result.success) {
-                setRoles(result.data);
-            } else {
-                setError(result.error || 'Failed to fetch roles');
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const url = editingRole
-                ? API_ROUTES.HR.ROLES_BY_ID(editingRole.id)
-                : API_ROUTES.HR.ROLES;
-            const method = editingRole ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                setOpenDialog(false);
-                setEditingRole(null);
-                setFormData({ code: '', name: '' });
-                fetchData();
+            setActionError(null);
+            if (editingRole) {
+                await updateRole({ id: editingRole.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save role');
+                await createRole(formData);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            setOpenDialog(false);
+            setEditingRole(null);
+            setFormData({ code: '', name: '' });
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu vai trò');
         }
     };
 
@@ -150,19 +101,10 @@ export default function RolesPage() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.ROLES_BY_ID(role.id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                fetchData();
-            } else {
-                setError(result.error || 'Failed to delete role');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteRole(role.id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa vai trò');
         }
     };
 
@@ -227,7 +169,7 @@ export default function RolesPage() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -258,7 +200,7 @@ export default function RolesPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Chip
-                                        label={role.RolePermission.length}
+                                        label={role.RolePermission?.length ?? role.role_permission?.length ?? 0}
                                         color="primary"
                                         variant="outlined"
                                         size="small"
@@ -266,7 +208,7 @@ export default function RolesPage() {
                                 </TableCell>
                                 <TableCell>
                                     <Chip
-                                        label={role.UserRole.length}
+                                        label={role.UserRole?.length ?? role.user_role?.length ?? 0}
                                         color="secondary"
                                         variant="outlined"
                                         size="small"

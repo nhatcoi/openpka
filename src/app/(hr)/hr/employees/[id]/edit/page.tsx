@@ -24,32 +24,16 @@ import {
     Save as SaveIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-
-interface Employee {
-    id: string;
-    employee_no: string | null;
-    employment_type: string | null;
-    status: string | null;
-    hired_at: string | null;
-    terminated_at: string | null;
-    user: {
-        id: string;
-        username: string;
-        email: string | null;
-        full_name: string;
-        dob: string | null;
-        gender: string | null;
-        phone: string | null;
-        address: string | null;
-    } | null;
-}
+import { useEmployee, useUpdateEmployee } from '@/features/hr';
 
 export default function EditEmployeePage() {
     const params = useParams();
     const router = useRouter();
     const { data: session, status } = useSession();
-    const [employee, setEmployee] = useState<Employee | null>(null);
-    const [loading, setLoading] = useState(true);
+    const employeeId = params?.id as string;
+    const { data: employee, isLoading: loading, error: queryError } = useEmployee(employeeId);
+    const { mutateAsync: updateEmployee } = useUpdateEmployee();
+
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -71,50 +55,29 @@ export default function EditEmployeePage() {
 
     useEffect(() => {
         if (status === 'loading') return;
-
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
+    }, [session, status, router]);
 
-        if (params.id) {
-            fetchEmployee(params.id as string);
+    useEffect(() => {
+        if (employee) {
+            setFormData({
+                employee_no: employee.employee_no || '',
+                employment_type: employee.employment_type || '',
+                status: employee.status || 'ACTIVE',
+                hired_at: employee.hired_at ? employee.hired_at.split('T')[0] : '',
+                terminated_at: employee.terminated_at ? employee.terminated_at.split('T')[0] : '',
+                full_name: employee.User?.full_name || '',
+                email: employee.User?.email || '',
+                phone: employee.User?.phone || '',
+                address: employee.User?.address || '',
+                dob: employee.User?.dob ? employee.User.dob.split('T')[0] : '',
+                gender: employee.User?.gender || '',
+                new_password: ''
+            });
         }
-    }, [session, status, params.id, router]);
-
-    const fetchEmployee = async (employeeId: string) => {
-        try {
-            setLoading(true);
-            const response = await fetch(API_ROUTES.HR.EMPLOYEES_BY_ID(employeeId));
-            const result = await response.json();
-
-            if (result.success) {
-                const emp = result.data;
-                setEmployee(emp);
-                setFormData({
-                    employee_no: emp.employee_no || '',
-                    employment_type: emp.employment_type || '',
-                    status: emp.status || 'ACTIVE',
-                    hired_at: emp.hired_at ? emp.hired_at.split('T')[0] : '',
-                    terminated_at: emp.terminated_at ? emp.terminated_at.split('T')[0] : '',
-                    full_name: emp.User?.full_name || '',
-                    email: emp.User?.email || '',
-                    phone: emp.User?.phone || '',
-                    address: emp.User?.address || '',
-                    dob: emp.User?.dob ? emp.User.dob.split('T')[0] : '',
-                    gender: emp.User?.gender || '',
-                    new_password: ''
-                });
-            } else {
-                setError('Không thể tải thông tin nhân viên');
-            }
-        } catch (error) {
-            console.error('Error fetching employee:', error);
-            setError('Lỗi khi tải thông tin nhân viên');
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [employee]);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({

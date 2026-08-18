@@ -40,62 +40,20 @@ import {
     Person as PersonIcon,
     Link as LinkIcon,
 } from '@mui/icons-material';
-import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Employee {
-    id: string;
-    employee_no: string;
-    user?: {
-        id: string;
-        full_name: string;
-    };
-}
-
-interface Training {
-    id: string;
-    title: string;
-    provider: string;
-    start_date: string;
-    end_date: string;
-    training_type: string;
-    description?: string;
-}
-
-interface EmployeeTraining {
-    id: string;
-    employee_id: string;
-    training_id: string;
-    status: string;
-    completion_date?: string;
-    certificate_url?: string;
-    employees?: Employee;
-    trainings?: Training;
-}
-
-const TRAINING_STATUS = [
-    'enrolled',
-    'in_progress',
-    'completed',
-    'cancelled',
-    'failed'
-];
-
-const TRAINING_STATUS_LABELS = {
-    enrolled: 'Đã đăng ký',
-    in_progress: 'Đang tham gia',
-    completed: 'Hoàn thành',
-    cancelled: 'Đã hủy',
-    failed: 'Không đạt'
-};
-
-const TRAINING_STATUS_COLORS = {
-    enrolled: 'default',
-    in_progress: 'warning',
-    completed: 'success',
-    cancelled: 'error',
-    failed: 'error'
-};
+import { HR_ROUTES } from '@/constants/routes';
+import {
+    useEmployeeTrainings,
+    useCreateEmployeeTraining,
+    useUpdateEmployeeTraining,
+    useDeleteEmployeeTraining,
+    useTrainings,
+    useEmployeeSearch,
+    TRAINING_STATUS,
+    TRAINING_STATUS_LABELS,
+    TRAINING_STATUS_COLORS,
+    EmployeeTraining,
+    HrSearchBar
+} from '@/features/hr';
 
 function EmployeeTrainingsPageContent() {
     const { data: session, status } = useSession();
@@ -103,11 +61,15 @@ function EmployeeTrainingsPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const [employeeTrainings, setEmployeeTrainings] = useState<EmployeeTraining[]>([]);
-    const [employees, setEmployees] = useState<Employee[]>([]);
-    const [trainings, setTrainings] = useState<Training[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: employeeTrainings = [], isLoading: trainingsLoading, error: queryError } = useEmployeeTrainings();
+    const { employees = [], loading: employeesLoading } = useEmployeeSearch();
+    const { data: trainings = [], isLoading: mainTrainingsLoading } = useTrainings();
+    const { mutateAsync: createEmployeeTraining } = useCreateEmployeeTraining();
+    const { mutateAsync: updateEmployeeTraining } = useUpdateEmployeeTraining();
+    const { mutateAsync: deleteEmployeeTraining } = useDeleteEmployeeTraining();
+
+    const loading = trainingsLoading || employeesLoading || mainTrainingsLoading;
+    const [actionError, setActionError] = useState<string | null>(null);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingTraining, setEditingTraining] = useState<EmployeeTraining | null>(null);
     const [formData, setFormData] = useState({
@@ -133,47 +95,10 @@ function EmployeeTrainingsPageContent() {
         if (status === 'loading') return;
         if (!session) {
             router.push('/auth/signin');
-            return;
         }
-        fetchData();
-    }, [session, status, router, searchParams]);
+    }, [session, status, router]);
 
-    const fetchData = async () => {
-        try {
-            setLoading(true);
-            const employeeId = searchParams.get('employee_id');
-
-            const [employeeTrainingsRes, employeesRes, trainingsRes] = await Promise.all([
-                fetch(employeeId ? `${API_ROUTES.HR.EMPLOYEE_TRAININGS}?employee_id=${employeeId}` : API_ROUTES.HR.EMPLOYEE_TRAININGS),
-                fetch(API_ROUTES.HR.EMPLOYEES),
-                fetch(API_ROUTES.HR.TRAININGS)
-            ]);
-
-            const [employeeTrainingsResult, employeesResult, trainingsResult] = await Promise.all([
-                employeeTrainingsRes.json(),
-                employeesRes.json(),
-                trainingsRes.json()
-            ]);
-
-            if (employeeTrainingsResult.success) {
-                setEmployeeTrainings(employeeTrainingsResult.data);
-            } else {
-                setError(employeeTrainingsResult.error || 'Failed to fetch employee trainings');
-            }
-
-            if (employeesResult.success) {
-                setEmployees(employeesResult.data);
-            }
-
-            if (trainingsResult.success) {
-                setTrainings(trainingsResult.data);
-            }
-        } catch (err) {
-            setError('Network error occurred');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const error = actionError || (queryError ? (queryError as Error).message : null);
 
     const handleInputChange = (field: string, value: string) => {
         setFormData(prev => ({
@@ -223,30 +148,15 @@ function EmployeeTrainingsPageContent() {
         e.preventDefault();
 
         try {
-            const url = editingTraining
-                ? API_ROUTES.HR.EMPLOYEE_TRAININGS_BY_ID(editingTraining.id)
-                : API_ROUTES.HR.EMPLOYEE_TRAININGS;
-
-            const method = editingTraining ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-                handleCloseDialog();
+            setActionError(null);
+            if (editingTraining) {
+                await updateEmployeeTraining({ id: editingTraining.id, data: formData });
             } else {
-                setError(result.error || 'Failed to save employee training');
+                await createEmployeeTraining(formData);
             }
-        } catch (err) {
-            setError('Network error occurred');
+            handleCloseDialog();
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi lưu thông tin đào tạo');
         }
     };
 
@@ -263,19 +173,10 @@ function EmployeeTrainingsPageContent() {
         }
 
         try {
-            const response = await fetch(API_ROUTES.HR.EMPLOYEE_TRAININGS_BY_ID(id), {
-                method: 'DELETE',
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                await fetchData();
-            } else {
-                setError(result.error || 'Failed to delete employee training');
-            }
-        } catch (err) {
-            setError('Network error occurred');
+            setActionError(null);
+            await deleteEmployeeTraining(id);
+        } catch (err: any) {
+            setActionError(err.message || 'Lỗi khi xóa đào tạo');
         }
     };
 
@@ -367,7 +268,7 @@ function EmployeeTrainingsPageContent() {
             </Box>
 
             {error && (
-                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError(null)}>
                     {error}
                 </Alert>
             )}
@@ -404,7 +305,7 @@ function EmployeeTrainingsPageContent() {
                                     <TableCell>
                                         <Chip
                                             label={TRAINING_STATUS_LABELS[training.status as keyof typeof TRAINING_STATUS_LABELS] || training.status}
-                                            color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] as string}
+                                            color={TRAINING_STATUS_COLORS[training.status as keyof typeof TRAINING_STATUS_COLORS] || 'default'}
                                             variant="outlined"
                                             size="small"
                                         />
@@ -422,7 +323,7 @@ function EmployeeTrainingsPageContent() {
                                             <IconButton
                                                 size="small"
                                                 color="primary"
-                                                onClick={() => window.open(training.certificate_url, '_blank')}
+                                                onClick={() => window.open(training.certificate_url || '', '_blank')}
                                                 title="Xem chứng chỉ"
                                             >
                                                 <LinkIcon />
