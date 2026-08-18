@@ -38,58 +38,36 @@ import {
 } from '@/app/api/documentation/route';
 import Collapse from '@mui/material/Collapse';
 
+import { useDocumentation } from '@/components/documentation/use-documentation';
+
 const DRAWER_WIDTH = 320;
 
 export default function DocumentationPage() {
   const theme = useTheme();
-  const [sections, setSections] = useState<DocumentationSection[]>([]);
-  const [rootDocuments, setRootDocuments] = useState<DocumentationFile[]>([]);
-  const [rootReadme, setRootReadme] = useState<DocumentationFile | null>(null);
+  const { data: docData, isLoading: loading, error: queryError } = useDocumentation();
+
   const [selectedDocument, setSelectedDocument] = useState<DocumentationFile | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    loadDocuments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const sections = docData?.sections || [];
+  const rootReadme = docData?.rootReadme || null;
+  const rootDocuments = React.useMemo(() => {
+    return (docData?.files || []).filter(
+      (file: DocumentationFile) => !file.name.toLowerCase().includes('readme')
+    ).sort((a: DocumentationFile, b: DocumentationFile) => 
+      (a.displayName || a.name).localeCompare(b.displayName || b.name)
+    );
+  }, [docData?.files]);
 
-  const loadDocuments = async (section?: string) => {
-    try {
-      setLoading(true);
-      setError(null);
-      const url = section
-        ? `/api/documentation?section=${encodeURIComponent(section)}`
-        : '/api/documentation';
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Không thể tải danh sách tài liệu');
-      }
-      const data = await response.json();
-      // Sections are already sorted by API according to SECTION_DISPLAY_NAMES order
-      setSections(data.sections || []);
-      const files = (data.files || []).filter(
-        (file: DocumentationFile) => !file.name.toLowerCase().includes('readme')
-      ).sort((a: DocumentationFile, b: DocumentationFile) => 
-        (a.displayName || a.name).localeCompare(b.displayName || b.name)
-      );
-      setRootDocuments(files);
-      setRootReadme(data.rootReadme || null);
-      
-      // Auto-select root README on first load if no document selected
-      if (!section && data.rootReadme && !selectedDocument && !selectedSection) {
-        setSelectedDocument(data.rootReadme);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Đã xảy ra lỗi');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (rootReadme && !selectedDocument && !selectedSection) {
+      setSelectedDocument(rootReadme);
     }
-  };
+  }, [rootReadme, selectedDocument, selectedSection]);
+
+  const error = queryError ? (queryError as Error).message : null;
 
   const handleDocumentSelect = (document: DocumentationFile) => {
     setSelectedDocument(document);

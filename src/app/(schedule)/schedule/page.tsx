@@ -1,45 +1,22 @@
 'use client';
 
-import {
-  Box,
-  Container,
-  Typography,
-  Paper,
-  Stack,
-} from '@mui/material';
-import {
-  Schedule as ScheduleIcon,
-} from '@mui/icons-material';
+import { Schedule as ScheduleIcon } from '@mui/icons-material';
+import { FeaturePlaceholder } from '@/components/misc/feature-placeholder';
 
 export default function SchedulePage() {
   return (
-    <Box sx={{ py: 2 }}>
-      <Container maxWidth="lg">
-        <Paper elevation={0} sx={{ p: 4, background: 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)', color: 'white', borderRadius: 2, mb: 4 }}>
-          <Stack spacing={2} alignItems="center" textAlign="center">
-            <ScheduleIcon sx={{ fontSize: 64 }} />
-            <Typography variant="h3" component="h1" sx={{ fontWeight: 'bold' }}>
-              Quản lý lịch học – thi
-            </Typography>
-            <Typography variant="h6" sx={{ opacity: 0.9 }}>
-              Thời khóa biểu, lịch thi, phòng học
-            </Typography>
-          </Stack>
-        </Paper>
-
-        <Paper sx={{ p: 4 }}>
-          <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-            Tính năng sắp có:
-          </Typography>
-          <Stack spacing={2}>
-            <Typography>• Quản lý thời khóa biểu</Typography>
-            <Typography>• Quản lý lịch thi</Typography>
-            <Typography>• Quản lý phòng học</Typography>
-            <Typography>• Xếp lịch tự động</Typography>
-            <Typography>• Báo cáo lịch học</Typography>
-          </Stack>
-        </Paper>
-      </Container>
-    </Box>
+    <FeaturePlaceholder
+      title="Quản lý lịch học – thi"
+      description="Thời khóa biểu, lịch thi, phòng học"
+      features={[
+        'Quản lý thời khóa biểu',
+        'Quản lý lịch thi',
+        'Quản lý phòng học',
+        'Xếp lịch tự động',
+        'Báo cáo lịch học',
+      ]}
+      icon={<ScheduleIcon sx={{ fontSize: 64 }} />}
+      gradient="linear-gradient(135deg, #d32f2f 0%, #f44336 100%)"
+    />
   );
 }

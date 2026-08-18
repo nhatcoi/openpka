@@ -1,6 +1,6 @@
 import { db } from '@/lib/db';
 
-export interface AcademicHistoryFilters {
+export interface AcademicHistoryServiceFilters {
   entityType?: string;
   entityId?: bigint;
   action?: string;
@@ -15,7 +15,7 @@ export class AcademicHistoryService {
   /**
    * Query academic audit logs from audit_logs table.
    */
-  static async getHistory(filters: AcademicHistoryFilters = {}) {
+  static async getHistory(filters: AcademicHistoryServiceFilters = {}) {
     const {
       entityType,
       entityId,

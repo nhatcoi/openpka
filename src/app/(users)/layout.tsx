@@ -3,14 +3,14 @@ import type { Metadata } from 'next';
 import { DashboardShell } from '@/components/layout/dashboard-shell';
 
 export const metadata: Metadata = {
-  title: 'Báo cáo & Phân tích',
-  description: 'Hệ thống Báo cáo & Thống kê - OpenPKA',
+  title: 'Người dùng & Phân quyền',
+  description: 'Quản lý tài khoản, vai trò & phân quyền - OpenPKA',
 };
 
-export default function ReportsLayout({
+export default function UsersLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <DashboardShell module="reports">{children}</DashboardShell>;
+  return <DashboardShell>{children}</DashboardShell>;
 }
