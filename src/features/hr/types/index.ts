@@ -340,4 +340,60 @@ export interface PerformanceReview {
   employee?: any;
 }
 
+export interface EmployeeLog {
+  id: string;
+  employee_id?: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  field_name?: string;
+  old_value?: string;
+  new_value?: string;
+  reason?: string;
+  actor_id?: string;
+  actor_role?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+  employees?: any;
+  Employee?: any;
+  users?: any;
+  User?: any;
+}
+
+export interface EvaluationUrl {
+  id: string;
+  employeeId: string;
+  lecturerName: string;
+  lecturerEmail: string;
+  period: string;
+  evaluationUrl: string;
+  token: string;
+  createdAt: string;
+}
+
+export interface EvaluationData {
+  id: string;
+  employee_id: string;
+  review_period: string;
+  score: number | null;
+  comments: string | null;
+  created_at: string;
+  updated_at?: string;
+  Employee?: any;
+  employee?: any;
+}
+
+export interface ReportData {
+  orgUnit: any;
+  totalEmployees: number;
+  activeEmployees: number;
+  inactiveEmployees: number;
+  fullTimeEmployees: number;
+  partTimeEmployees: number;
+  contractEmployees: number;
+  internEmployees: number;
+  employees: any[];
+}
+
 

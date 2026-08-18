@@ -22,17 +22,7 @@ import {
     Visibility as VisibilityIcon,
     ContentCopy as CopyIcon
 } from '@mui/icons-material';
-
-interface EvaluationUrl {
-    id: string;
-    employeeId: string;
-    lecturerName: string;
-    lecturerEmail: string;
-    period: string;
-    evaluationUrl: string;
-    token: string;
-    createdAt: string;
-}
+import { EvaluationUrl } from '@/features/hr';
 
 export default function EvaluationDemoPage() {
     const [evaluationUrls, setEvaluationUrls] = useState<EvaluationUrl[]>([]);

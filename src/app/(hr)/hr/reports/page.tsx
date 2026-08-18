@@ -34,19 +34,7 @@ import {
 } from '@mui/icons-material';
 import { API_ROUTES } from '@/constants/routes';
 import { OrgUnit } from '@/features/org';
-import { Employee, Assignment } from '@/features/hr';
-
-interface ReportData {
-    orgUnit: OrgUnit;
-    totalEmployees: number;
-    activeEmployees: number;
-    inactiveEmployees: number;
-    fullTimeEmployees: number;
-    partTimeEmployees: number;
-    contractEmployees: number;
-    internEmployees: number;
-    employees: Employee[];
-}
+import { Employee, Assignment, ReportData } from '@/features/hr';
 
 export default function ReportsPage() {
     const { data: session, status } = useSession();

@@ -34,28 +34,12 @@ import {
     Refresh as RefreshIcon
 } from '@mui/icons-material';
 import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface EvaluationPeriod {
-    review_period: string;
-    created_at: string;
-    updated_at: string;
-    _count: {
-        id: number;
-    };
-}
-
-interface EvaluationUrl {
-    id: string;
-    employeeId: string;
-    lecturerName: string;
-    lecturerEmail: string;
-    period: string;
-    evaluationUrl: string;
-    token: string;
-    createdAt: string;
-}
-
-import { useEvaluationPeriods, useCreateEvaluationPeriod } from '@/features/hr';
+import {
+    useEvaluationPeriods,
+    useCreateEvaluationPeriod,
+    EvaluationPeriodItem as EvaluationPeriod,
+    EvaluationUrl,
+} from '@/features/hr';
 
 export default function EvaluationPeriodsPage() {
     const { data: periodsData = [], isLoading: loading, error: queryError, refetch: fetchPeriods } = useEvaluationPeriods();

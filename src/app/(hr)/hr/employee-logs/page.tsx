@@ -44,73 +44,12 @@ import {
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 import HrSearchBar from '@/features/hr/components/hr-search-bar';
-
-interface Employee {
-    id: string;
-    employee_no: string;
-    user?: {
-        id: string;
-        full_name: string;
-    };
-}
-
-interface User {
-    id: string;
-    username: string;
-    full_name: string;
-}
-
-interface EmployeeLog {
-    id: string;
-    employee_id: string;
-    action: string;
-    entity_type: string;
-    entity_id?: string;
-    field_name?: string;
-    old_value?: string;
-    new_value?: string;
-    reason?: string;
-    actor_id?: string;
-    actor_role?: string;
-    ip_address?: string;
-    user_agent?: string;
-    created_at: string;
-    employees?: any;
-    Employee?: any;
-    users?: any;
-    User?: any;
-}
-
-const ACTIONS = [
-    'CREATE',
-    'UPDATE',
-    'DELETE',
-    'VIEW',
-    'LOGIN',
-    'LOGOUT',
-    'EXPORT',
-    'IMPORT',
-];
-
-const ENTITY_TYPES = [
-    'employee',
-    'user',
-    'academic_title',
-    'qualification',
-    'training',
-    'assignment',
-];
-
-const ACTION_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-    CREATE: 'success',
-    UPDATE: 'info',
-    DELETE: 'error',
-    VIEW: 'default',
-    LOGIN: 'primary',
-    LOGOUT: 'secondary',
-    EXPORT: 'warning',
-    IMPORT: 'info',
-};
+import {
+    EmployeeLog,
+    LOG_ACTIONS,
+    LOG_ENTITY_TYPES,
+    LOG_ACTION_COLORS,
+} from '@/features/hr';
 
 export default function EmployeeLogsPage() {
     const { data: session, status } = useSession();
@@ -330,7 +269,7 @@ export default function EmployeeLogsPage() {
                                     label="Hành động"
                                 >
                                     <MenuItem value="">Tất cả</MenuItem>
-                                    {ACTIONS.map((action) => (
+                                    {LOG_ACTIONS.map((action) => (
                                         <MenuItem key={action} value={action}>
                                             {action}
                                         </MenuItem>
@@ -347,7 +286,7 @@ export default function EmployeeLogsPage() {
                                     label="Loại thực thể"
                                 >
                                     <MenuItem value="">Tất cả</MenuItem>
-                                    {ENTITY_TYPES.map((type) => (
+                                    {LOG_ENTITY_TYPES.map((type) => (
                                         <MenuItem key={type} value={type}>
                                             {type}
                                         </MenuItem>
@@ -446,7 +385,7 @@ export default function EmployeeLogsPage() {
                                     <TableCell>
                                         <Chip
                                             label={log.action}
-                                            color={ACTION_COLORS[log.action] || 'default'}
+                                            color={LOG_ACTION_COLORS[log.action] || 'default'}
                                             variant="outlined"
                                             size="small"
                                         />

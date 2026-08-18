@@ -103,3 +103,72 @@ export const LEAVE_STATUS_LABELS: Record<string, string> = {
   CANCELLED: 'Đã hủy',
 };
 
+export const LOG_ACTIONS = [
+  'CREATE',
+  'UPDATE',
+  'DELETE',
+  'ASSIGN',
+  'REMOVE',
+  'VIEW',
+  'LOGIN',
+  'LOGOUT',
+  'EXPORT',
+  'IMPORT',
+] as const;
+
+export const LOG_ACTION_LABELS: Record<string, string> = {
+  CREATE: 'Tạo mới',
+  UPDATE: 'Cập nhật',
+  DELETE: 'Xóa',
+  ASSIGN: 'Gán',
+  REMOVE: 'Gỡ bỏ',
+  VIEW: 'Xem',
+  LOGIN: 'Đăng nhập',
+  LOGOUT: 'Đăng xuất',
+  EXPORT: 'Xuất dữ liệu',
+  IMPORT: 'Nhập dữ liệu',
+};
+
+export const LOG_ACTION_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+  CREATE: 'success',
+  UPDATE: 'info',
+  DELETE: 'error',
+  ASSIGN: 'warning',
+  REMOVE: 'default',
+  VIEW: 'default',
+  LOGIN: 'primary',
+  LOGOUT: 'secondary',
+  EXPORT: 'warning',
+  IMPORT: 'info',
+};
+
+export const LOG_ENTITY_TYPES = [
+  'employee',
+  'user',
+  'org_assignment',
+  'academic_title',
+  'qualification',
+  'training',
+  'assignment',
+  'employee_qualification',
+  'employee_training',
+  'employee_academic_title',
+  'performance_review',
+  'leave_request',
+] as const;
+
+export const LOG_ENTITY_TYPE_LABELS: Record<string, string> = {
+  employee: 'Nhân viên',
+  user: 'Người dùng',
+  org_assignment: 'Phân công tổ chức',
+  assignment: 'Phân công',
+  academic_title: 'Học hàm / Học vị',
+  qualification: 'Bằng cấp',
+  training: 'Đào tạo',
+  employee_qualification: 'Bằng cấp nhân viên',
+  employee_training: 'Đào tạo nhân viên',
+  employee_academic_title: 'Học hàm nhân viên',
+  performance_review: 'Đánh giá hiệu suất',
+  leave_request: 'Đơn xin nghỉ',
+};
+

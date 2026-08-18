@@ -20,26 +20,7 @@ import {
     ExpandMore as ExpandMoreIcon,
     Assessment as AssessmentIcon
 } from '@mui/icons-material';
-
-interface EvaluationData {
-    id: string;
-    employee_id: string;
-    review_period: string;
-    score: number | null;
-    comments: string | null;
-    created_at: string;
-    updated_at: string;
-    Employee: {
-        id: string;
-        User: {
-            id: string;
-            full_name: string;
-            email: string;
-        };
-    };
-}
-
-import { useHrMe, useMyEvaluations } from '@/features/hr';
+import { useHrMe, useMyEvaluations, EvaluationData } from '@/features/hr';
 
 export default function MyEvaluationsPage() {
     const { data: session } = useSession();

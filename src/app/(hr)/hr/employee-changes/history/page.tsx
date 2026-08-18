@@ -36,59 +36,26 @@ import {
     Assignment as AssignmentIcon
 } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
+import {
+    EmployeeLog,
+    LOG_ACTION_COLORS,
+    LOG_ACTION_LABELS,
+    LOG_ENTITY_TYPE_LABELS,
+} from '@/features/hr';
 
-interface EmployeeLog {
-    id: string;
-    action: string;
-    entity_type: string;
-    entity_id?: string;
-    field_name?: string;
-    old_value?: string;
-    new_value?: string;
-    reason?: string;
-    actor_role?: string;
-    created_at: string;
-    employees?: any;
-    Employee?: any;
-    users?: any;
-    User?: any;
-}
-
-const ACTION_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-    CREATE: 'success',
-    UPDATE: 'info',
-    DELETE: 'error',
-    ASSIGN: 'warning',
-    REMOVE: 'default'
-};
-
-const ACTION_LABELS = {
-    CREATE: 'Tạo mới',
-    UPDATE: 'Cập nhật',
-    DELETE: 'Xóa',
-    ASSIGN: 'Gán',
-    REMOVE: 'Gỡ bỏ'
-} as const;
-
-const ENTITY_TYPE_LABELS = {
-    employee: 'Nhân viên',
-    org_assignment: 'Phân công tổ chức',
-    employee_qualification: 'Bằng cấp',
-    employee_training: 'Đào tạo',
-    employee_academic_title: 'Học hàm',
-    performance_review: 'Đánh giá hiệu suất',
-    leave_request: 'Đơn xin nghỉ'
-} as const;
-
-const ENTITY_TYPE_ICONS = {
+const ENTITY_TYPE_ICONS: Record<string, React.ReactElement> = {
     employee: <PersonIcon />,
     org_assignment: <WorkIcon />,
+    assignment: <WorkIcon />,
     employee_qualification: <SchoolIcon />,
+    qualification: <SchoolIcon />,
     employee_training: <SchoolIcon />,
+    training: <SchoolIcon />,
     employee_academic_title: <SchoolIcon />,
+    academic_title: <SchoolIcon />,
     performance_review: <AssignmentIcon />,
-    leave_request: <AssignmentIcon />
-} as const;
+    leave_request: <AssignmentIcon />,
+};
 
 export default function EmployeeChangesHistoryPage() {
     const { data: session } = useSession();
@@ -163,15 +130,15 @@ export default function EmployeeChangesHistoryPage() {
     };
 
     const getActionLabel = (action: string) => {
-        return ACTION_LABELS[action as keyof typeof ACTION_LABELS] || action;
+        return LOG_ACTION_LABELS[action] || action;
     };
 
     const getEntityTypeLabel = (entityType: string) => {
-        return ENTITY_TYPE_LABELS[entityType as keyof typeof ENTITY_TYPE_LABELS] || entityType;
+        return LOG_ENTITY_TYPE_LABELS[entityType] || entityType;
     };
 
     const getEntityTypeIcon = (entityType: string) => {
-        return ENTITY_TYPE_ICONS[entityType as keyof typeof ENTITY_TYPE_ICONS] || <AssignmentIcon />;
+        return ENTITY_TYPE_ICONS[entityType] || <AssignmentIcon />;
     };
 
     const formatFieldValue = (value: string | null) => {
@@ -235,7 +202,7 @@ export default function EmployeeChangesHistoryPage() {
                                     onChange={(e) => handleFilterChange('entity_type', e.target.value)}
                                 >
                                     <MenuItem value="">Tất cả</MenuItem>
-                                    {Object.entries(ENTITY_TYPE_LABELS).map(([key, label]) => (
+                                    {Object.entries(LOG_ENTITY_TYPE_LABELS).map(([key, label]) => (
                                         <MenuItem key={key} value={key}>
                                             {label}
                                         </MenuItem>
@@ -319,7 +286,7 @@ export default function EmployeeChangesHistoryPage() {
                                         <TableCell>
                                             <Chip
                                                 label={getActionLabel(log.action)}
-                                                color={ACTION_COLORS[log.action] || 'default'}
+                                                color={LOG_ACTION_COLORS[log.action] || 'default'}
                                                 size="small"
                                             />
                                         </TableCell>
