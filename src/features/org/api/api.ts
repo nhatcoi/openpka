@@ -57,6 +57,11 @@ export interface OrgUnitRelation {
   updated_at: string;
 }
 
+export interface OrgUnitRelationWithDetails extends OrgUnitRelation {
+  parent?: OrgUnit;
+  child?: OrgUnit;
+}
+
 export interface PaginationParams {
   page?: number;
   size?: number;
@@ -134,6 +139,43 @@ export interface OrgAssignment {
   OrgUnit?: any;
   JobPosition?: any;
 }
+
+export interface AssignedEmployee {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  employee_no: string;
+  position: string;
+  status: string;
+  assignment_type: string;
+  is_primary: boolean;
+  allocation: string;
+  start_date: string;
+  end_date?: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  change_summary?: string;
+  change_details?: {
+    fields?: string[];
+    changes?: Record<string, { old_value: any; new_value: any }>;
+    initial_values?: any;
+    deleted_values?: any;
+    metadata?: any;
+  };
+  actor_id?: string;
+  actor_name?: string;
+  user_agent?: string;
+  metadata?: any;
+  created_at: string;
+}
+
+
 
 
 export interface OrgUnitsResponse {
@@ -413,3 +455,94 @@ export const orgApi = {
 
 // Default export
 export default orgApi;
+
+export interface UnitFormData {
+  name: string;
+  code: string;
+  type: string;
+  parent_id: string;
+  description: string;
+  effective_from: string;
+  manager_id: string;
+  manager_name: string;
+}
+
+export interface UnitType {
+  value: string;
+  label: string;
+  description: string;
+}
+
+export interface ReviewRow {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  owner?: string;
+  updatedAt?: string;
+}
+
+export interface ApprovalHistoryEntry {
+  id: string;
+  timestamp: string;
+  actor: string;
+  role: string;
+  action: string;
+  status: string;
+  note?: string;
+}
+
+export interface CreateOrgUnitFormData {
+  code: string;
+  name: string;
+  type: string;
+  parent_id: string;
+  description: string;
+  planned_establishment_date: string;
+}
+
+export interface CreateUnitData {
+  name: string;
+  code: string;
+  type: string;
+  description: string;
+  parent_id: string | null;
+  status: string;
+  effective_from: string;
+  effective_to: string;
+}
+
+export interface UnitTypeStats {
+  type: string;
+  count: number;
+  percentage: number;
+}
+
+export interface UnitWithoutHead {
+  id: string;
+  name: string;
+  code: string;
+  type: string | null;
+  days: number;
+}
+
+export interface UnitWithoutStaff {
+  id: string;
+  name: string;
+  code: string;
+  type: string | null;
+  employeeCount: number;
+}
+
+export interface EditOrgUnitFormData {
+  name: string;
+  code: string;
+  type: string;
+  status: string;
+  description: string;
+  effective_from: string;
+  effective_to: string;
+}
+
+
+

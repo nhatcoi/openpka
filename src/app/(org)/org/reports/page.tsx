@@ -36,49 +36,14 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
-
-// Types for API responses
-interface OrgStats {
-  totalUnits: number;
-  totalEmployees: number;
-  activeUnits: number;
-  inactiveUnits: number;
-  departments: number;
-  divisions: number;
-  teams: number;
-  branches: number;
-  topUnits: Array<{
-    id: string;
-    name: string;
-    code: string;
-    type: string;
-    employeeCount: number;
-  }>;
-}
-
-interface UnitTypeStats {
-  type: string;
-  count: number;
-  percentage: number;
-}
-
-interface UnitWithoutHead {
-  id: string;
-  name: string;
-  code: string;
-  type: string | null;
-  days: number;
-}
-
-interface UnitWithoutStaff {
-  id: string;
-  name: string;
-  code: string;
-  type: string | null;
-  employeeCount: number;
-}
-
-import { useOrgReports, useAllOrgUnits } from '@/features/org';
+import {
+  useOrgReports,
+  useAllOrgUnits,
+  OrgStats,
+  UnitTypeStats,
+  UnitWithoutHead,
+  UnitWithoutStaff,
+} from '@/features/org';
 
 export default function ReportsPage() {
   const [selectedReport, setSelectedReport] = useState('overview');

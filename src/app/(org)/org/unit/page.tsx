@@ -36,8 +36,9 @@ import {
 import { 
   orgApi,
   type OrgUnit,
-  type PaginationParams
-} from '@/features/org/api/api';
+  type PaginationParams,
+  type CreateUnitData,
+} from '@/features/org';
 import {
   getInitialFormData,
   mapUnitToFormData,
@@ -61,17 +62,6 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { usePermissions } from '@/lib/auth/permission-utils';
-
-interface CreateUnitData {
-  name: string;
-  code: string;
-  type: string;
-  description: string;
-  parent_id: string | null;
-  status: string;
-  effective_from: string;
-  effective_to: string;
-}
 
 export default function OrgUnitManagementPage() {
   const router = useRouter();

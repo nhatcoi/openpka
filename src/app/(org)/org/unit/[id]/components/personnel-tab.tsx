@@ -44,61 +44,18 @@ import {
   Delete as DeleteIcon,
   AssignmentInd as AssignmentIndIcon,
 } from '@mui/icons-material';
-import { type OrgUnit } from '@/features/org/api/use-org-units';
+import {
+  OrgUnit,
+  OrgAssignment,
+  JobPosition,
+  AssignedEmployee,
+} from '@/features/org';
 import { useEmployeeSearch, useJobPositions } from '@/features/hr';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface PersonnelTabProps {
   unit: OrgUnit;
 }
-
-interface OrgAssignment {
-  id: string;
-  employee_id: string;
-  org_unit_id: string;
-  job_position_id?: string;
-  start_date: string;
-  end_date?: string;
-  assignment_type: string;
-  is_primary: boolean;
-  allocation: string;
-  Employee: {
-    id: string;
-    employee_no: string;
-    User: {
-      id: string;
-      full_name: string;
-      email: string;
-    };
-  };
-  JobPosition?: {
-    id: string;
-    title: string;
-    code: string;
-  };
-}
-
-interface JobPosition {
-  id: string;
-  title: string;
-  code: string;
-}
-
-interface AssignedEmployee {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  employee_no: string;
-  position: string;
-  status: string;
-  assignment_type: string;
-  is_primary: boolean;
-  allocation: string;
-  start_date: string;
-  end_date?: string;
-}
-
 
 export default function PersonnelTab({ unit }: PersonnelTabProps) {
   // Assignment management state

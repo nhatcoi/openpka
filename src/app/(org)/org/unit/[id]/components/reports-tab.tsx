@@ -21,36 +21,10 @@ import {
   Person as PersonIcon,
   SupervisorAccount as SupervisorAccountIcon,
 } from '@mui/icons-material';
-import { type OrgUnit } from '@/features/org/api/use-org-units';
+import { OrgUnit, OrgAssignment } from '@/features/org';
 
 interface ReportsTabProps {
   unit: OrgUnit;
-}
-
-interface OrgAssignment {
-  id: string;
-  employee_id: string;
-  org_unit_id: string;
-  job_position_id?: string;
-  start_date: string;
-  end_date?: string;
-  assignment_type: string;
-  is_primary: boolean;
-  allocation: string;
-  Employee: {
-    id: string;
-    employee_no: string;
-    User: {
-      id: string;
-      full_name: string;
-      email: string;
-    };
-  };
-  JobPosition?: {
-    id: string;
-    title: string;
-    code: string;
-  };
 }
 
 export default function ReportsTab({ unit }: ReportsTabProps) {

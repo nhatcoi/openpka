@@ -73,53 +73,14 @@ import { useSession } from 'next-auth/react';
 import { API_ROUTES } from '@/constants/routes';
 import { useOrgUnits, useParentUnits } from '@/features/org/api/use-org-units';
 import { useOrgTypesStatuses } from '@/features/org/hooks/use-org-types-statuses';
+import {
+  ReviewRow,
+  ApprovalHistoryEntry,
+  CreateOrgUnitFormData,
+  ORG_UNIT_PROCESS_STAGES,
+  WORKFLOW_ACTIONS,
+} from '@/features/org';
 import { convertTypesToOptions, convertStatusesToOptions } from '@/utils/org-data-converters';
-
-interface ReviewRow {
-  id: string;
-  code: string;
-  name: string;
-  status: string;
-  owner?: string;
-  updatedAt?: string;
-}
-
-interface ApprovalHistoryEntry {
-  id: string;
-  timestamp: string;
-  actor: string;
-  role: string;
-  action: string;
-  status: string;
-  note?: string;
-}
-
-interface CreateOrgUnitFormData {
-  code: string;
-  name: string;
-  type: string;
-  parent_id: string;
-  description: string;
-  planned_establishment_date: string;
-}
-
-const ORG_UNIT_PROCESS_STAGES = [
-  { stage: OrgUnitWorkflowStage.DRAFT, label: 'Soạn thảo', Icon: DescriptionIcon },
-  { stage: OrgUnitWorkflowStage.REVIEWING, label: 'Đang xem xét', Icon: SchoolIcon },
-  { stage: OrgUnitWorkflowStage.APPROVED, label: 'Đã phê duyệt', Icon: CheckCircleIcon },
-  { stage: OrgUnitWorkflowStage.PUBLISHED, label: 'Đã kích hoạt', Icon: RocketLaunchIcon },
-];
-
-const WORKFLOW_ACTIONS = {
-  SUBMIT: 'SUBMIT',
-  APPROVE: 'APPROVE',
-  REJECT: 'REJECT',
-  ACTIVATE: 'ACTIVATE',
-  RETURN: 'RETURN',
-  SUSPEND: 'SUSPEND',
-  CANCEL: 'CANCEL',
-  ARCHIVE: 'ARCHIVE',
-} as const;
 
 export default function OrgUnitReviewPage(): JSX.Element {
   const router = useRouter();

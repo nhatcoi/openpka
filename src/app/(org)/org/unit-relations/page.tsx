@@ -46,22 +46,12 @@ import {
   Handshake as HandshakeIcon,
 } from '@mui/icons-material';
 import { 
-  type OrgUnit, 
-  type OrgUnitRelation
-} from '@/features/org/api/api';
+  OrgUnit, 
+  OrgUnitRelation,
+  OrgUnitRelationWithDetails,
+  RELATION_TYPES as relationTypes,
+} from '@/features/org';
 import { getRelationTypeLabel } from '@/utils/org-unit-utils';
-
-interface OrgUnitRelationWithDetails extends OrgUnitRelation {
-  parent?: OrgUnit;
-  child?: OrgUnit;
-}
-
-const relationTypes = [
-  { value: 'direct', label: 'Trực tiếp', icon: AccountTreeIcon },
-  { value: 'advisory', label: 'Tư vấn', icon: GavelIcon },
-  { value: 'support', label: 'Hỗ trợ', icon: SupportIcon },
-  { value: 'collab', label: 'Hợp tác', icon: HandshakeIcon },
-];
 
 export default function UnitRelationsPage() {
   const router = useRouter();

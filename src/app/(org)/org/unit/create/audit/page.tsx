@@ -44,38 +44,7 @@ import {
   Refresh as RefreshIcon,
   Close as XIcon,
 } from '@mui/icons-material';
-
-interface OrgUnit {
-  id: string;
-  name: string;
-  code: string;
-  type: string | null;
-  status: string | null;
-  description: string | null;
-  parent_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-interface HistoryItem {
-  id: string;
-  entity_type: string;
-  entity_id: string;
-  action: string;
-  change_summary?: string;
-  change_details?: {
-    fields?: string[];
-    changes?: Record<string, { old_value: any; new_value: any }>;
-    initial_values?: any;
-    deleted_values?: any;
-    metadata?: any;
-  };
-  actor_id?: string;
-  actor_name?: string;
-  user_agent?: string;
-  metadata?: any;
-  created_at: string;
-}
+import { OrgUnit, HistoryItem } from '@/features/org';
 
 export default function CreateAuditPage() {
   const router = useRouter();
@@ -219,7 +188,7 @@ export default function CreateAuditPage() {
     return String(value);
   };
 
-  const getStatusLabel = (status: string | null) => {
+  const getStatusLabel = (status?: string | null) => {
     if (!status) return '—';
     const statusMap: Record<string, string> = {
       'DRAFT': 'Nháp',
@@ -364,7 +333,7 @@ export default function CreateAuditPage() {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {new Date(unit.created_at).toLocaleDateString('vi-VN')}
+                          {unit.created_at ? new Date(unit.created_at).toLocaleDateString('vi-VN') : '—'}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">

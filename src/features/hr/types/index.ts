@@ -396,4 +396,51 @@ export interface ReportData {
   employees: any[];
 }
 
+export interface UserData {
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    full_name: string;
+    phone?: string;
+    address?: string;
+    dob?: string;
+    gender?: string;
+    status?: string;
+    last_login_at?: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  roles: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    assigned_at?: string;
+  }>;
+  permissions: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    resource: string;
+    action: string;
+  }>;
+  employee: Array<{
+    id: string;
+    employee_no?: string;
+    employment_type?: string;
+    status?: string;
+    hired_at?: string;
+    terminated_at?: string;
+    org_assignments?: Array<{
+      id: string;
+      org_unit?: {
+        id: string;
+        name: string;
+        code?: string;
+      } | null;
+    }>;
+  }>;
+}
+
+
 

@@ -34,7 +34,7 @@ import {
   Analytics as AnalyticsIcon,
   People as PeopleIcon,
 } from '@mui/icons-material';
-import { type OrgUnit } from '@/features/org/api/api';
+import { OrgUnit, EditOrgUnitFormData } from '@/features/org';
 import { getTypeColor, getTypeIcon } from '@/utils/org-unit-utils';
 
 interface BasicInfoTabProps {
@@ -42,22 +42,12 @@ interface BasicInfoTabProps {
   onUpdate: (updatedUnit: Partial<OrgUnit>) => Promise<void>;
 }
 
-interface EditFormData {
-  name: string;
-  code: string;
-  type: string;
-  status: string;
-  description: string;
-  effective_from: string;
-  effective_to: string;
-}
-
 export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [editData, setEditData] = useState<EditFormData>({
+  const [editData, setEditData] = useState<EditOrgUnitFormData>({
     name: unit.name,
     code: unit.code,
     type: unit.type || '',
@@ -185,7 +175,7 @@ export default function BasicInfoTab({ unit, onUpdate }: BasicInfoTabProps) {
     }
   };
 
-  const handleInputChange = (field: keyof EditFormData, value: string) => {
+  const handleInputChange = (field: keyof EditOrgUnitFormData, value: string) => {
     setEditData(prev => ({
       ...prev,
       [field]: value,

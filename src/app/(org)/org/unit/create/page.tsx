@@ -44,72 +44,7 @@ import {
   DateRange as DateIcon,
   CheckCircle,
 } from '@mui/icons-material';
-
-// Types
-interface UnitFormData {
-  name: string;
-  code: string;
-  type: string;
-  parent_id: string;
-  description: string;
-  effective_from: string;
-  manager_id: string;
-  manager_name: string;
-}
-
-interface UnitType {
-  value: string;
-  label: string;
-  description: string;
-}
-
-const UNIT_TYPES: UnitType[] = [
-  { value: 'UNIVERSITY', label: 'Đại học', description: 'Cấp trường đại học' },
-  { value: 'FACULTY', label: 'Khoa', description: 'Cấp khoa' },
-  { value: 'DEPARTMENT', label: 'Bộ môn', description: 'Cấp bộ môn' },
-  { value: 'DIVISION', label: 'Phòng ban', description: 'Cấp phòng ban' },
-  { value: 'CENTER', label: 'Trung tâm', description: 'Cấp trung tâm' },
-  { value: 'INSTITUTE', label: 'Viện', description: 'Cấp viện' },
-  { value: 'OFFICE', label: 'Văn phòng', description: 'Cấp văn phòng' },
-];
-
-const WORKFLOW_STEPS = [
-  {
-    key: 'draft',
-    label: 'Khởi tạo (Draft)',
-    icon: <BusinessIcon />,
-    description: 'Nhập thông tin cơ bản của đơn vị',
-    color: 'primary',
-  },
-  {
-    key: 'review',
-    label: 'Xem xét/Thẩm định (Review)',
-    icon: <ReviewIcon />,
-    description: 'Kiểm tra tính hợp lệ và nguồn lực',
-    color: 'warning',
-  },
-  {
-    key: 'approve',
-    label: 'Phê duyệt (Approve)',
-    icon: <ApproveIcon />,
-    description: 'Quyết định chính thức thành lập',
-    color: 'success',
-  },
-  {
-    key: 'active',
-    label: 'Kích hoạt (Active)',
-    icon: <ActiveIcon />,
-    description: 'Kích hoạt và bổ nhiệm nhân sự',
-    color: 'info',
-  },
-  {
-    key: 'monitor',
-    label: 'Theo dõi & Biến đổi',
-    icon: <MonitorIcon />,
-    description: 'Quản lý trạng thái và lịch sử',
-    color: 'secondary',
-  },
-];
+import { UnitFormData, UnitType, UNIT_TYPES, WORKFLOW_STEPS } from '@/features/org';
 
 export default function CreateUnitPage() {
   const [activeStep, setActiveStep] = useState(0);
