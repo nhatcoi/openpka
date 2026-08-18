@@ -4,23 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, CircularProgress, Alert, Grid, Card, CardContent, Chip } from '@mui/material';
 import { School as SchoolIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { OrgUnit } from '@/features/org';
+import { OrgUnit, OrgUnitStats, useAllOrgUnits } from '@/features/org';
 import { Employee, Assignment } from '@/features/hr';
-
-interface OrgUnitStats {
-    id: string;
-    name: string;
-    code?: string | null;
-    type?: string | null;
-    status?: string | null;
-    level: number;
-    employees: Employee[];
-    totalEmployees: number;
-    activeEmployees: number;
-    children: OrgUnitStats[];
-}
-
-import { useAllOrgUnits } from '@/features/org';
 
 export default function OrgTreeOverviewPage() {
     const router = useRouter();

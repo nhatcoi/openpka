@@ -5,21 +5,8 @@ import { Box, Typography, Button, CircularProgress, Alert, Grid, Card, CardConte
 import { School as SchoolIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import { OrgUnit } from '@/features/org';
+import { OrgUnit, OrgUnitStats } from '@/features/org';
 import { Employee, Assignment } from '@/features/hr';
-
-interface OrgUnitStats {
-    id: string;
-    name: string;
-    code?: string | null;
-    type?: string | null;
-    status?: string | null;
-    level: number;
-    employees: Employee[];
-    totalEmployees: number;
-    activeEmployees: number;
-    children: OrgUnitStats[];
-}
 
 export default function UniversityOverviewPage() {
     const [orgUnitStats, setOrgUnitStats] = useState<OrgUnitStats[]>([]);

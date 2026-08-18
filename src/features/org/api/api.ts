@@ -22,6 +22,19 @@ export interface OrgUnit {
   OrgAssignment?: any[];
 }
 
+export interface OrgUnitStats {
+  id: string;
+  name: string;
+  code?: string | null;
+  type?: string | null;
+  status?: string | null;
+  level: number;
+  employees: any[];
+  totalEmployees: number;
+  activeEmployees: number;
+  children: OrgUnitStats[];
+}
+
 export interface OrgUnitHistory {
   id: string;
   org_unit_id: string;

@@ -5,23 +5,8 @@ import { Box, Typography, Button, CircularProgress, Alert, Breadcrumbs, Link } f
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tree } from 'react-d3-tree';
-import { OrgUnit } from '@/features/org';
+import { OrgUnit, OrgUnitStats, useAllOrgUnits } from '@/features/org';
 import { Employee, Assignment } from '@/features/hr';
-
-interface OrgUnitStats {
-    id: string;
-    name: string;
-    code?: string | null;
-    type?: string | null;
-    status?: string | null;
-    level: number;
-    employees: Employee[];
-    totalEmployees: number;
-    activeEmployees: number;
-    children: OrgUnitStats[];
-}
-
-import { useAllOrgUnits } from '@/features/org';
 
 export default function OrgTreeEmployeesPage({ params }: { params: { id: string } }) {
     const router = useRouter();

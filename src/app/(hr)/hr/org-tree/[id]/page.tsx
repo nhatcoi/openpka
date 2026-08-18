@@ -4,28 +4,13 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { Box, Typography, Button, CircularProgress, Alert, Grid, Card, CardContent, Chip, Breadcrumbs, Link } from '@mui/material';
 import { ArrowBack as ArrowBackIcon, School as SchoolIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { OrgUnit } from '@/features/org';
+import { OrgUnit, OrgUnitStats, useAllOrgUnits } from '@/features/org';
 import { Employee, Assignment } from '@/features/hr';
-
-interface OrgUnitStats {
-    id: string;
-    name: string;
-    code?: string | null;
-    type?: string | null;
-    status?: string | null;
-    level: number;
-    employees: Employee[];
-    totalEmployees: number;
-    activeEmployees: number;
-    children: OrgUnitStats[];
-}
 
 export default async function OrgTreeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = await params;
     return <OrgTreeDetailPageClient params={resolvedParams} />;
 }
-
-import { useAllOrgUnits } from '@/features/org';
 
 function OrgTreeDetailPageClient({ params }: { params: { id: string } }) {
     const router = useRouter();
