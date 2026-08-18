@@ -28,7 +28,7 @@ import {
     Assessment as AssessmentIcon,
     School as SchoolIcon,
 } from '@mui/icons-material';
-import HrSearchBar from '@/components/hr/hr-search-bar';
+import HrSearchBar from '@/features/hr/components/hr-search-bar';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
 
 interface Employee {

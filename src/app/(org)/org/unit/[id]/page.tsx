@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/api';
 import { API_ROUTES } from '@/constants/routes';
-import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import { useOrgTypesStatuses } from '@/features/org/hooks/use-org-types-statuses';
 import {
   getTypeNameFromApi,
   getStatusNameFromApi,

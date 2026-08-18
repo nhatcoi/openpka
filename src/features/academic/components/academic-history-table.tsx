@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { AcademicHistoryEntry, AcademicHistoryPagination } from '@/hooks/use-academic-history';
+import { AcademicHistoryEntry, AcademicHistoryPagination } from '@/features/academic/hooks/use-academic-history';
 import {
   Table,
   TableBody,

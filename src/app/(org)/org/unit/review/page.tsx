@@ -72,7 +72,7 @@ import {
 import { useSession } from 'next-auth/react';
 import { API_ROUTES } from '@/constants/routes';
 import { useOrgUnits, useParentUnits } from '@/features/org/api/use-org-units';
-import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import { useOrgTypesStatuses } from '@/features/org/hooks/use-org-types-statuses';
 import { convertTypesToOptions, convertStatusesToOptions } from '@/utils/org-data-converters';
 
 interface ReviewRow {

@@ -45,7 +45,7 @@ import {
     Star as StarIcon,
 } from '@mui/icons-material';
 import { HR_ROUTES, API_ROUTES } from '@/constants/routes';
-import HrSearchBar from '@/components/hr/hr-search-bar';
+import HrSearchBar from '@/features/hr/components/hr-search-bar';
 
 interface User {
     id: string;

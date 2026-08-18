@@ -42,7 +42,7 @@ import {
   getInitialFormData,
   mapUnitToFormData,
 } from '@/utils/org-unit-utils';
-import { useOrgTypesStatuses } from '@/hooks/use-org-types-statuses';
+import { useOrgTypesStatuses } from '@/features/org/hooks/use-org-types-statuses';
 import {
   convertTypesToOptions,
   convertStatusesToOptions,

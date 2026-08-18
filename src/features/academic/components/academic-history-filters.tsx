@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { AcademicHistoryFilters as AcademicHistoryFiltersType } from '@/hooks/use-academic-history';
+import type { AcademicHistoryFilters as AcademicHistoryFiltersType } from '@/features/academic/hooks/use-academic-history';
 import {
   Button,
   TextField,

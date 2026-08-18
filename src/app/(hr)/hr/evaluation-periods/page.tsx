@@ -33,7 +33,7 @@ import {
     GetApp as DownloadIcon,
     Refresh as RefreshIcon
 } from '@mui/icons-material';
-import HrSearchBar from '@/components/hr/hr-search-bar';
+import HrSearchBar from '@/features/hr/components/hr-search-bar';
 
 interface EvaluationPeriod {
     review_period: string;

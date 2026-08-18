@@ -45,7 +45,7 @@ import {
   AssignmentInd as AssignmentIndIcon,
 } from '@mui/icons-material';
 import { type OrgUnit } from '@/features/org/api/use-org-units';
-import { useEmployeeSearch } from '@/hooks/use-employee-search';
+import { useEmployeeSearch } from '@/features/hr/hooks/use-employee-search';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
 
 interface PersonnelTabProps {
