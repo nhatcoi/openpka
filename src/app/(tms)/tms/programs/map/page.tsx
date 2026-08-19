@@ -47,145 +47,23 @@ import {
 import { ProgramBlockType, getProgramBlockTypeLabel } from '@/constants/programs';
 import { API_ROUTES } from '@/constants/routes';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
+import {
+  ProgramOption,
+  ProgramBlockOption,
+  CourseOption,
+  ProgramCourseMapListItem,
+  ProgramListApiItem,
+  ProgramListApiResponse,
+  ProgramBlockListItem,
+  ProgramBlockListResponse,
+  ProgramCourseMapApiItem,
+  ProgramCourseMapApiResponse,
+  CourseListApiItem,
+  CourseListRawApiResponse as CourseListApiResponse,
+  PaginationState,
+} from '@/features/tms';
 
 const DEFAULT_PAGE_SIZE = 10;
-
-interface ProgramOption {
-  id: string;
-  code: string;
-  name: string;
-  label: string;
-}
-
-interface ProgramBlockOption {
-  id: string;
-  code: string;
-  title: string;
-  blockType: ProgramBlockType;
-}
-
-interface CourseOption {
-  id: string;
-  code: string;
-  name: string;
-  credits: number;
-  type?: string | null;
-}
-
-interface ProgramCourseMapListItem {
-  id: string;
-  programId: string;
-  courseId: string;
-  blockId: string | null;
-  groupId: string | null;
-  isRequired: boolean;
-  displayOrder: number;
-  course: {
-    id: string;
-    code: string;
-    nameVi?: string | null;
-    nameEn?: string | null;
-    credits?: number | null;
-    type?: string | null;
-  } | null;
-  block: {
-    id: string;
-    code: string;
-    title: string;
-  } | null;
-}
-
-interface ProgramListApiItem {
-  id?: string | number;
-  code?: string;
-  name_vi?: string;
-  name_en?: string;
-  label?: string;
-}
-
-interface ProgramListApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramListApiItem[];
-  };
-  error?: string;
-}
-
-interface ProgramBlockListItem {
-  id?: string | number;
-  code?: string;
-  title?: string;
-  blockType?: ProgramBlockType | string;
-}
-
-interface ProgramBlockListResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramBlockListItem[];
-  };
-  error?: string;
-}
-
-interface ProgramCourseMapApiItem {
-  id?: string | number;
-  programId?: string | number;
-  courseId?: string | number;
-  blockId?: string | number | null;
-  groupId?: string | number | null;
-  isRequired?: boolean;
-  displayOrder?: number;
-  course?: {
-    id?: string | number;
-    code?: string;
-    nameVi?: string;
-    nameEn?: string;
-    credits?: number;
-    type?: string;
-  } | null;
-  block?: {
-    id?: string | number;
-    code?: string;
-    title?: string;
-  } | null;
-}
-
-interface ProgramCourseMapApiResponse {
-  success: boolean;
-  data?: {
-    items?: ProgramCourseMapApiItem[];
-    pagination?: {
-      page: number;
-      limit: number;
-      total: number;
-      totalPages: number;
-    };
-  };
-  error?: string;
-}
-
-interface CourseListApiItem {
-  id?: string | number;
-  code?: string;
-  name_vi?: string;
-  name_en?: string;
-  credits?: number;
-  type?: string;
-}
-
-interface CourseListApiResponse {
-  success: boolean;
-  data?: {
-    items?: CourseListApiItem[];
-  };
-  error?: string;
-}
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
-
 
 const REQUIRED_OPTIONS = [
   { value: 'all', label: 'Tất cả' },
@@ -799,7 +677,7 @@ export default function ProgramCourseMapPage(): JSX.Element {
                   options={programs}
                   value={selectedProgram}
                   onChange={handleProgramChange}
-                  getOptionLabel={(option) => option.label}
+                  getOptionLabel={(option) => option.label || option.name || option.code}
                   renderInput={(params) => <TextField {...params} label="Chương trình" placeholder="Chọn chương trình" />}
                   sx={{ minWidth: { sm: 260 } }}
               />

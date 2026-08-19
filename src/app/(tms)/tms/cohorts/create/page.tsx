@@ -42,52 +42,7 @@ import {
   COHORT_WORKFLOW_STATUS_OPTIONS
 } from '@/constants/cohorts';
 import { API_ROUTES } from '@/constants/routes';
-
-interface Major {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  OrgUnit?: {
-    id: string;
-    name: string;
-    code: string;
-  };
-}
-
-interface Program {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  org_unit_id?: string;
-}
-
-interface OrgUnit {
-  id: string;
-  code: string;
-  name: string;
-  type?: string;
-}
-
-interface CohortFormData {
-  code: string;
-  name_vi: string;
-  name_en: string;
-  academic_year: string;
-  intake_year: number;
-  intake_term: string;
-  major_id: string;
-  program_id: string;
-  org_unit_id: string;
-  planned_quota: string;
-  actual_quota: string;
-  start_date: string;
-  expected_graduation_date: string;
-  status: string;
-  is_active: boolean;
-  description: string;
-}
+import { Major, Program, OrgUnitSimple as OrgUnit, CohortFormData } from '@/features/tms';
 
 export default function CreateCohortPage() {
   const router = useRouter();
@@ -216,8 +171,8 @@ export default function CreateCohortPage() {
     try {
       const submitData = {
         ...formData,
-        planned_quota: formData.planned_quota ? parseInt(formData.planned_quota) : null,
-        actual_quota: formData.actual_quota ? parseInt(formData.actual_quota) : null,
+        planned_quota: formData.planned_quota ? parseInt(String(formData.planned_quota), 10) : null,
+        actual_quota: formData.actual_quota ? parseInt(String(formData.actual_quota), 10) : null,
         major_id: formData.major_id || null,
         program_id: formData.program_id || null,
         org_unit_id: formData.org_unit_id || null,

@@ -33,41 +33,7 @@ import TeachingMethodsForm, { TeachingMethod } from './components/teaching-metho
 import PoliciesForm, { PoliciesData } from './components/policies-form';
 import RubricsForm, { RubricComponent } from './components/rubrics-form';
 import MaterialsForm from './components/materials-form';
-
-interface CourseSyllabus {
-  id: string;
-  course_version_id: string;
-  version_no: number;
-  status: 'draft' | 'approved' | 'archived';
-  language: 'vi' | 'en' | 'vi-en';
-  effective_from?: string;
-  effective_to?: string;
-  is_current: boolean;
-  basic_info?: any;
-  learning_outcomes?: any;
-  weekly_plan?: any;
-  assessment_plan?: any;
-  teaching_methods?: any;
-  materials?: any;
-  policies?: any;
-  rubrics?: any;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CourseVersion {
-  id: string;
-  version: string;
-  status: string;
-}
-
-interface CourseDetail {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  CourseVersion?: CourseVersion[];
-}
+import { CourseSyllabus, CourseVersion, CourseDetail } from '@/features/tms';
 
 export default function CourseSyllabusPage() {
   const router = useRouter();

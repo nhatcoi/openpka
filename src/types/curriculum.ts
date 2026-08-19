@@ -96,3 +96,24 @@ export interface CurriculumDetailResponse {
     activeVersionId: string | null;
   };
 }
+
+export interface CurriculumProgramOption {
+  id: string;
+  label: string;
+  code: string | null;
+  name: string | null;
+  status: string | null;
+  orgUnit?: {
+    name: string;
+    code: string;
+  } | null;
+}
+
+export interface CurriculumDetailState {
+  program: any;
+  versions: CurriculumVersionItem[];
+  stats: {
+    versionCount: number;
+    activeVersionId: string | null;
+  };
+}

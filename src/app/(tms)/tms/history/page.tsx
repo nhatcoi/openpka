@@ -43,26 +43,7 @@ import {
   X,
   Eye,
 } from 'lucide-react';
-
-interface HistoryItem {
-  id: string;
-  entity_type: string;
-  entity_id: string;
-  action: string;
-  change_summary?: string;
-  change_details?: {
-    fields?: string[];
-    changes?: Record<string, { old_value: any; new_value: any }>;
-    initial_values?: any;
-    deleted_values?: any;
-    metadata?: any;
-  };
-  actor_id?: string;
-  actor_name?: string;
-  user_agent?: string;
-  metadata?: any;
-  created_at: string;
-}
+import { HistoryItem } from '@/features/tms';
 
 export default function AcademicHistoryPage() {
   const [data, setData] = useState<HistoryItem[]>([]);

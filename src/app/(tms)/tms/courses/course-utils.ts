@@ -1,75 +1,23 @@
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  CourseApiResponseItem,
+  CourseListApiData,
+  CourseListApiResponse,
+  CourseListItem,
+  PaginationState,
+} from '@/features/tms';
 
-export interface OrgUnitApiItem {
-  id?: string | number | null;
-  value?: string | number | null;
-  code: string;
-  name: string;
-  label?: string | null;
-}
-
-export interface OrgUnitOption {
-  id: string;
-  code: string;
-  name: string;
-  label: string;
-}
-
-export interface CourseApiResponseItem {
-  id: string | number;
-  code?: string | null;
-  name_vi?: string | null;
-  name_en?: string | null;
-  credits?: number | string | null;
-  theory_credit?: number | string | null;
-  practical_credit?: number | string | null;
-  type?: string | null;
-  status?: string | null;
-  org_unit_id?: string | number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  OrgUnit?: {
-    id?: string | number | null;
-    name: string;
-    code?: string | null;
-  } | null;
-}
-
-export interface CourseListApiData {
-  items: CourseApiResponseItem[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export interface CourseListApiResponse {
-  success: boolean;
-  data?: CourseListApiData;
-  error?: string;
-}
-
-export interface CourseListItem {
-  id: string;
-  code: string;
-  nameVi: string;
-  nameEn?: string;
-  credits: number;
-  theoryCredit: number;
-  practicalCredit: number;
-  type: string;
-  status: string;
-  orgUnitId?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  orgUnit?: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
-}
+export type {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  CourseApiResponseItem,
+  CourseListApiData,
+  CourseListApiResponse,
+  CourseListItem,
+  PaginationState,
+};
 
 const formatCredit = (value: any): number => {
   if (value === null || value === undefined) return 0;

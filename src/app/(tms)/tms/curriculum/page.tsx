@@ -56,28 +56,9 @@ import {
   CurriculumProgramSummary,
   CurriculumStructure,
   CurriculumVersionItem,
+  CurriculumProgramOption as ProgramOption,
+  CurriculumDetailState,
 } from '@/types/curriculum';
-
-interface ProgramOption {
-  id: string;
-  label: string;
-  code: string | null;
-  name: string | null;
-  status: string | null;
-  orgUnit?: {
-    name: string;
-    code: string;
-  } | null;
-}
-
-interface CurriculumDetailState {
-  program: ProgramDetail;
-  versions: CurriculumVersionItem[];
-  stats: {
-    versionCount: number;
-    activeVersionId: string | null;
-  };
-}
 
 const formatDate = (value?: string | null): string => {
   if (!value) return '—';

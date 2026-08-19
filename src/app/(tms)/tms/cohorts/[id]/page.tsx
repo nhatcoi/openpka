@@ -40,57 +40,7 @@ import {
   getCohortStatusColor,
 } from '@/constants/cohorts';
 import { API_ROUTES } from '@/constants/routes';
-
-interface Cohort {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  academic_year: string;
-  intake_year: number;
-  intake_term: string;
-  major_id?: string;
-  program_id?: string;
-  org_unit_id?: string;
-  planned_quota?: number;
-  actual_quota?: number;
-  start_date?: string;
-  expected_graduation_date?: string;
-  status: string;
-  is_active: boolean;
-  description?: string;
-  created_at: string;
-  updated_at: string;
-  students: Array<{
-    id: string;
-    student_id: string;
-    status: string;
-    gpa: number;
-  }>;
-  Major?: {
-    id: string;
-    code: string;
-    name_vi: string;
-  };
-  Program?: {
-    id: string;
-    code: string;
-    name_vi: string;
-  };
-  OrgUnit?: {
-    id: string;
-    code: string;
-    name: string;
-  };
-}
-
-interface CohortStats {
-  total_students: number;
-  active_students: number;
-  graduated_students: number;
-  average_gpa: number;
-  completion_rate: number;
-}
+import { Cohort, CohortStats } from '@/features/tms';
 
 export default function CohortDetailPage() {
   const router = useRouter();
@@ -367,17 +317,17 @@ export default function CohortDetailPage() {
                         Danh sách sinh viên
                       </Typography>
                       <Chip 
-                        label={cohort.students.length} 
+                        label={cohort.students?.length || 0} 
                         size="small" 
                         color="primary"
                       />
                     </Stack>
                     <Divider sx={{ mb: 2 }} />
                     <List>
-                      {cohort.students.map((student, index) => (
+                      {(cohort.students || []).map((student, index) => (
                         <ListItem 
                           key={student.id} 
-                          divider={index < cohort.students.length - 1}
+                          divider={index < (cohort.students?.length || 0) - 1}
                           sx={{ py: 1.5 }}
                         >
                           <ListItemIcon>

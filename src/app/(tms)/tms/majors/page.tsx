@@ -72,15 +72,10 @@ import {
   MajorApiResponseItem,
   MajorListApiResponse,
   MajorListItem,
+  PaginationState,
   mapOrgUnitOptions,
   mapMajorResponse,
 } from './major-utils';
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
 
 const DEFAULT_MAJOR_PAGE_SIZE = 10;
 
@@ -193,7 +188,7 @@ export default function MajorsPage(): JSX.Element {
       const mapped = items.map(mapMajorResponse);
 
       setMajors(mapped);
-      setPagination((prev) => ({
+      setPagination((prev: PaginationState) => ({
         ...prev,
         totalPages: result.data?.pagination?.pages ?? 1,
         totalItems: result.data?.pagination?.total ?? mapped.length,
@@ -216,7 +211,7 @@ export default function MajorsPage(): JSX.Element {
   }, [fetchMajors]);
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
     setSearchTerm(searchValue.trim());
   };
 
@@ -229,17 +224,17 @@ export default function MajorsPage(): JSX.Element {
   };
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: newPage }));
   };
 
   const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
     setSelectedStatus(event.target.value as WorkflowStatus | 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
   };
 
   const handleOrgUnitChange = (event: SelectChangeEvent<string>) => {
     setSelectedOrgUnit(event.target.value);
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
   };
 
   const handleDelete = async (majorId: string) => {

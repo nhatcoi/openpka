@@ -55,55 +55,7 @@ import {
 } from '@mui/icons-material';
 import { getProgramBlockTypeLabel } from '@/constants/programs';
 import { API_ROUTES } from '@/constants/routes';
-
-interface ProgramBlock {
-  id: string;
-  code: string;
-  title: string;
-  block_type: string;
-  display_order: number;
-  _count: {
-    ProgramCourseMap: number;
-  };
-}
-
-interface ProgramBlockGroup {
-  id: string;
-  code: string;
-  title: string;
-  group_type: string;
-  display_order: number | null;
-  description: string | null;
-  parent_id: string | null;
-  parent?: {
-    id: string;
-    code: string;
-    title: string;
-  };
-  children: Array<{
-    id: string;
-    code: string;
-    title: string;
-    group_type: string;
-    display_order: number | null;
-  }>;
-  _count: {
-    ProgramCourseMap: number;
-    children: number;
-  };
-}
-
-interface BlockFormState {
-  id: string | null;
-  type: 'block' | 'group';
-  code: string;
-  title: string;
-  block_type?: string;
-  group_type?: string;
-  display_order: number;
-  description?: string;
-  parent_id?: string;
-}
+import { ProgramBlock, ProgramBlockGroup, BlockFormState } from '@/features/tms';
 
 const createEmptyFormState = (): BlockFormState => ({
   id: null,
@@ -535,7 +487,7 @@ export default function ProgramBlocksPage(): JSX.Element {
                       )}
                       <TableCell>
                         <Chip
-                          label={`${currentType === 'blocks' ? (item as ProgramBlock)._count.ProgramCourseMap : (item as ProgramBlockGroup)._count.ProgramCourseMap} khóa học`}
+                          label={`${currentType === 'blocks' ? ((item as ProgramBlock)._count?.ProgramCourseMap ?? 0) : ((item as ProgramBlockGroup)._count?.ProgramCourseMap ?? 0)} khóa học`}
                           size="small"
                           color="secondary"
                           variant="outlined"

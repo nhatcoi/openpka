@@ -230,7 +230,7 @@ export default function WeeklyPlanForm({ weeklyPlan, onChange, syllabusId, cours
                                     href={doc.file_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    onClick={(e) => {
+                                    onClick={(e: React.MouseEvent) => {
                                       if (doc.file_url) {
                                         e.stopPropagation();
                                         window.open(doc.file_url, '_blank', 'noopener,noreferrer');

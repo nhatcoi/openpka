@@ -35,28 +35,7 @@ import {
   getCohortStatusColor 
 } from '@/constants/cohorts';
 import { API_ROUTES } from '@/constants/routes';
-
-interface CohortStats {
-  total_cohorts: number;
-  active_cohorts: number;
-  graduated_cohorts: number;
-  total_students: number;
-  average_students_per_cohort: number;
-  completion_rate: number;
-}
-
-interface CohortSummary {
-  id: string;
-  code: string;
-  name_vi: string;
-  academic_year: string;
-  intake_year: number;
-  status: string;
-  planned_quota: number;
-  actual_quota: number;
-  student_count: number;
-  completion_rate: number;
-}
+import { CohortStats, CohortSummary } from '@/features/tms';
 
 export default function CohortStatisticsPage() {
   const router = useRouter();
@@ -139,7 +118,7 @@ export default function CohortStatisticsPage() {
       {/* Overall Statistics */}
       {stats && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={2}>
@@ -157,7 +136,7 @@ export default function CohortStatisticsPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={2}>
@@ -175,7 +154,7 @@ export default function CohortStatisticsPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={2}>
@@ -193,14 +172,14 @@ export default function CohortStatisticsPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={2}>
                   <AssessmentIcon color="warning" sx={{ fontSize: 40 }} />
                   <Box>
                     <Typography variant="h4" fontWeight="bold">
-                      {stats.completion_rate.toFixed(1)}%
+                      {(stats.completion_rate || 0).toFixed(1)}%
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       Tỷ lệ hoàn thành
@@ -215,7 +194,7 @@ export default function CohortStatisticsPage() {
 
       {/* Detailed Statistics */}
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -223,7 +202,7 @@ export default function CohortStatisticsPage() {
               </Typography>
               {stats && (
                 <Grid container spacing={2}>
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" color="text.secondary">
                         Khóa đã tốt nghiệp:
@@ -233,13 +212,13 @@ export default function CohortStatisticsPage() {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid size={{ xs: 12 }}>
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" color="text.secondary">
                         Số sinh viên trung bình/khóa:
                       </Typography>
                       <Typography variant="body1" fontWeight="medium">
-                        {stats.average_students_per_cohort.toFixed(1)}
+                        {(stats.average_students_per_cohort || 0).toFixed(1)}
                       </Typography>
                     </Box>
                   </Grid>
@@ -249,7 +228,7 @@ export default function CohortStatisticsPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>

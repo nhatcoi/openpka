@@ -1,73 +1,23 @@
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  MajorApiResponseItem,
+  MajorListApiData,
+  MajorListApiResponse,
+  MajorListItem,
+  PaginationState,
+} from '@/features/tms';
 
-export interface OrgUnitApiItem {
-  id?: string | number | null;
-  value?: string | number | null;
-  code: string;
-  name: string;
-  label?: string | null;
-}
-
-export interface OrgUnitOption {
-  id: string;
-  code: string;
-  name: string;
-  label: string;
-}
-
-export interface MajorApiResponseItem {
-  id: string | number;
-  code?: string | null;
-  name_vi?: string | null;
-  name_en?: string | null;
-  short_name?: string | null;
-  slug?: string | null;
-  degree_level?: string | null;
-  org_unit_id?: string | number | null;
-  duration_years?: number | string | null;
-  total_credits_min?: number | string | null;
-  total_credits_max?: number | string | null;
-  semesters_per_year?: number | string | null;
-  status?: string | null;
-  closed_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-}
-
-export interface MajorListApiData {
-  items: MajorApiResponseItem[];
-  pagination?: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
-export interface MajorListApiResponse {
-  success: boolean;
-  data?: MajorListApiData;
-  error?: string;
-}
-
-export interface MajorListItem {
-  id: string;
-  code: string;
-  nameVi: string;
-  nameEn?: string;
-  shortName?: string;
-  slug?: string;
-  degreeLevel: string;
-  orgUnitId: string;
-  durationYears?: number;
-  totalCreditsMin?: number;
-  totalCreditsMax?: number;
-  semestersPerYear?: number;
-  status: string;
-  closedAt?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
+export type {
+  OrgUnitApiItem,
+  OrgUnitOption,
+  MajorApiResponseItem,
+  MajorListApiData,
+  MajorListApiResponse,
+  MajorListItem,
+  PaginationState,
+};
 
 export const mapOrgUnitOptions = (items: OrgUnitApiItem[]): OrgUnitOption[] =>
   items.map((item) => ({

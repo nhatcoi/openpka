@@ -4,13 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Autocomplete, Box, Container, Stack, TextField, Typography, Breadcrumbs, Link } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { API_ROUTES } from '@/constants/routes';
-
-interface ProgramOption {
-  id: string;
-  code: string;
-  name: string;
-  label: string;
-}
+import { ProgramOption } from '@/features/tms';
 
 export default function TrainingProgramFrameworkPage(): JSX.Element {
   const [programs, setPrograms] = useState<ProgramOption[]>([]);
@@ -83,7 +77,7 @@ export default function TrainingProgramFrameworkPage(): JSX.Element {
                 placeholder="Tìm kiếm chương trình..."
               />
             )}
-            getOptionLabel={(option) => option.label}
+            getOptionLabel={(option) => option.label || option.name || option.code}
             isOptionEqualToValue={(option, value) => option.id === value.id}
           />
         </Stack>

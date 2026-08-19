@@ -29,41 +29,9 @@ import {
 } from '@mui/icons-material';
 import { useRouter, useParams } from 'next/navigation';
 import { API_ROUTES } from '@/constants/routes';
+import { CourseSyllabus, CourseDetail } from '@/features/tms';
 
-interface CourseSyllabus {
-  id: string;
-  course_version_id: string;
-  version_no: number;
-  status: 'draft' | 'approved' | 'archived';
-  language: 'vi' | 'en' | 'vi-en';
-  effective_from?: string;
-  effective_to?: string;
-  is_current: boolean;
-  basic_info?: any;
-  learning_outcomes?: any;
-  weekly_plan?: any;
-  assessment_plan?: any;
-  teaching_methods?: any;
-  materials?: any;
-  policies?: any;
-  rubrics?: any;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CourseDetail {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  CourseVersion?: Array<{
-    id: string;
-    version: string;
-    status: string;
-  }>;
-}
-
-export default function SyllabusViewPage() {
+export default function ViewSyllabusPage() {
   const router = useRouter();
   const params = useParams();
   const courseId = params.id as string;
@@ -247,49 +215,49 @@ export default function SyllabusViewPage() {
           </Typography>
           <Grid container spacing={2}>
             {basicInfo.description && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">Mô tả học phần:</Typography>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{basicInfo.description}</Typography>
               </Grid>
             )}
             {basicInfo.classification && (
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">Phân loại:</Typography>
                 <Typography variant="body1">{basicInfo.classification}</Typography>
               </Grid>
             )}
             {basicInfo.course_type && (
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <Typography variant="subtitle2" color="text.secondary">Loại học phần:</Typography>
                 <Typography variant="body1">{basicInfo.course_type}</Typography>
               </Grid>
             )}
             {basicInfo.total_weeks && (
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="subtitle2" color="text.secondary">Số tuần:</Typography>
                 <Typography variant="body1">{basicInfo.total_weeks}</Typography>
               </Grid>
             )}
             {basicInfo.total_hours && (
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="subtitle2" color="text.secondary">Tổng số giờ:</Typography>
                 <Typography variant="body1">{basicInfo.total_hours}</Typography>
               </Grid>
             )}
             {basicInfo.credit_distribution && (
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="subtitle2" color="text.secondary">Phân bổ tín chỉ:</Typography>
                 <Typography variant="body1">{basicInfo.credit_distribution}</Typography>
               </Grid>
             )}
             {basicInfo.prerequisites && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">Học phần tiên quyết:</Typography>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{basicInfo.prerequisites}</Typography>
               </Grid>
             )}
             {basicInfo.objectives && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="subtitle2" color="text.secondary">Mục tiêu học phần:</Typography>
                 <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{basicInfo.objectives}</Typography>
               </Grid>

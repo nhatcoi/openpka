@@ -43,51 +43,7 @@ import {
 } from '@/constants/majors';
 import { WORKFLOW_STATUS_OPTIONS } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
-
-interface OrgUnit {
-  id: number;
-  name: string;
-  code: string;
-  type: string;
-  parent_id?: number | null;
-}
-
-interface MajorData {
-  id: number;
-  code: string;
-  name_vi: string;
-  name_en: string;
-  short_name: string;
-  slug: string;
-  degree_level: string;
-  org_unit_id: number;
-  duration_years: number;
-  total_credits_min: number;
-  total_credits_max: number;
-  semesters_per_year: number;
-  default_quota: number;
-  status: string;
-  closed_at: string;
-  metadata?: Record<string, any> | null;
-}
-
-interface MajorFormData {
-  code: string;
-  name_vi: string;
-  name_en: string;
-  short_name: string;
-  slug: string;
-  degree_level: MajorDegreeLevel;
-  org_unit_id: number;
-  duration_years: number;
-  total_credits_min: number;
-  total_credits_max: number;
-  semesters_per_year: number;
-  default_quota: number;
-  status: string;
-  closed_at: string;
-  metadata: Record<string, any>; // JSONB field for additional information
-}
+import { OrgUnitSimple as OrgUnit, MajorData, MajorFormData } from '@/features/tms';
 
 export default function EditMajorPage(): JSX.Element {
   const router = useRouter();

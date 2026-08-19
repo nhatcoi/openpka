@@ -31,31 +31,7 @@ import {
   normalizeWorkflowStatusFromResource,
 } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
-
-type IdLike = number | string;
-
-interface Major {
-  id: IdLike;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  short_name?: string;
-  slug?: string;
-  degree_level: string;
-  org_unit_id: IdLike;
-  duration_years?: number | string;
-  total_credits_min?: number | string;
-  total_credits_max?: number | string;
-  semesters_per_year?: number | string;
-  default_quota?: number | string | null;
-  status: string;
-  closed_at?: string;
-  metadata?: Record<string, any> | null;
-  created_by?: IdLike | null;
-  updated_by?: IdLike | null;
-  created_at?: string;
-  updated_at?: string;
-}
+import { Major } from '@/features/tms';
 
 export default function MajorDetailPage() {
   const router = useRouter();
@@ -171,7 +147,7 @@ export default function MajorDetailPage() {
     if (!major) return;
 
     try {
-      const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(major.id), {
+      const response = await fetch(API_ROUTES.TMS.MAJORS_BY_ID(String(major.id)), {
         method: 'DELETE',
       });
       

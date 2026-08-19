@@ -94,6 +94,7 @@ import {
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
+import { CourseDetail } from '@/features/tms';
 
 // Helper function to format decimal values
 const formatCredit = (value: any): string => {
@@ -117,103 +118,6 @@ const formatCredit = (value: any): string => {
   
   return '0';
 };
-
-interface CourseDetail {
-  id: string;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  credits: number;
-  theory_credit?: number;
-  practical_credit?: number;
-  type: CourseType | string;
-  status: string;
-  org_unit_id: string;
-  created_at: string;
-  updated_at: string;
-  description?: string;
-  OrgUnit?: {
-    name: string;
-    code?: string;
-  };
-  workflows?: Array<{
-    id: string;
-    status: string;
-    workflow_stage: CourseWorkflowStage | string;
-    priority: CoursePriority | string;
-    notes?: string;
-    created_at: string;
-    updated_at: string;
-  }>;
-  contents?: Array<{
-    id: string;
-    prerequisites?: string;
-    learning_objectives?: Array<{
-      type: string;
-      objective: string;
-    }>;
-    assessment_methods?: Array<{
-      method: string;
-      weight: number;
-  description: string;
-    }>;
-    passing_grade: number;
-    created_at: string;
-    updated_at: string;
-  }>;
-  course_approval_history?: Array<{
-    id: string;
-    action: string;
-    from_status: string;
-    to_status: string;
-    reviewer_role: string;
-    comments: string;
-    created_at: string;
-  }>;
-  // Unified workflow data
-  unified_workflow?: {
-    id: string;
-    status: string;
-    current_step: number;
-    initiated_at: string;
-    completed_at?: string;
-    workflow: {
-      workflow_name: string;
-      steps: Array<{
-        step_order: number;
-        step_name: string;
-        approver_role: string;
-        timeout_days: number;
-      }>;
-    };
-    approval_records: Array<{
-      id: string;
-      action: string;
-      comments?: string;
-      approved_at?: string;
-      approver: {
-        id: string;
-        full_name: string;
-        email: string;
-      };
-    }>;
-  };
-  instructor_qualifications?: any[];
-  course_syllabus?: any[];
-  prerequisites?: Array<{
-    id: string;
-    course_id: string;
-    prerequisite_course_id: string;
-    prerequisite_type: string;
-    description?: string;
-    created_at: string;
-    prerequisite_course?: {
-      id: string;
-      code: string;
-      name_vi: string;
-    };
-  }>;
-}
 
 export default function CourseDetailPage() {
   const router = useRouter();
@@ -259,7 +163,7 @@ export default function CourseDetailPage() {
         practical_credit: courseDetail.practical_credit || null,
         description: courseDetail.description || '',
         status: courseDetail.status || WorkflowStatus.DRAFT,
-        org_unit_id: courseDetail.org_unit_id || '',
+        org_unit_id: String(courseDetail.org_unit_id || ''),
         type: courseDetail.type || ''
       });
     }
@@ -334,7 +238,7 @@ export default function CourseDetailPage() {
       practical_credit: courseDetail.practical_credit || null,
       description: courseDetail.description || '',
       status: courseDetail.status || '',
-      org_unit_id: courseDetail.org_unit_id || '',
+      org_unit_id: String(courseDetail.org_unit_id || ''),
       type: courseDetail.type || ''
     });
 
@@ -416,7 +320,7 @@ export default function CourseDetailPage() {
       const result = await response.json();
       
       if (result.success) {
-        setCourseDetail(prev => prev ? {
+        setCourseDetail((prev: CourseDetail | null) => prev ? {
           ...prev,
           name_vi: editData.name_vi,
           name_en: editData.name_en,
@@ -448,7 +352,7 @@ export default function CourseDetailPage() {
       });
       const result = await response.json();
       if (result.success) {
-        setCourseDetail(prev => prev ? {
+        setCourseDetail((prev: CourseDetail | null) => prev ? {
           ...prev,
           status: WorkflowStatus.REVIEWING,
           // Update unified workflow status
@@ -872,7 +776,7 @@ export default function CourseDetailPage() {
             />
             <Chip
               label={courseDetail.unified_workflow && courseDetail.unified_workflow.workflow ? 
-                (courseDetail.unified_workflow.workflow.steps.find(step => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
+                (courseDetail.unified_workflow.workflow.steps.find((step: any) => step.step_order === (courseDetail.unified_workflow?.current_step || 1))?.step_name || 'Unknown Step') :
                 getCourseWorkflowStageLabel(courseDetail.workflows?.[0]?.workflow_stage || CourseWorkflowStage.DRAFT)
               }
               variant="outlined"
@@ -1161,7 +1065,7 @@ export default function CourseDetailPage() {
                         Ngày nộp
                       </Typography>
                       <Typography variant="body2" sx={{ mt: 0.5 }}>
-                        {new Date(courseDetail.created_at).toLocaleDateString('vi-VN')}
+                        {courseDetail.created_at ? new Date(courseDetail.created_at).toLocaleDateString('vi-VN') : '—'}
                       </Typography>
                     </Box>
                   </ListItem>

@@ -37,23 +37,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { API_ROUTES } from '@/constants/routes';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
-
-interface CourseVersion {
-  id: string;
-  course_id: string;
-  version: string;
-  status: string;
-  effective_from?: string;
-  effective_to?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-interface CourseDetail {
-  id: string;
-  code: string;
-  name_vi: string;
-}
+import { CourseVersion, CourseDetail } from '@/features/tms';
 
 export default function CourseVersionsPage() {
   const router = useRouter();

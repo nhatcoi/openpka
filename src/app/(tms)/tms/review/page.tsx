@@ -89,27 +89,9 @@ import {
   normalizeWorkflowStatusFromResource,
 } from '@/constants/workflow-statuses';
 import { useSession } from 'next-auth/react';
+import { ReviewRow, ResourceConfig, ApprovalHistoryEntry } from '@/features/tms';
 
 type ResourceType = 'program' | 'major' | 'course' | 'cohort';
-
-interface ReviewRow {
-  id: string;
-  code: string;
-  name: string;
-  status: WorkflowStatus;
-  owner?: string;
-  updatedAt?: string;
-}
-
-interface ResourceConfig {
-  label: string;
-  fetchUrl: string;
-  statuses: WorkflowStatus[];
-  getStatusLabel: (status: WorkflowStatus) => string;
-  getStatusColor: (status: WorkflowStatus) => 'default' | 'info' | 'warning' | 'success' | 'error';
-  mapItems: (items: unknown[]) => ReviewRow[];
-  detailPath: (id: string) => string;
-}
 
 const RESOURCE_CONFIG: Record<ResourceType, ResourceConfig> = {
   program: {
@@ -224,16 +206,6 @@ const COHORT_PROCESS_STAGES = [
   { stage: CohortWorkflowStage.APPROVED, label: 'Phòng Đào Tạo phê duyệt', Icon: CheckCircleIcon },
   { stage: CohortWorkflowStage.PUBLISHED, label: 'Hội đồng khoa học công bố', Icon: RocketLaunchIcon },
 ];
-
-interface ApprovalHistoryEntry {
-  id: string;
-  timestamp: string;
-  actor: string;
-  role: string;
-  action: string;
-  status: WorkflowStatus;
-  note?: string;
-}
 
 export default function TmsReviewHub(): JSX.Element {
   const router = useRouter();
@@ -351,7 +323,8 @@ export default function TmsReviewHub(): JSX.Element {
     }, {} as Record<WorkflowStatus, number>);
 
     return data[resourceType].reduce((acc, row) => {
-      acc[row.status] = (acc[row.status] || 0) + 1;
+      const status = row.status as WorkflowStatus;
+      acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, initialCounts);
   }, [data, resourceType]);
@@ -1002,7 +975,7 @@ export default function TmsReviewHub(): JSX.Element {
                     Mã: <strong>{detail.code ?? '—'}</strong>
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Cập nhật: <strong>{getUpdatedAtDisplay(detail)}</strong>
+                    Cập nhật: <strong>{formatDate((detail as any).updatedAt || (detail as any).updated_at)}</strong>
                   </Typography>
                 </Stack>
               </Stack>

@@ -33,19 +33,7 @@ import {
   getCourseTypeLabel,
 } from '@/constants/courses';
 import { API_ROUTES } from '@/constants/routes';
-
-interface FormData {
-  code: string;
-  nameVi: string;
-  nameEn: string;
-  credits: number;
-  theory_credit?: number;
-  practical_credit?: number;
-  orgUnitId: string;
-  type: CourseType;
-  description: string;
-  prerequisites: (string | {id: string, code: string, name_vi: string, name_en: string, credits: number, status: string, label: string, value: string})[];
-}
+import { CourseFormData as FormData } from '@/features/tms';
 
 const courseTypeOptions = COURSE_TYPES.map((type) => ({
   value: type,
@@ -242,7 +230,7 @@ export default function CreateCoursePage() {
 
       <Paper sx={{ p: 3 }}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               label="Mã môn học *"
@@ -254,7 +242,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth error={!!errors.orgUnitId}>
               <InputLabel>Đơn vị tổ chức *</InputLabel>
               <Select
@@ -274,7 +262,7 @@ export default function CreateCoursePage() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Tên môn học (Tiếng Việt) *"
@@ -285,7 +273,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Tên môn học (Tiếng Anh)"
@@ -294,7 +282,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Số tín chỉ *"
@@ -307,7 +295,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Tín chỉ lý thuyết"
@@ -320,7 +308,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
               label="Tín chỉ thực hành"
@@ -333,7 +321,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth error={!!errors.type}>
               <InputLabel>Loại môn học *</InputLabel>
               <Select
@@ -353,7 +341,7 @@ export default function CreateCoursePage() {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
               label="Mô tả môn học"
@@ -365,7 +353,7 @@ export default function CreateCoursePage() {
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Typography variant="subtitle1" gutterBottom>
               Điều kiện tiên quyết
             </Typography>

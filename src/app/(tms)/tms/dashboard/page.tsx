@@ -22,27 +22,7 @@ import {
   Refresh as RefreshIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-
-interface DashboardStats {
-  overview: {
-    programs: {
-      total: number;
-      draft: number;
-      published: number;
-      approved: number;
-      reviewing: number;
-    };
-    courses: {
-      total: number;
-      draft: number;
-      published: number;
-      approved: number;
-      reviewing: number;
-    };
-    majors: number;
-    cohorts: number;
-  };
-}
+import { DashboardStats } from '@/features/tms';
 
 export default function TmsDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -123,7 +103,7 @@ export default function TmsDashboard() {
                     <Skeleton variant="text" width={60} height={40} />
                   ) : (
                     <Typography variant="h4" component="div">
-                      {stats?.overview.programs.total || 0}
+                      {stats?.overview?.programs?.total || 0}
                     </Typography>
                   )}
                   <Typography color="text.secondary">
@@ -144,7 +124,7 @@ export default function TmsDashboard() {
                     <Skeleton variant="text" width={60} height={40} />
                   ) : (
                     <Typography variant="h4" component="div">
-                      {stats?.overview.courses.total || 0}
+                      {stats?.overview?.courses?.total || 0}
                     </Typography>
                   )}
                   <Typography color="text.secondary">
@@ -165,7 +145,7 @@ export default function TmsDashboard() {
                     <Skeleton variant="text" width={60} height={40} />
                   ) : (
                     <Typography variant="h4" component="div">
-                      {stats?.overview.majors || 0}
+                      {stats?.overview?.majors || 0}
                     </Typography>
                   )}
                   <Typography color="text.secondary">
@@ -186,7 +166,7 @@ export default function TmsDashboard() {
                     <Skeleton variant="text" width={60} height={40} />
                   ) : (
                     <Typography variant="h4" component="div">
-                      {stats?.overview.cohorts || 0}
+                      {stats?.overview?.cohorts || 0}
                     </Typography>
                   )}
                   <Typography color="text.secondary">

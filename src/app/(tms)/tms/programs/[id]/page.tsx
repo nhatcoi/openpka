@@ -41,94 +41,7 @@ import {
   mapPloToOutcomeItems,
   mapProgramDetail,
 } from '../program-utils';
-
-interface ProgramDetailApiWrapper {
-  success: boolean;
-  data?: {
-    id: string;
-    code: string;
-    name_vi: string;
-    name_en?: string;
-    description?: string;
-    version: string;
-    total_credits: number;
-    status: string;
-    plo?: Array<{ id: string; label: string; category?: string }> | Record<string, string>;
-    effective_from?: string;
-    effective_to?: string;
-    created_at?: string;
-    updated_at?: string;
-    org_unit_id?: string;
-    major_id?: string;
-    OrgUnit?: {
-      id: string;
-      code: string;
-      name: string;
-    };
-    blockAssignments?: Array<{
-      id: string;
-      display_order: number;
-      is_required: boolean;
-      is_active: boolean;
-      custom_title?: string;
-      custom_description?: string;
-      assigned_at: string;
-      template: {
-        id: string;
-        code: string;
-        title: string;
-        title_en?: string;
-        block_type: string;
-        description?: string;
-        min_credits?: number;
-        max_credits?: number;
-        category?: any;
-        groups?: Array<{
-          id: string;
-          code: string;
-          title: string;
-          group_type: string;
-          display_order: number;
-          description?: string;
-          rules?: Array<{
-            id: string;
-            min_credits?: number;
-            max_credits?: number;
-            min_courses?: number;
-            max_courses?: number;
-            rule_type?: string;
-          }>;
-        }>;
-        courses?: Array<{
-          id: string;
-          course_id: string;
-          group_id?: string;
-          is_required: boolean;
-          display_order: number;
-          credits?: number;
-          course?: {
-            id: string;
-            code: string;
-            name_vi: string;
-            credits: number;
-          };
-        }>;
-      };
-    }>;
-    _count?: {
-      StudentAcademicProgress: number;
-      blockAssignments: number;
-    };
-    stats?: {
-      student_count: number;
-      block_count: number;
-      course_count: number;
-    };
-    priority?: string;
-    unified_workflow?: any;
-  };
-  error?: string;
-}
+import { ProgramDetailApiWrapper } from '@/features/tms';
 
 const formatDate = (value?: string | null): string => {
   if (!value) return '—';
@@ -441,11 +354,11 @@ export default function ProgramDetailPage(): JSX.Element {
     if (!program?.blockAssignments) return;
     
     setExpandedBlocks(prev => {
-      const allBlockIds = new Set(program.blockAssignments!.map(assignment => assignment.id));
-      const allExpanded = program.blockAssignments!.every(assignment => prev.has(assignment.id));
+      const allBlockIds = new Set<string>(program.blockAssignments!.map((assignment: any) => assignment.id));
+      const allExpanded = program.blockAssignments!.every((assignment: any) => prev.has(assignment.id));
       
       if (allExpanded) {
-        return new Set();
+        return new Set<string>();
       } else {
         return allBlockIds;
       }
@@ -455,7 +368,7 @@ export default function ProgramDetailPage(): JSX.Element {
   const ploItems = useMemo(() => {
     // New format: array of { id, label, category }
     if (Array.isArray(program?.plo)) {
-      return program!.plo!.map((item) => ({
+      return program!.plo!.map((item: any) => ({
         id: item.id,
         label: item.label,
         category: (item as any).category ?? 'general',
@@ -657,7 +570,7 @@ export default function ProgramDetailPage(): JSX.Element {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={1.5}>
-                {ploItems.map((item, index) => (
+                {ploItems.map((item: any, index: number) => (
                   <Box key={item.id || index}>
                     <Typography fontWeight="medium">
                       {index + 1}. {item.label || 'Chưa cập nhật'}

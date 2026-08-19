@@ -33,20 +33,7 @@ import {
 } from '@/constants/courses';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
 import { API_ROUTES } from '@/constants/routes';
-
-interface Course {
-  id: number;
-  code: string;
-  name_vi: string;
-  name_en?: string;
-  credits: number;
-  type: string;
-  status: string;
-  created_at: string;
-  OrgUnit?: {
-    name: string;
-  };
-}
+import { Course } from '@/features/tms';
 
 export default function BuildSyllabusPage() {
   const router = useRouter();
@@ -126,7 +113,7 @@ export default function BuildSyllabusPage() {
     fetchCourses();
   }, [page, selectedStatus, selectedFaculty, debouncedSearchTerm]);
 
-  const handleSelectCourse = (courseId: number) => {
+  const handleSelectCourse = (courseId: string | number) => {
     router.push(`/tms/courses/${courseId}/syllabus`);
   };
 
@@ -250,8 +237,8 @@ export default function BuildSyllabusPage() {
                           {course.code}
                         </Typography>
                         <Chip
-                          label={getStatusLabel(course.status)}
-                          color={getStatusColor(course.status) as any}
+                          label={getStatusLabel(course.status || '')}
+                          color={getStatusColor(course.status || '') as any}
                           size="small"
                         />
                       </Box>

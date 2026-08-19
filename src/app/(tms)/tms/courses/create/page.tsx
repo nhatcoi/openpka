@@ -32,19 +32,7 @@ import {
   getCourseTypeLabel,
 } from '@/constants/courses';
 import { API_ROUTES } from '@/constants/routes';
-
-interface FormData {
-    code: string;
-    nameVi: string;
-    nameEn: string;
-    credits: number;
-    theory_credit?: number;
-    practical_credit?: number;
-    orgUnitId: string;
-    type: CourseType;
-    description: string;
-  prerequisites: (string | {id: string, code: string, name_vi: string, name_en: string, credits: number, status: string, label: string, value: string})[];
-}
+import { CourseFormData as FormData } from '@/features/tms';
 
 const courseTypeOptions = COURSE_TYPES.map((type) => ({
   value: type,

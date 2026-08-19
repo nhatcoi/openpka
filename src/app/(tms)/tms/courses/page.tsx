@@ -70,16 +70,11 @@ import {
   CourseApiResponseItem,
   CourseListApiResponse,
   CourseListItem,
+  PaginationState,
   mapOrgUnitOptions,
   mapCourseResponse,
 } from './course-utils';
 import { useConfirmDialog } from '@/components/dialogs/confirm-dialog-provider';
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
 
 const DEFAULT_COURSE_PAGE_SIZE = 10;
 
@@ -186,7 +181,7 @@ export default function CoursesPage(): JSX.Element {
       const mapped = items.map(mapCourseResponse);
 
       setCourses(mapped);
-      setPagination((prev) => ({
+      setPagination((prev: PaginationState) => ({
         ...prev,
         totalPages: result.data?.pagination?.totalPages ?? 1,
         totalItems: result.data?.pagination?.total ?? mapped.length,
@@ -209,7 +204,7 @@ export default function CoursesPage(): JSX.Element {
   }, [fetchCourses]);
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
     setSearchTerm(searchValue.trim());
   };
 
@@ -222,17 +217,17 @@ export default function CoursesPage(): JSX.Element {
   };
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: newPage }));
   };
 
   const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
     setSelectedStatus(event.target.value as WorkflowStatus | 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
   };
 
   const handleOrgUnitChange = (event: SelectChangeEvent<string>) => {
     setSelectedOrgUnit(event.target.value);
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
   };
 
   const handleDelete = async (courseId: string) => {

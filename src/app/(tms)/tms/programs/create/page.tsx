@@ -31,14 +31,7 @@ import {
   Save as SaveIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-
-interface CourseOption {
-  id: string;
-  code: string;
-  name: string;
-  credits: number;
-  label: string;
-}
+import { CourseOption, ProgramOption } from '@/features/tms';
 import {
   PROGRAM_BLOCK_TYPES,
   PROGRAM_BLOCK_GROUP_TYPES,
@@ -66,13 +59,6 @@ import {
   createEmptyOutcome,
   mapOrgUnitOptions,
 } from '../program-utils';
-
-interface ProgramOption {
-  id: string;
-  code: string;
-  nameVi: string;
-  totalCredits: number;
-}
 
 export default function CreateProgramPage(): JSX.Element {
   const router = useRouter();

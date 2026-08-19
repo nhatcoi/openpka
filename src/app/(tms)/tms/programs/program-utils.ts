@@ -6,6 +6,9 @@ import {
   normalizeProgramBlockType,
 } from '@/constants/programs';
 import { WorkflowStatus } from '@/constants/workflow-statuses';
+import { PaginationState } from '@/features/tms';
+
+export type { PaginationState };
 
 export type ProgramOutcomeCategory = 'general' | 'specific';
 

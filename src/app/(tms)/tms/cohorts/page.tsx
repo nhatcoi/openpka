@@ -72,14 +72,9 @@ import {
   CohortApiResponseItem,
   CohortListApiResponse,
   CohortListItem,
+  PaginationState,
   mapCohortResponse,
 } from './cohort-utils';
-
-interface PaginationState {
-  page: number;
-  totalPages: number;
-  totalItems: number;
-}
 
 const DEFAULT_COHORT_PAGE_SIZE = 10;
 
@@ -175,7 +170,7 @@ export default function CohortsPage(): JSX.Element {
       const mapped = items.map(mapCohortResponse);
 
       setCohorts(mapped);
-      setPagination((prev) => ({
+      setPagination((prev: PaginationState) => ({
         ...prev,
         totalPages: result.pagination?.totalPages ?? 1,
         totalItems: result.pagination?.total ?? mapped.length,
@@ -197,7 +192,7 @@ export default function CohortsPage(): JSX.Element {
   }, [fetchCohorts]);
 
   const handleSearch = () => {
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
     setSearchTerm(searchValue.trim());
   };
 
@@ -209,12 +204,12 @@ export default function CohortsPage(): JSX.Element {
   };
 
   const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
-    setPagination((prev) => ({ ...prev, page: newPage }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: newPage }));
   };
 
   const handleStatusChange = (event: SelectChangeEvent<WorkflowStatus | 'all'>) => {
     setSelectedStatus(event.target.value as WorkflowStatus | 'all');
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    setPagination((prev: PaginationState) => ({ ...prev, page: 1 }));
   };
 
   const handleDelete = async (cohortId: string) => {

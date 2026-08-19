@@ -48,19 +48,7 @@ import {
   mapProgramDetail,
   mapProgramDetailToForm,
 } from '../../program-utils';
-
-interface ProgramDetailFetchResponse {
-  success: boolean;
-  data?: ProgramApiResponseItem;
-  error?: string;
-}
-
-interface ProgramOption {
-  id: string;
-  code: string;
-  nameVi: string;
-  totalCredits: number;
-}
+import { ProgramDetailFetchResponse, ProgramOption } from '@/features/tms';
 
 // PLO templates (same as create page)
 const ploTemplates = [
